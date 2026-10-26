@@ -1,0 +1,263 @@
+psmsl_id,station,year,rlr_mm,flag_attention,missing_flag,rlr_minus_7000_mm
+1451,Hiron Point,1983,7007.0,N,000,7.0
+1451,Hiron Point,1984,7088.0,N,000,88.0
+1451,Hiron Point,1985,7057.0,N,000,57.0
+1451,Hiron Point,1986,7041.0,N,000,41.0
+1451,Hiron Point,1987,7031.0,N,000,31.0
+1451,Hiron Point,1988,7083.0,N,000,83.0
+1451,Hiron Point,1989,7018.0,N,000,18.0
+1451,Hiron Point,1990,7028.0,N,000,28.0
+1451,Hiron Point,1991,7059.0,N,000,59.0
+1451,Hiron Point,1992,7079.0,N,000,79.0
+1451,Hiron Point,1993,6997.0,Y,000,-3.0
+1451,Hiron Point,1994,6978.0,N,000,-22.0
+1451,Hiron Point,1995,7085.0,Y,000,85.0
+1451,Hiron Point,1996,7067.0,N,000,67.0
+1451,Hiron Point,1997,6941.0,N,000,-59.0
+1451,Hiron Point,1998,7061.0,N,000,61.0
+1451,Hiron Point,1999,7064.0,Y,000,64.0
+1451,Hiron Point,2000,7155.0,N,000,155.0
+1451,Hiron Point,2001,7227.0,N,000,227.0
+1451,Hiron Point,2002,7034.0,N,000,34.0
+1451,Hiron Point,2003,7129.0,N,000,129.0
+1454,Khepupara,1979,6838.0,Y,000,-162.0
+1454,Khepupara,1980,6659.0,N,000,-341.0
+1454,Khepupara,1981,6912.0,Y,000,-88.0
+1454,Khepupara,1982,6798.0,N,000,-202.0
+1454,Khepupara,1983,6903.0,N,000,-97.0
+1454,Khepupara,1984,7004.0,N,000,4.0
+1454,Khepupara,1985,,N,000,
+1454,Khepupara,1986,6955.0,N,000,-45.0
+1454,Khepupara,1987,6923.0,N,000,-77.0
+1454,Khepupara,1988,7002.0,N,000,2.0
+1454,Khepupara,1989,7017.0,N,000,17.0
+1454,Khepupara,1990,6995.0,N,000,-5.0
+1454,Khepupara,1991,6999.0,N,000,-1.0
+1454,Khepupara,1992,,N,000,
+1454,Khepupara,1993,7076.0,N,000,76.0
+1454,Khepupara,1994,,N,000,
+1454,Khepupara,1995,7164.0,N,000,164.0
+1454,Khepupara,1996,7111.0,N,000,111.0
+1454,Khepupara,1997,7112.0,Y,000,112.0
+1454,Khepupara,1998,,N,000,
+1454,Khepupara,1999,7160.0,N,000,160.0
+1454,Khepupara,2000,7214.0,Y,000,214.0
+1476,Cox's Bazar,1979,6906.0,N,000,-94.0
+1476,Cox's Bazar,1980,7087.0,N,000,87.0
+1476,Cox's Bazar,1981,6828.0,N,000,-172.0
+1476,Cox's Bazar,1982,6866.0,Y,000,-134.0
+1476,Cox's Bazar,1983,6792.0,N,000,-208.0
+1476,Cox's Bazar,1984,6896.0,N,000,-104.0
+1476,Cox's Bazar,1985,6837.0,N,000,-163.0
+1476,Cox's Bazar,1986,,N,000,
+1476,Cox's Bazar,1987,6992.0,N,000,-8.0
+1476,Cox's Bazar,1988,7001.0,N,000,1.0
+1476,Cox's Bazar,1989,6951.0,Y,000,-49.0
+1476,Cox's Bazar,1990,7050.0,Y,000,50.0
+1476,Cox's Bazar,1991,7075.0,N,000,75.0
+1476,Cox's Bazar,1992,7065.0,N,000,65.0
+1476,Cox's Bazar,1993,6945.0,N,000,-55.0
+1476,Cox's Bazar,1994,6672.0,N,000,-328.0
+1476,Cox's Bazar,1995,7159.0,Y,000,159.0
+1476,Cox's Bazar,1996,,N,000,
+1476,Cox's Bazar,1997,6879.0,N,000,-121.0
+1476,Cox's Bazar,1998,6881.0,N,000,-119.0
+1476,Cox's Bazar,1999,6970.0,N,000,-30.0
+1476,Cox's Bazar,2000,6981.0,N,000,-19.0
+1496,Charchanga,1979,6781.0,Y,000,-219.0
+1496,Charchanga,1980,6894.0,N,000,-106.0
+1496,Charchanga,1981,6887.0,N,000,-113.0
+1496,Charchanga,1982,6757.0,N,000,-243.0
+1496,Charchanga,1983,6878.0,N,000,-122.0
+1496,Charchanga,1984,6912.0,N,000,-88.0
+1496,Charchanga,1985,6871.0,N,000,-129.0
+1496,Charchanga,1986,,N,000,
+1496,Charchanga,1987,6959.0,N,000,-41.0
+1496,Charchanga,1988,7046.0,N,000,46.0
+1496,Charchanga,1989,6998.0,N,000,-2.0
+1496,Charchanga,1990,6941.0,Y,000,-59.0
+1496,Charchanga,1991,6897.0,N,000,-103.0
+1496,Charchanga,1992,6890.0,N,000,-110.0
+1496,Charchanga,1993,,N,000,
+1496,Charchanga,1994,6835.0,N,000,-165.0
+1496,Charchanga,1995,6910.0,Y,000,-90.0
+1496,Charchanga,1996,6876.0,Y,000,-124.0
+1496,Charchanga,1997,6981.0,N,000,-19.0
+1496,Charchanga,1998,7063.0,N,000,63.0
+1496,Charchanga,1999,7143.0,N,000,143.0
+1496,Charchanga,2000,6980.0,N,000,-20.0
+2196,Chittagong A,2008,7040.0,N,000,40.0
+2196,Chittagong A,2009,7004.0,N,000,4.0
+2196,Chittagong A,2010,7049.0,N,000,49.0
+2196,Chittagong A,2011,,N,000,
+2196,Chittagong A,2012,7040.0,N,000,40.0
+2196,Chittagong A,2013,7043.0,N,000,43.0
+2196,Chittagong A,2014,,N,000,
+2196,Chittagong A,2015,6999.0,N,000,-1.0
+2196,Chittagong A,2016,7090.0,N,000,90.0
+2196,Chittagong A,2017,7060.0,N,000,60.0
+2196,Chittagong A,2018,6952.0,Y,000,-48.0
+417,"Sagar (Saugor), India",1937,6832.0,N,010,-168.0
+417,"Sagar (Saugor), India",1938,6825.0,N,010,-175.0
+417,"Sagar (Saugor), India",1939,6814.0,N,010,-186.0
+417,"Sagar (Saugor), India",1940,6776.0,N,010,-224.0
+417,"Sagar (Saugor), India",1941,6766.0,N,010,-234.0
+417,"Sagar (Saugor), India",1942,6787.0,N,010,-213.0
+417,"Sagar (Saugor), India",1943,,N,000,
+417,"Sagar (Saugor), India",1944,,N,000,
+417,"Sagar (Saugor), India",1945,6945.0,N,010,-55.0
+417,"Sagar (Saugor), India",1946,6925.0,N,010,-75.0
+417,"Sagar (Saugor), India",1947,6974.0,N,010,-26.0
+417,"Sagar (Saugor), India",1948,6964.0,N,010,-36.0
+417,"Sagar (Saugor), India",1949,6931.0,N,010,-69.0
+417,"Sagar (Saugor), India",1950,6964.0,N,010,-36.0
+417,"Sagar (Saugor), India",1951,6913.0,N,010,-87.0
+417,"Sagar (Saugor), India",1952,6986.0,N,010,-14.0
+417,"Sagar (Saugor), India",1953,6946.0,N,010,-54.0
+417,"Sagar (Saugor), India",1954,6976.0,N,010,-24.0
+417,"Sagar (Saugor), India",1955,6982.0,N,010,-18.0
+417,"Sagar (Saugor), India",1956,6998.0,N,010,-2.0
+417,"Sagar (Saugor), India",1957,6943.0,N,010,-57.0
+417,"Sagar (Saugor), India",1958,6972.0,N,000,-28.0
+417,"Sagar (Saugor), India",1959,6967.0,N,000,-33.0
+417,"Sagar (Saugor), India",1960,6938.0,N,000,-62.0
+417,"Sagar (Saugor), India",1961,6886.0,N,000,-114.0
+417,"Sagar (Saugor), India",1962,6971.0,Y,000,-29.0
+417,"Sagar (Saugor), India",1963,6898.0,N,000,-102.0
+417,"Sagar (Saugor), India",1964,6963.0,N,000,-37.0
+417,"Sagar (Saugor), India",1965,6768.0,N,000,-232.0
+417,"Sagar (Saugor), India",1966,6741.0,N,000,-259.0
+417,"Sagar (Saugor), India",1967,6668.0,N,000,-332.0
+417,"Sagar (Saugor), India",1968,6641.0,N,000,-359.0
+417,"Sagar (Saugor), India",1969,6813.0,N,000,-187.0
+417,"Sagar (Saugor), India",1970,6838.0,N,000,-162.0
+417,"Sagar (Saugor), India",1971,6793.0,N,000,-207.0
+417,"Sagar (Saugor), India",1972,6698.0,Y,000,-302.0
+417,"Sagar (Saugor), India",1973,6828.0,N,000,-172.0
+417,"Sagar (Saugor), India",1974,6818.0,N,000,-182.0
+417,"Sagar (Saugor), India",1975,6774.0,N,000,-226.0
+417,"Sagar (Saugor), India",1976,6737.0,N,000,-263.0
+417,"Sagar (Saugor), India",1977,6745.0,N,000,-255.0
+417,"Sagar (Saugor), India",1978,6736.0,N,000,-264.0
+417,"Sagar (Saugor), India",1979,6728.0,N,000,-272.0
+417,"Sagar (Saugor), India",1980,6774.0,N,000,-226.0
+417,"Sagar (Saugor), India",1981,6815.0,N,000,-185.0
+417,"Sagar (Saugor), India",1982,6682.0,N,000,-318.0
+417,"Sagar (Saugor), India",1983,,N,000,
+417,"Sagar (Saugor), India",1984,6866.0,N,000,-134.0
+417,"Sagar (Saugor), India",1985,6912.0,N,000,-88.0
+417,"Sagar (Saugor), India",1986,6863.0,N,000,-137.0
+417,"Sagar (Saugor), India",1987,6723.0,N,000,-277.0
+543,"Diamond Harbour, India",1948,6960.0,N,010,-40.0
+543,"Diamond Harbour, India",1949,6943.0,N,010,-57.0
+543,"Diamond Harbour, India",1950,6949.0,N,010,-51.0
+543,"Diamond Harbour, India",1951,6888.0,N,010,-112.0
+543,"Diamond Harbour, India",1952,6954.0,N,010,-46.0
+543,"Diamond Harbour, India",1953,6923.0,N,010,-77.0
+543,"Diamond Harbour, India",1954,6945.0,N,010,-55.0
+543,"Diamond Harbour, India",1955,6957.0,N,010,-43.0
+543,"Diamond Harbour, India",1956,6977.0,N,010,-23.0
+543,"Diamond Harbour, India",1957,6893.0,N,010,-107.0
+543,"Diamond Harbour, India",1958,6956.0,N,010,-44.0
+543,"Diamond Harbour, India",1959,6991.0,N,000,-9.0
+543,"Diamond Harbour, India",1960,6961.0,N,000,-39.0
+543,"Diamond Harbour, India",1961,6896.0,N,000,-104.0
+543,"Diamond Harbour, India",1962,6944.0,N,000,-56.0
+543,"Diamond Harbour, India",1963,6883.0,N,000,-117.0
+543,"Diamond Harbour, India",1964,7002.0,N,000,2.0
+543,"Diamond Harbour, India",1965,6954.0,N,000,-46.0
+543,"Diamond Harbour, India",1966,6957.0,N,000,-43.0
+543,"Diamond Harbour, India",1967,6967.0,N,000,-33.0
+543,"Diamond Harbour, India",1968,7014.0,N,000,14.0
+543,"Diamond Harbour, India",1969,7018.0,N,000,18.0
+543,"Diamond Harbour, India",1970,7070.0,N,000,70.0
+543,"Diamond Harbour, India",1971,7092.0,N,000,92.0
+543,"Diamond Harbour, India",1972,6981.0,N,000,-19.0
+543,"Diamond Harbour, India",1973,7169.0,N,000,169.0
+543,"Diamond Harbour, India",1974,7138.0,N,000,138.0
+543,"Diamond Harbour, India",1975,7052.0,N,000,52.0
+543,"Diamond Harbour, India",1976,7035.0,N,000,35.0
+543,"Diamond Harbour, India",1977,7054.0,N,000,54.0
+543,"Diamond Harbour, India",1978,7072.0,N,000,72.0
+543,"Diamond Harbour, India",1979,7025.0,N,000,25.0
+543,"Diamond Harbour, India",1980,7102.0,N,000,102.0
+543,"Diamond Harbour, India",1981,7138.0,N,000,138.0
+543,"Diamond Harbour, India",1982,7031.0,N,000,31.0
+543,"Diamond Harbour, India",1983,7075.0,N,000,75.0
+543,"Diamond Harbour, India",1984,7162.0,Y,000,162.0
+543,"Diamond Harbour, India",1985,7078.0,N,000,78.0
+543,"Diamond Harbour, India",1986,7021.0,N,000,21.0
+543,"Diamond Harbour, India",1987,7059.0,N,000,59.0
+543,"Diamond Harbour, India",1988,7138.0,N,000,138.0
+543,"Diamond Harbour, India",1989,7117.0,N,000,117.0
+543,"Diamond Harbour, India",1990,7121.0,N,000,121.0
+543,"Diamond Harbour, India",1991,7109.0,N,000,109.0
+543,"Diamond Harbour, India",1992,7086.0,N,000,86.0
+543,"Diamond Harbour, India",1993,7121.0,N,000,121.0
+543,"Diamond Harbour, India",1994,7083.0,N,000,83.0
+543,"Diamond Harbour, India",1995,7168.0,N,000,168.0
+543,"Diamond Harbour, India",1996,7132.0,N,000,132.0
+543,"Diamond Harbour, India",1997,,N,000,
+543,"Diamond Harbour, India",1998,,N,000,
+543,"Diamond Harbour, India",1999,7191.0,N,000,191.0
+543,"Diamond Harbour, India",2000,7187.0,N,000,187.0
+543,"Diamond Harbour, India",2001,7166.0,N,000,166.0
+543,"Diamond Harbour, India",2002,7122.0,Y,000,122.0
+543,"Diamond Harbour, India",2003,7090.0,N,000,90.0
+543,"Diamond Harbour, India",2004,7061.0,N,000,61.0
+543,"Diamond Harbour, India",2005,7103.0,N,000,103.0
+543,"Diamond Harbour, India",2006,7070.0,N,000,70.0
+543,"Diamond Harbour, India",2007,7100.0,N,000,100.0
+543,"Diamond Harbour, India",2008,7170.0,N,000,170.0
+543,"Diamond Harbour, India",2009,7128.0,N,000,128.0
+543,"Diamond Harbour, India",2010,7199.0,N,000,199.0
+543,"Diamond Harbour, India",2011,7200.0,N,000,200.0
+543,"Diamond Harbour, India",2012,7208.0,N,000,208.0
+543,"Diamond Harbour, India",2013,7230.0,N,000,230.0
+543,"Diamond Harbour, India",2014,7118.0,N,000,118.0
+543,"Diamond Harbour, India",2015,7100.0,N,000,100.0
+1270,"Haldia, India",1971,7041.0,N,000,41.0
+1270,"Haldia, India",1972,6918.0,Y,000,-82.0
+1270,"Haldia, India",1973,7031.0,N,000,31.0
+1270,"Haldia, India",1974,7027.0,N,000,27.0
+1270,"Haldia, India",1975,7004.0,Y,000,4.0
+1270,"Haldia, India",1976,6996.0,N,000,-4.0
+1270,"Haldia, India",1977,7016.0,N,000,16.0
+1270,"Haldia, India",1978,7011.0,N,000,11.0
+1270,"Haldia, India",1979,6989.0,N,000,-11.0
+1270,"Haldia, India",1980,7014.0,N,000,14.0
+1270,"Haldia, India",1981,7042.0,N,000,42.0
+1270,"Haldia, India",1982,6961.0,N,000,-39.0
+1270,"Haldia, India",1983,7007.0,N,000,7.0
+1270,"Haldia, India",1984,7106.0,N,000,106.0
+1270,"Haldia, India",1985,7059.0,N,000,59.0
+1270,"Haldia, India",1986,7012.0,N,000,12.0
+1270,"Haldia, India",1987,6999.0,N,000,-1.0
+1270,"Haldia, India",1988,7094.0,N,000,94.0
+1270,"Haldia, India",1989,7074.0,N,000,74.0
+1270,"Haldia, India",1990,7066.0,N,000,66.0
+1270,"Haldia, India",1991,7059.0,N,000,59.0
+1270,"Haldia, India",1992,7061.0,N,000,61.0
+1270,"Haldia, India",1993,7064.0,N,000,64.0
+1270,"Haldia, India",1994,7003.0,N,000,3.0
+1270,"Haldia, India",1995,7088.0,N,000,88.0
+1270,"Haldia, India",1996,7095.0,N,000,95.0
+1270,"Haldia, India",1997,,N,000,
+1270,"Haldia, India",1998,,N,000,
+1270,"Haldia, India",1999,7104.0,N,000,104.0
+1270,"Haldia, India",2000,7105.0,N,000,105.0
+1270,"Haldia, India",2001,7102.0,N,000,102.0
+1270,"Haldia, India",2002,7110.0,N,001,110.0
+1270,"Haldia, India",2003,7060.0,N,000,60.0
+1270,"Haldia, India",2004,7051.0,N,000,51.0
+1270,"Haldia, India",2005,7067.0,N,000,67.0
+1270,"Haldia, India",2006,7016.0,N,000,16.0
+1270,"Haldia, India",2007,7059.0,N,000,59.0
+1270,"Haldia, India",2008,7113.0,N,000,113.0
+1270,"Haldia, India",2009,7093.0,N,000,93.0
+1270,"Haldia, India",2010,7137.0,N,000,137.0
+1270,"Haldia, India",2011,7124.0,N,000,124.0
+1270,"Haldia, India",2012,7124.0,N,000,124.0
+1270,"Haldia, India",2013,7150.0,N,000,150.0
+1270,"Haldia, India",2014,7087.0,N,000,87.0
+1270,"Haldia, India",2015,7071.0,N,000,71.0

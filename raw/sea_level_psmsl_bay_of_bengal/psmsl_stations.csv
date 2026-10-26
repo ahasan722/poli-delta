@@ -1,0 +1,9 @@
+id,lat,lon,name,coastline,stationcode,flag,label,country
+417,21.65,88.05,SAUGOR/SAGAR,500,111, N,"Sagar (Saugor), India",India
+543,22.2,88.166667,DIAMOND HARBOUR,500,131, N,"Diamond Harbour, India",India
+1270,22.033333,88.1,HALDIA,500,110, N,"Haldia, India",India
+1451,21.783333,89.466667,HIRON POINT,510,3, N,Hiron Point,Bangladesh
+1454,21.833333,89.833333,KHEPUPARA,510,37, N,Khepupara,Bangladesh
+1476,21.45,91.833333,COX'S BAZAAR,510,41, N,Cox's Bazar,Bangladesh
+1496,22.216667,91.05,CHARCHANGA,510,8, N,Charchanga,Bangladesh
+2196,22.246667,91.825,CHITTAGONG A,510,26, N,Chittagong A,Bangladesh
