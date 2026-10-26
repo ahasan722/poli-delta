@@ -1,0 +1,5 @@
+row 37: year missing, inferred 1904 from neighbours
+row 198: month missing, inferred 7 from neighbours
+1904-11: temp_c=2.334 implausible, set to NaN
+1916-07: temp_c=7.0 implausible, set to NaN
+1916-01: rain_mm=25000.0 implausible, set to NaN
