@@ -71,6 +71,9 @@ const frag = /* glsl */`
   varying vec3 vN;
   varying vec3 vMask;
   uniform sampler2D uMask;      // R inside, G water, B sea; sampled again here so coasts do not follow the mesh
+  uniform sampler2D uDistrict;  // R district id 1..64, 0 outside
+  uniform float uPick;          // selected district id (0 none): it stays lit, the rest dims
+  uniform float uHover;         // hovered district id
   uniform sampler2D uCover;     // R class, G loss share, B water; sampled per fragment so low-LOD meshes stay sharp
   uniform sampler2D uCoverRGB;
   varying float vFade;
@@ -140,6 +143,10 @@ const frag = /* glsl */`
       vec3 flood = mix(vec3(0.75, 0.30, 0.16), vec3(0.18, 0.09, 0.08), depth);
       col = mix(col, flood, 0.85);
     }
+    // district picking: the chosen one keeps its light, everything else steps back
+    float did = texture2D(uDistrict, vUv).r * 255.0;
+    if (uPick > 0.5) { float me = step(abs(did - uPick), 0.5); col = mix(col * 0.42, col * 1.18 + vec3(0.05, 0.04, 0.02), me); }
+    if (uHover > 0.5 && abs(did - uHover) < 0.5) col += vec3(0.07, 0.06, 0.04);
     gl_FragColor = vec4(col, 1.0);
   }`;
 
@@ -151,7 +158,7 @@ export function buildTerrain(textures, segX = 639) {
   const uniforms = {
     uHeight: { value: textures.height }, uMask: { value: textures.mask },
     uTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1148) },
-    uCover: { value: textures.cover }, uCoverRGB: { value: textures.coverRGB },
+    uCover: { value: textures.cover }, uCoverRGB: { value: textures.coverRGB }, uDistrict: { value: textures.district }, uPick: { value: 0 }, uHover: { value: 0 },
     uExag: { value: 12.0 }, uSink: { value: 0.0 }, uSeaLevel: { value: 0.0 }, uRiverGlow: { value: 0.35 },
     uFar: { value: 0.6 }, uLowBand: { value: 0.0 }, uCoverMix: { value: 1.0 }, uForest: { value: 0.0 }, uWet: { value: 0.0 }, uBuilt: { value: 0.0 }, uLoss: { value: 0.0 },
     uSun: { value: new THREE.Vector3(-0.6, 0.8, 0.5) }, uTime: { value: 0 }

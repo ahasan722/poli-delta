@@ -12,19 +12,19 @@ export function buildStorms(storms, sampleH, exag) {
   const group = new THREE.Group(); group.name = "storms";
   const windCol = kt => kt >= 96 ? [1.0, 0.36, 0.22] : kt >= 64 ? [1.0, 0.6, 0.25] : kt >= 34 ? [0.95, 0.77, 0.36] : [0.6, 0.64, 0.68];
   for (const s of storms) {
-    const pts = [];
-    for (const [lon, lat, w] of s.pts) {
-      if (lon < GRID.W - 1.6 || lon > GRID.E + 1.6 || lat < GRID.S - 2.2 || lat > GRID.N + 0.3) continue;
+    const pts = [], fixIndex = [];
+    s.pts.forEach(([lon, lat, w], j) => {
+      if (lon < GRID.W - 1.6 || lon > GRID.E + 1.6 || lat < GRID.S - 2.2 || lat > GRID.N + 0.3) return;
       const p = toScene(lon, lat); const h = Math.max(sampleH(lon, lat), -60);
-      p.y = km(h, exag) + 5 + (w / 150) * 25; pts.push({ p, w });
-    }
+      p.y = km(h, exag) + 5 + (w / 150) * 25; pts.push({ p, w }); fixIndex.push(j);
+    });
     if (pts.length < 2) continue;
     const pos = [], col = [], idx = [];
     for (let i = 0; i < pts.length; i++) {
       const a = pts[Math.max(0, i - 1)].p, b = pts[Math.min(pts.length - 1, i + 1)].p;
       const dir = new THREE.Vector3().subVectors(b, a); dir.y = 0; dir.normalize();
       const nrm = new THREE.Vector3(-dir.z, 0, dir.x);
-      const half = 0.9 + (pts[i].w / 150) * 3.2;        // km
+      const half = 0.7 + (pts[i].w / 150) * 2.2;        // km
       const c = windCol(pts[i].w); const P = pts[i].p;
       pos.push(P.x + nrm.x * half, P.y, P.z + nrm.z * half, P.x - nrm.x * half, P.y, P.z - nrm.z * half);
       col.push(...c, ...c);
@@ -34,7 +34,7 @@ export function buildStorms(storms, sampleH, exag) {
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx);
     const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
-    const ribbon = new THREE.Mesh(geo, mat); ribbon.userData = s; ribbon.name = s.sid; group.add(ribbon);
+    const ribbon = new THREE.Mesh(geo, mat); ribbon.userData = { ...s, fixIndex, isRibbon: true }; ribbon.name = s.sid; group.add(ribbon);
     if (s.note) {
       // a ring where the track first crosses 21.5 N heading for the coast
       const lf = pts.find(q => q.p.z < toScene(0, 21.5).z) || pts[pts.length - 1];
@@ -167,5 +167,41 @@ export function buildOutlines(geojson, sampleH, exag, { color = "#9fe3dc", size 
     line.name = "outline"; group.add(line);
     const lab = makeLabel(f.properties.name, { size, color, weight: 600 }); const p = toScene(cx / n, cy / n); p.y = lift(cx / n, cy / n) + 5; lab.position.copy(p); lab.name = "outline-label"; lab.material.opacity = 0; group.add(lab);
   }
+  return group;
+}
+
+// ---- district outlines: one line loop per district, drawn only for the one you picked -----------
+export function buildDistricts(geojson, sampleH, exag) {
+  const group = new THREE.Group(); group.name = "districts";
+  const lift = (lon, lat) => km(Math.max(sampleH(lon, lat), -60), exag) + 1.0;
+  for (const f of geojson.features) {
+    const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+    const pos = [];
+    for (const poly of polys) for (const ring of poly) for (let i = 0; i < ring.length - 1; i++) {
+      const a = ring[i], b = ring[i + 1]; const pa = toScene(a[0], a[1]), pb = toScene(b[0], b[1]); pa.y = lift(a[0], a[1]); pb.y = lift(b[0], b[1]);
+      pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    const line = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xf2c35a, transparent: true, opacity: 0, depthWrite: false }));
+    line.name = "d-" + f.properties.id; line.userData = { id: f.properties.id, name: f.properties.name }; group.add(line);
+  }
+  return group;
+}
+
+// ---- climate stations and tide gauges: a dot and a column per station, filled by make_climate.py ----
+export function buildGauges(climate, sea, sampleH, exag) {
+  const group = new THREE.Group(); group.name = "gauges";
+  const lift = (lon, lat) => km(Math.max(sampleH(lon, lat), 0), exag) + 2;
+  const add = (st, kind, colour, height, labelText) => {
+    const p = toScene(st.lon, st.lat); const h = Math.max(1, height);
+    const geo = new THREE.CylinderGeometry(1.6, 1.6, h, 10); const mat = new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: 0, depthWrite: false });
+    const col = new THREE.Mesh(geo, mat); col.position.set(p.x, lift(st.lon, st.lat) + h / 2, p.z); col.userData = { kind, station: st }; group.add(col);
+    const lab = makeLabel(labelText, { size: 12, color: "#dcd6c8", weight: 500 }); lab.position.set(p.x, lift(st.lon, st.lat) + h + 6, p.z); lab.userData = { kind, base: lab.userData.base }; group.add(lab);
+  };
+  if (climate && climate.stations) for (const st of climate.stations) {
+    if (st.warming != null) add(st, "warm", st.warming >= 0 ? 0xf2c35a : 0x5fa8c2, Math.abs(st.warming) * 40, `${st.name} ${st.warming >= 0 ? "+" : "−"}${Math.abs(st.warming).toFixed(1)}°`);
+    if (st.rain_mm != null) add(st, "rain", 0x5fa8c2, st.rain_mm / 60, `${st.name} ${Math.round(st.rain_mm / 100) / 10} m`);
+  }
+  if (sea && sea.gauges) for (const g of sea.gauges) if (g.lon != null) add(g, "tide", 0x7fd8d2, Math.max(4, (g.trend_mm_yr || 0) * 3), `${g.name} ${g.trend_mm_yr > 0 ? "+" : ""}${(g.trend_mm_yr || 0).toFixed(1)} mm/yr`);
   return group;
 }

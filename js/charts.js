@@ -1,6 +1,7 @@
 // charts.js  --  the small D3 figures that live inside the step cards, plus the sea-level slider and the storm clock.
 const fmt = d3.format(","), f1 = d3.format(".1f");
-const C = { silt: "#c88a3c", ink: "#efe9dc", dim: "#8d877b", water: "#5fa8c2", red: "#ff5a3c", amber: "#f2c35a", grid: "#2b2f35" };
+const C = { silt: "#c88a3c", ink: "#ebe5d6", dim: "#8e887c", water: "#5fa8c2", red: "#ff5a3c", amber: "#f2c35a", green: "#4fa36f", cyan: "#7fd8d2", grid: "#242a33" };
+const MONO = "IBM Plex Mono, monospace";
 
 // facts that drive the little charts (sources listed on the page; notes/facts.csv has the full rows)
 const SEDIMENT = [ // Rahman et al. 2018, Sci Total Environ; BWDB-based
@@ -18,7 +19,7 @@ const DEATHS = [ // official tolls as reported (Wikipedia infoboxes citing IMD/g
   { y: 2016, n: "Roanu", d: 27 }, { y: 2017, n: "Mora", d: 9 }, { y: 2019, n: "Bulbul", d: 9 }, { y: 2020, n: "Amphan", d: 26 }, { y: 2022, n: "Sitrang", d: 35 }, { y: 2023, n: "Mocha", d: 3 }, { y: 2024, n: "Remal", d: 10 } ];
 const SHELTERS = [ { y: 1970, n: 44 }, { y: 1991, n: 512 }, { y: 2015, n: 3268 }, { y: 2022, n: 14000 } ];
 
-function svgIn(id, h) { const el = document.getElementById(id); el.innerHTML = ""; const w = el.clientWidth || 330; return { svg: d3.select(el).append("svg").attr("width", w).attr("height", h), w }; }
+function svgIn(id, h) { const el = document.getElementById(id); if (!el) return { svg: d3.select(document.createElement("div")).append("svg"), w: 380, none: true }; el.innerHTML = ""; const w = el.clientWidth || 380; return { svg: d3.select(el).append("svg").attr("width", w).attr("height", h).attr("font-family", "IBM Plex Sans, sans-serif"), w }; }
 
 function sediment() {
   const { svg, w } = svgIn("chSediment", 150); const x = d3.scaleLinear().domain([0, 1050]).range([0, w - 150]);
@@ -92,17 +93,64 @@ function lossChart(cs) {
   const mx = d3.max(tot, d => d.v); g.append("text").attr("x", 48).attr("y", y(mx) + 4).attr("text-anchor", "end").attr("fill", C.dim).attr("font-size", 10).text(Math.round(mx) + " km²");
   g.append("text").attr("x", 52).attr("y", 126).attr("fill", C.dim).attr("font-size", 10.5).text(`tree cover lost per year in the three hill districts, ${Math.round(d3.sum(tot, d => d.v))} km² in total`);
 }
-let seaBound = false, stormTimer = null;
+// ---- climate: temperature, rain, sea level (data/climate.json, data/sealevel.json; see make_climate.py) ----
+function climateCharts(D) { if (D.climate) { tempChart(D.climate); rainChart(D.climate); } if (D.sea) seaChart(D.sea); }
+function tempChart(cl) {
+  const n = cl.national; const { svg, w, none } = svgIn("chTemp", 190); if (none) return;
+  const x = d3.scaleLinear().domain([1900, 2023]).range([34, w - 10]); const y = d3.scaleLinear().domain([-1.0, 1.4]).range([140, 12]);
+  const g = svg.append("g");
+  [-0.5, 0, 0.5, 1].forEach(v => { g.append("line").attr("x1", 34).attr("x2", w - 10).attr("y1", y(v)).attr("y2", y(v)).attr("stroke", v === 0 ? C.dim : C.grid); g.append("text").attr("x", 30).attr("y", y(v) + 3).attr("text-anchor", "end").attr("fill", C.dim).attr("font-size", 9.5).attr("font-family", MONO).text((v > 0 ? "+" : "") + v.toFixed(1)); });
+  const bw = Math.max(1.5, (x(1902) - x(1901)) - 0.6);
+  n.cru.forEach(d => { if (d.a == null) return; g.append("rect").attr("x", x(d.y) - bw / 2).attr("y", Math.min(y(0), y(d.a))).attr("width", bw).attr("height", Math.abs(y(d.a) - y(0))).attr("fill", d.a >= 0 ? C.red : C.water).attr("opacity", .75); });
+  const line = n.bmd24.filter(d => d.a != null);
+  g.append("path").attr("d", d3.line().x(d => x(d.y)).y(d => y(d.a)).curve(d3.curveMonotoneX)(line)).attr("fill", "none").attr("stroke", C.amber).attr("stroke-width", 2);
+  const last = line[line.length - 1]; g.append("text").attr("x", w - 10).attr("y", y(last.a) - 10).attr("text-anchor", "end").attr("fill", C.amber).attr("font-size", 10.5).attr("font-weight", 600).text(`BMD 24 stations, +${n.trend_bmd_c_per_decade.toFixed(2)} °C a decade`);
+  g.append("text").attr("x", 36).attr("y", y(1.3)).attr("fill", C.dim).attr("font-size", 10.5).text("CRU country mean 1901–2011, +" + n.trend_cru_1981_2011_c_per_decade.toFixed(2) + " °C a decade since 1981");
+  [1900, 1925, 1950, 1975, 2000, 2022].forEach(v => g.append("text").attr("x", x(v)).attr("y", 156).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 10).attr("font-family", MONO).text(v));
+  g.append("text").attr("x", 34).attr("y", 176).attr("fill", C.dim).attr("font-size", 10.5).text(`annual mean temperature against 1961–1990 (${n.baseline_1961_1990_c.toFixed(1)} °C), °C`);
+  const src = document.getElementById("srcTemp"); if (src) src.textContent = "Bars: World Bank CCKP / CRU TS country series 1901–2011. Line: Bangladesh Meteorological Department, 24 quality-controlled stations 1982–2022, aligned on the common years. Two station sets, one direction.";
+}
+function rainChart(cl) {
+  const { svg, w, none } = svgIn("chRain", 170); if (none) return; const M = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const x = d3.scaleBand().domain(d3.range(1, 13)).range([34, w - 10]).padding(.18); const y = d3.scaleLinear().domain([0, d3.max(cl.monthly, d => d.rain) * 1.15]).range([118, 12]);
+  const g = svg.append("g");
+  cl.monthly.forEach(d => { const mon = d.m >= 6 && d.m <= 9; g.append("rect").attr("x", x(d.m)).attr("y", y(d.rain)).attr("width", x.bandwidth()).attr("height", 118 - y(d.rain)).attr("fill", mon ? C.water : "#2d3a46");
+    if (d.rain > 60) g.append("text").attr("x", x(d.m) + x.bandwidth() / 2).attr("y", y(d.rain) - 4).attr("text-anchor", "middle").attr("fill", mon ? C.ink : C.dim).attr("font-size", 10).attr("font-family", MONO).text(d.rain);
+    g.append("text").attr("x", x(d.m) + x.bandwidth() / 2).attr("y", 132).attr("text-anchor", "middle").attr("fill", mon ? C.ink : C.dim).attr("font-size", 10.5).attr("font-family", MONO).text(M[d.m - 1]); });
+  g.append("text").attr("x", 34).attr("y", 10).attr("fill", C.water).attr("font-size", 11).attr("font-weight", 600).text(`June to September: ${cl.monsoon_share_pct}% of the year's ${fmt(cl.annual_station_rain_mm)} mm`);
+  g.append("text").attr("x", 34).attr("y", 156).attr("fill", C.dim).attr("font-size", 10.5).text("mean monthly rainfall at a BMD station, mm, 33 stations 1948–2013");
+  const src = document.getElementById("srcRain"); if (src) src.textContent = "Bangladesh Meteorological Department monthly records, 33 stations 1948–2013 (Gauhar et al. 2021 compilation). Columns on the relief: mean annual rainfall at each station.";
+}
+function seaChart(sea) {
+  const rows = sea.gauges.filter(g => g.series.length >= 8); const rh = 34, { svg, w, none } = svgIn("chSea", rows.length * rh + 58); if (none) return;
+  const x = d3.scaleLinear().domain([1975, 2020]).range([108, w - 72]);
+  const g = svg.append("g");
+  [1980, 1990, 2000, 2010].forEach(v => { g.append("line").attr("x1", x(v)).attr("x2", x(v)).attr("y1", 4).attr("y2", rows.length * rh).attr("stroke", C.grid); g.append("text").attr("x", x(v)).attr("y", rows.length * rh + 14).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 10).attr("font-family", MONO).text(v); });
+  rows.forEach((r, i) => { const y0 = i * rh + rh / 2; const ext = d3.extent(r.series, d => d[1]); const span = Math.max(200, ext[1] - ext[0]); const y = d3.scaleLinear().domain([ext[0], ext[0] + span]).range([y0 + 12, y0 - 12]);
+    g.append("text").attr("x", 100).attr("y", y0 + 4).attr("text-anchor", "end").attr("fill", C.ink).attr("font-size", 11).text(r.name.replace(" (India)", ", IN"));
+    g.append("path").attr("d", d3.line().x(d => x(d[0])).y(d => y(d[1]))(r.series)).attr("fill", "none").attr("stroke", C.cyan).attr("stroke-width", 1.6);
+    if (r.trend_mm_yr != null) { const xs = r.series.map(d => d[0]), ys = r.series.map(d => d[1]); const m = r.trend_mm_yr, b = d3.mean(ys) - m * d3.mean(xs);
+      g.append("line").attr("x1", x(r.years[0])).attr("x2", x(r.years[1])).attr("y1", y(m * r.years[0] + b)).attr("y2", y(m * r.years[1] + b)).attr("stroke", C.amber).attr("stroke-width", 1).attr("stroke-dasharray", "3 3");
+      g.append("text").attr("x", w - 66).attr("y", y0 + 4).attr("fill", C.amber).attr("font-size", 11).attr("font-family", MONO).text((m > 0 ? "+" : "") + m.toFixed(1) + " mm/yr"); }
+    else g.append("text").attr("x", w - 66).attr("y", y0 + 4).attr("fill", C.dim).attr("font-size", 10.5).text("too short");
+  });
+  g.append("text").attr("x", 0).attr("y", rows.length * rh + 34).attr("fill", C.dim).attr("font-size", 10.5).text(`relative sea level at each tide gauge (PSMSL); global mean +${sea.gmsl_trend_1993_2019_mm_yr.toFixed(1)} mm/yr since 1993`);
+  g.append("text").attr("x", 0).attr("y", rows.length * rh + 50).attr("fill", C.dim).attr("font-size", 10.5).text("relative = the water rising plus the ground sinking under the gauge");
+  const src = document.getElementById("srcSea"); if (src) src.textContent = "PSMSL annual RLR, Bay of Bengal gauges (Holgate et al. 2013). The Bangladesh gauges stop in 2000–2003 and Khepupara carries a datum problem, so its number is the noisiest. CSIRO reconstruction for the global mean.";
+}
+let seaBound = false;
 export const charts = {
-  init(expo, stormsJson, cs) {
-    sediment(); subsidence(); floods(); deaths(); exposureChart(expo); coverChart(cs); lossChart(cs);
+  init(D) {
+    const expo = D.expo, stormsJson = D.storms, cs = D.coverStats;
+    const all = () => { sediment(); subsidence(); floods(); deaths(); exposureChart(expo); coverChart(cs); lossChart(cs); climateCharts(D); };
+    all();
     document.getElementById("numSund").textContent = fmt(cs.sundarbans_km2);
     document.getElementById("numHak").textContent = fmt(cs.hakaluki_km2); document.getElementById("numTan").textContent = fmt(cs.tanguar_km2);
     document.getElementById("numLow10").textContent = f1(expo.area_km2[expo.steps_m.indexOf(10)] / expo.land_total_km2 * 100) + "%";
     document.getElementById("numLow5").textContent = f1(expo.area_km2[expo.steps_m.indexOf(5)] / expo.land_total_km2 * 100) + "%";
     document.getElementById("numPeople10").textContent = f1(expo.people[expo.steps_m.indexOf(10)] / 1e6) + " million";
     document.getElementById("numStorms").textContent = stormsJson.length;
-    addEventListener("resize", () => { sediment(); subsidence(); floods(); deaths(); exposureChart(expo); coverChart(cs); lossChart(cs); });
+    addEventListener("resize", all);
   },
   bindSea(uniform, expo, target, set = v => { uniform.value = v; }) {
     const r = document.getElementById("seaRange"), out = document.getElementById("seaOut"), ppl = document.getElementById("seaPeople"), area = document.getElementById("seaArea");
@@ -111,11 +159,4 @@ export const charts = {
     if (!seaBound) { seaBound = true; r.addEventListener("input", e => { set(+e.target.value); show(+e.target.value); }); }
     r.value = target.toFixed(2); show(+r.value);
   },
-  playStorms(group, state) {
-    // the storm clock: reveal tracks year by year, 1960 to 2025
-    this.stopStorms(); let yr = 1960; const el = document.getElementById("stormYear");
-    stormTimer = setInterval(() => { yr += 1; if (yr > 2025) { clearInterval(stormTimer); stormTimer = null; return; }
-      el.textContent = yr; group.children.forEach(o => { const s = o.userData; if (s.season > yr) return; const marker = o.name.startsWith("ring-") || o.name.startsWith("lab-"); o.material.opacity = marker ? 0.95 : (s.note ? 0.75 : 0.35); }); }, 110);
-  },
-  stopStorms() { if (stormTimer) { clearInterval(stormTimer); stormTimer = null; } document.getElementById("stormYear").textContent = "1960–2025"; }
 };
