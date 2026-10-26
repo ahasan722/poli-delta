@@ -1,0 +1,19 @@
+Code, text and derived data (data/): Creative Commons Attribution 4.0 International (CC BY 4.0), Abid Hasan, 2026.
+https://creativecommons.org/licenses/by/4.0/
+
+Third-party data and libraries keep their own terms:
+- SRTM 90 m v4.1 (raw/dem_srtm90_bgd): CGIAR-CSI, free with attribution (Jarvis A., H.I. Reuter, A. Nelson, E. Guevara, 2008)
+- ETOPO5 (raw/etopo5_geocat): NOAA NGDC, public domain
+- IBTrACS v04r01 (raw/cyclones_ibtracs_ni): NOAA NCEI, public domain
+- GPW v4 (raw/pop_gpw4_2015): CIESIN, Columbia University, CC BY 4.0
+- GSHHG / WDBII (raw/gshhg_wdbii_basemap): LGPL-3 (Wessel & Smith)
+- WFP / LGED major rivers (raw/rivers_wfp_major_rivers_py): open with attribution to WFP GeoNode / LGED
+- geoBoundaries ADM1 (raw/adm1.geojson): CC BY 4.0
+- ESA WorldCover 2021 (raw/landcover_esa_worldcover2021_bgd, raw/mangroves_worldcover2021_derived, raw/wetlands_haor_aburaihan21 class files): ESA / VITO and partners, CC BY 4.0
+- HydroRIVERS v1.0 (raw/rivers_hydrorivers_v10_bgd_dis150): HydroSHEDS licence, free with attribution (Lehner & Grill 2013)
+- Global Map Bangladesh river lines via BDmaps (raw/rivers_riverl_bgd_bdmaps): MIT
+- OpenStreetMap 2017 water polygons (raw/water_osm_geomaps_2017): ODbL, (c) OpenStreetMap contributors
+- Hansen Global Forest Change v1.11 (raw/forest_loss_hansen_cht_2001_2023): CC BY 4.0 (Hansen et al. 2013)
+- Haor polygons (raw/wetlands_haor_aburaihan21/haor_hakaluki_tanguar.geojson): thesis digitisation, as published by the author
+- FFWC gauge list and river centrelines (raw/gauges_ffwc_kalopathor): compiled from the Flood Forecasting and Warning Centre, as published
+- three.js (lib/): MIT; d3 (lib/): ISC; Open Sans (assets/fonts): SIL OFL 1.1
