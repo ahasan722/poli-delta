@@ -16,4 +16,10 @@ Third-party data and libraries keep their own terms:
 - Hansen Global Forest Change v1.11 (raw/forest_loss_hansen_cht_2001_2023): CC BY 4.0 (Hansen et al. 2013)
 - Haor polygons (raw/wetlands_haor_aburaihan21/haor_hakaluki_tanguar.geojson): thesis digitisation, as published by the author
 - FFWC gauge list and river centrelines (raw/gauges_ffwc_kalopathor): compiled from the Flood Forecasting and Warning Centre, as published
-- three.js (lib/): MIT; d3 (lib/): ISC; Open Sans (assets/fonts): SIL OFL 1.1
+- BBS Population and Housing Census 2022 GIS district layer (raw/adm2_districts): Bangladesh Bureau of Statistics, as published; geoBoundaries ADM2: CC BY 4.0
+- BBS district population tables (raw/pop_bbs_census_districts): Bangladesh Bureau of Statistics, as published
+- Climate series (raw/climate_*): World Bank CCKP / CRU TS country average (CC BY 4.0) via a Kaggle re-host; Bangladesh Meteorological Department station records via the cited compilations (Gauhar et al. 2021; abir-hosen-ashik), as published
+- Tide gauges (raw/sea_level_psmsl_bay_of_bengal): PSMSL, free with acknowledgement (Holgate et al. 2013); global mean sea level (raw/sea_level_gmsl_csiro): CSIRO via datasets/sea-level-rise, ODC-PDDL
+- Disaster impacts (raw/disasters_emdat_bgd): EM-DAT, CRED / UCLouvain, Brussels, public table, non-commercial use with citation; only the Bangladesh extract is kept
+- ERA-Interim 850 hPa winds (raw/wind_erainterim_850hpa_jan_jul): ECMWF, via pydata/xarray-data, not used by the page
+- three.js (lib/): MIT; d3 (lib/): ISC; Newsreader, IBM Plex Sans, IBM Plex Mono (assets/fonts): SIL OFL 1.1

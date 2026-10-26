@@ -4,145 +4,191 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Poli, the country the rivers built</title>
-<meta name="description" content="Bangladesh in 3D relief: a country made of river silt, its forests, wetlands and rivers, now sinking, starved of sediment and facing a rising sea. Built from SRTM, ESA WorldCover, HydroRIVERS, IBTrACS, GPW and the published science.">
+<meta name="description" content="Bangladesh in 3D relief: a country made of river silt, its forests, wetlands and rivers, its climate, its cyclones, and the people on it. Click any district, play any storm.">
 <meta property="og:title" content="Poli: the country the rivers built">
-<meta property="og:description" content="Bangladesh as a body of river silt, in 3D relief: how low it lies, what grows on it, why the silt is running out, how fast it sinks, and who lives on it.">
+<meta property="og:description" content="Bangladesh as a body of river silt, in 3D relief: what grows on it, how low it lies, every river, every cyclone since 1960, and who lives on it. Click a district, play a storm.">
 <link rel="stylesheet" href="css/poli.css">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
+<div id="app">
 
 <div id="stage" aria-label="3D relief of the Bengal delta">
-  <div class="loading">loading the relief…</div>
-</div>
-
-<header class="bar">
-  <a class="brand" href="#top">পলি <span>Poli</span></a>
-  <nav id="chapterNav" aria-label="Chapters"></nav>
+  <div class="loading">loading the relief</div>
+  <nav class="rail" id="rail" aria-label="Chapters"></nav>
   <div class="tools">
     <button id="freeBtn" class="hudbtn" type="button" title="Drag to orbit, scroll to zoom">Explore</button>
     <label class="hudrange" title="vertical exaggeration">relief <input id="exagRange" type="range" min="1" max="40" step="1" value="14"></label>
   </div>
-</header>
+  <aside id="legend" class="legend" aria-live="polite"></aside>
+  <div class="tip" id="tip"></div>
+  <div class="clock" id="stormYear"></div>
+  <div class="hint-click" id="clickHint">click a district</div>
+</div>
 
-<aside id="legend" class="legend" aria-live="polite"></aside>
+<aside id="panel">
+  <header class="brand"><a class="bn" href="#top">পলি<span>Poli</span></a><span class="tag">the country the rivers built</span></header>
 
-<main id="story">
+  <section id="focus" aria-live="polite"></section>
 
-<section class="step cover on" data-i="0" id="top">
-  <h1>The country<br>the rivers built</h1>
-  <p class="lede">Bangladesh, as the ground itself: silt, forest, water, people.</p>
-  <p class="hint">scroll</p>
-</section>
+  <main id="story">
 
-<section class="step" data-i="1">
-  <h2>What grows on the mud</h2>
-  <div class="fig" id="chCover"></div>
-  <p class="src">ESA WorldCover 2021, 10 m. Village groves count as tree cover.</p>
-</section>
+  <section class="step cover on" data-id="cover" id="top">
+    <div class="kicker">Bangladesh, in relief</div>
+    <h1>The country the <i>rivers</i> built</h1>
+    <p class="lede">Silt, forest, water, weather, people. One grid of the ground, lit from the west. Click any district. Play any storm.</p>
+    <p class="hint">scroll</p>
+  </section>
 
-<section class="step" data-i="2">
-  <h2><b id="numLow10">…</b> of the land sits 10 m or less above the sea</h2>
-  <p><b id="numLow5">…</b> is under 5 m. Relief ×22; at ×1 it is a table.</p>
-  <p class="src">SRTM 90 m v4.1, a surface model: the true ground is lower.</p>
-</section>
+  <section class="step" data-id="ground">
+    <div class="n"></div>
+    <h2>What grows on the mud</h2>
+    <div class="fig" id="chCover"></div>
+    <p class="src">ESA WorldCover 2021, 10 m. Village groves count as tree cover.</p>
+  </section>
 
-<section class="step" data-i="3">
-  <h2>The only high ground is the rim</h2>
-  <p>Hill forests of the Chattogram Hill Tracts and Sylhet, up to a kilometre. West of them, delta.</p>
-</section>
+  <section class="step" data-id="low">
+    <div class="n"></div>
+    <h2><b id="numLow10">…</b> of the land sits 10 m or less above the sea</h2>
+    <p><b id="numLow5">…</b> is under 5 m. Relief ×22; at ×1 it is a table.</p>
+    <p class="src">SRTM 90 m v4.1, a surface model: the true ground is lower.</p>
+  </section>
 
-<section class="step" data-i="4">
-  <h2>Every river</h2>
-  <p>2,489 reaches with 150 m³/s or more, brighter with discharge; 1,070 smaller channels in grey.</p>
-  <p class="src">HydroRIVERS v1.0; Global Map river lines; trunk rivers named by discharge, the rest from FFWC gauges.</p>
-</section>
+  <section class="step" data-id="rim">
+    <div class="n"></div>
+    <h2>The only high ground is the rim</h2>
+    <p>Hill forests of the Chattogram Hill Tracts and Sylhet, up to a kilometre. West of them, delta.</p>
+  </section>
 
-<section class="step" data-i="5">
-  <h2>The silt is running out</h2>
-  <div class="fig" id="chSediment"></div>
-  <p class="src">Rahman et al. 2018, Sci Total Environ.</p>
-</section>
+  <section class="step" data-id="rivers">
+    <div class="n"></div>
+    <h2>Every river</h2>
+    <p>2,489 reaches with 150 m³/s or more, brighter with discharge; 1,070 smaller channels in grey.</p>
+    <p class="src">HydroRIVERS v1.0; Global Map river lines; trunk rivers named by discharge, the rest from FFWC gauges.</p>
+  </section>
 
-<section class="step" data-i="6">
-  <h2>Sundarbans</h2>
-  <p><b id="numSund">…</b> km² of mangrove on this side of the border. It gains about 1.8 cm of mud a wet season, faster than the sea rises.</p>
-  <p class="src">WorldCover class 95; Hale et al. 2019.</p>
-</section>
+  <section class="step" data-id="silt">
+    <div class="n"></div>
+    <h2>The silt is running out</h2>
+    <div class="fig" id="chSediment"></div>
+    <p class="src">Rahman et al. 2018, Sci Total Environ.</p>
+  </section>
 
-<section class="step" data-i="7">
-  <h2>The haors</h2>
-  <p>Sylhet's bowl of wetlands: Hakaluki <b id="numHak">…</b> km², Tanguar <b id="numTan">…</b> km². Under water half the year by design.</p>
-  <p class="src">WorldCover wetland and water classes; haor polygons, Bangladesh GIS data (thesis digitisation).</p>
-</section>
+  <section class="step" data-id="sundarbans">
+    <div class="n"></div>
+    <h2>Sundarbans</h2>
+    <p><b id="numSund">…</b> km² of mangrove on this side of the border. It gains about 1.8 cm of mud a wet season, faster than the sea rises.</p>
+    <p class="src">WorldCover class 95; Hale et al. 2019.</p>
+  </section>
 
-<section class="step" data-i="8">
-  <h2>Hill forest, going</h2>
-  <div class="fig" id="chLoss"></div>
-  <p class="src">Hansen Global Forest Change, tree-cover loss 2001–2023, Chattogram Hill Tracts; red on the relief is lost canopy.</p>
-</section>
+  <section class="step" data-id="haor">
+    <div class="n"></div>
+    <h2>The haors</h2>
+    <p>Sylhet's bowl of wetlands: Hakaluki <b id="numHak">…</b> km², Tanguar <b id="numTan">…</b> km². Under water half the year by design.</p>
+    <p class="src">WorldCover wetland and water classes; haor polygons, Bangladesh GIS data (thesis digitisation).</p>
+  </section>
 
-<section class="step" data-i="9">
-  <h2>The ground is going down</h2>
-  <div class="fig" id="chSubsidence"></div>
-  <p class="src">Steckler et al. 2022; Auerbach et al. 2015; Frontiers 2024 review. Polders near Khulna have lost 1 to 1.5 m since the 1960s.</p>
-</section>
+  <section class="step" data-id="cht">
+    <div class="n"></div>
+    <h2>Hill forest, going</h2>
+    <div class="fig" id="chLoss"></div>
+    <p class="src">Hansen Global Forest Change, tree-cover loss 2001–2023, Chattogram Hill Tracts; red on the relief is lost canopy.</p>
+  </section>
 
-<section class="step" data-i="10">
-  <h2>Raise the sea</h2>
-  <div class="slider">
-    <input id="seaRange" type="range" min="0" max="5" step="0.25" value="2" aria-label="sea level rise in metres">
-    <div class="sliderout"><b id="seaOut">2.00 m</b><span><b id="seaPeople">…</b> people, <b id="seaArea">…</b></span></div>
-  </div>
-  <div class="fig" id="chExposure"></div>
-  <p class="src">Delta water levels rose 3 mm/yr 1968–2012; 85–140 cm expected by 2100 (Becker et al. 2020). SRTM understates exposure 5–10× against CoastalDEM (Kulp &amp; Strauss 2019).</p>
-</section>
+  <section class="step" data-id="sinking">
+    <div class="n"></div>
+    <h2>The ground is going down</h2>
+    <div class="fig" id="chSubsidence"></div>
+    <p class="src">Steckler et al. 2022; Auerbach et al. 2015; Frontiers 2024 review. Polders near Khulna have lost 1 to 1.5 m since the 1960s.</p>
+  </section>
 
-<section class="step" data-i="11">
-  <h2>Cyclones since 1960 <span class="clock" id="stormYear">1960–2025</span></h2>
-  <p><span id="numStorms">…</span> storms at gale force or more. Width and height follow wind.</p>
-  <p class="src">IBTrACS v04r01, North Indian basin.</p>
-</section>
+  <section class="step" data-id="rise">
+    <div class="n"></div>
+    <h2>Raise the sea</h2>
+    <div class="slider">
+      <input id="seaRange" type="range" min="0" max="5" step="0.25" value="2" aria-label="sea level rise in metres">
+      <div class="sliderout"><b id="seaOut">2.00 m</b><span><b id="seaPeople">…</b> people, <b id="seaArea">…</b></span></div>
+    </div>
+    <div class="fig" id="chExposure"></div>
+    <p class="src">Delta water levels rose 3 mm/yr 1968–2012; 85–140 cm expected by 2100 (Becker et al. 2020). SRTM understates exposure 5–10× against CoastalDEM (Kulp &amp; Strauss 2019).</p>
+  </section>
 
-<section class="step" data-i="12">
-  <h2>The storms did not weaken. The dying stopped.</h2>
-  <div class="fig" id="chDeaths"></div>
-  <p class="src">Official tolls (IMD, GoB, GFDRR); shelters from CPP and IFRC.</p>
-</section>
+  <section class="step" data-id="warming" data-needs="climate">
+    <div class="n"></div>
+    <h2>Warmer every decade</h2>
+    <div class="fig" id="chTemp"></div>
+    <p class="src" id="srcTemp"></p>
+  </section>
 
-<section class="step" data-i="13">
-  <h2>A fifth of the country floods every year</h2>
-  <div class="fig" id="chFloods"></div>
-  <p class="src">BUET satellite series; normal year Dewan et al. 2003. Tinted: land under 8 m.</p>
-</section>
+  <section class="step" data-id="monsoon" data-needs="climate">
+    <div class="n"></div>
+    <h2>Four months of rain</h2>
+    <div class="fig" id="chRain"></div>
+    <p class="src" id="srcRain"></p>
+  </section>
 
-<section class="step" data-i="14">
-  <h2><b id="numPeople10">…</b> people on the land under 10 m</h2>
-  <p>One light per square kilometre with people in it.</p>
-  <p class="src">GPW v4 2015, CIESIN.</p>
-</section>
+  <section class="step" data-id="sealevel" data-needs="sea">
+    <div class="n"></div>
+    <h2>Every gauge points up</h2>
+    <div class="fig" id="chSea"></div>
+    <p class="src" id="srcSea"></p>
+  </section>
 
-<section class="step" data-i="15">
-  <h2>4.96 million still displaced</h2>
-  <p>Riverbank erosion took 1,585 km² in fifty years. A quarter of the displaced live in four districts: Chattogram, Sirajganj, Bhola, Noakhali.</p>
-  <p class="src">IOM national count, Dec 2025; IDMC 2026; CEGIS.</p>
-</section>
+  <section class="step" data-id="storms">
+    <div class="n"></div>
+    <h2>Cyclones since 1960</h2>
+    <p><span id="numStorms">…</span> storms at gale force or more. The wind field is modelled from each storm's position and peak wind (IBTrACS). Pick one to play it.</p>
+    <div class="playrow"><button id="stormAll" class="on" type="button">all, year by year</button><span>or a storm:</span></div>
+    <div class="chips" id="stormChips"></div>
+    <p class="src">IBTrACS v04r01, North Indian basin. Vortex: Rankine profile on the recorded maximum wind; a reading aid, not a reanalysis.</p>
+  </section>
 
-<section class="step" data-i="16">
-  <h2>The river can still raise it</h2>
-  <p>Where silt was let back in, land came up 0.8 to 1.2 m in four years. Delta Plan 2100: $37 billion.</p>
-  <p class="src">Tidal river management, Beel Bhaina and East Beel Khuksia; GED, Bangladesh Delta Plan 2100.</p>
-</section>
+  <section class="step" data-id="shelters">
+    <div class="n"></div>
+    <h2>The storms did not weaken. <em>The dying stopped.</em></h2>
+    <div class="fig" id="chDeaths"></div>
+    <p class="src">Official tolls (IMD, GoB, GFDRR); shelters from CPP and IFRC.</p>
+  </section>
 
-<section class="step tail" data-i="16">
-  <h3>How this was made</h3>
-  <p>One 1024 × 1148 grid at 0.7 km a texel. Relief: SRTM 90 m v4.1 inside Bangladesh, ETOPO5 around it, lit in a custom WebGL shader. Ground colour: ESA WorldCover 2021 majority class per texel. Water: WorldCover, WFP/LGED river polygons, OSM 2017. Rivers: HydroRIVERS v1.0 and Global Map lines. Forest loss: Hansen GFC 2001–2023. Storms: IBTrACS v04r01. People: GPW v4 2015. Every number has a source in <code>notes/facts.csv</code>.</p>
-  <p>Limits: SRTM reads canopy and roofs as ground; the low-lying shares are floors. River polygons are one epoch of a braided system. Protected-area boundaries were not available on any open host, so forests are shown as the satellite sees them, not as the gazette draws them. Vertical exaggeration is a reading aid.</p>
-  <p>Independent project by Abid Hasan, Dhaka, 2026. Not affiliated with any agency named. Code and data on <a href="https://github.com/ahasan722/poli-delta">GitHub</a>, CC BY 4.0; datasets keep their own licences.</p>
-</section>
+  <section class="step" data-id="floods">
+    <div class="n"></div>
+    <h2>A fifth of the country floods every year</h2>
+    <div class="fig" id="chFloods"></div>
+    <p class="src">BUET satellite series; normal year Dewan et al. 2003. Tinted: land under 8 m.</p>
+  </section>
 
-</main>
+  <section class="step" data-id="people">
+    <div class="n"></div>
+    <h2><b id="numPeople10">…</b> people on the land under 10 m</h2>
+    <p>One light per square kilometre with people in it.</p>
+    <p class="src">GPW v4 2015, CIESIN.</p>
+  </section>
 
+  <section class="step" data-id="moving">
+    <div class="n"></div>
+    <h2>4.96 million still displaced</h2>
+    <p>Riverbank erosion took 1,585 km² in fifty years. A quarter of the displaced live in four districts: Chattogram, Sirajganj, Bhola, Noakhali.</p>
+    <p class="src">IOM national count, Dec 2025; IDMC 2026; CEGIS.</p>
+  </section>
+
+  <section class="step" data-id="plan">
+    <div class="n"></div>
+    <h2>The river can still raise it</h2>
+    <p>Where silt was let back in, land came up 0.8 to 1.2 m in four years. Delta Plan 2100: $37 billion.</p>
+    <p class="src">Tidal river management, Beel Bhaina and East Beel Khuksia; GED, Bangladesh Delta Plan 2100.</p>
+  </section>
+
+  <section class="step tail" data-id="plan">
+    <h3>How this was made</h3>
+    <p>One 1024 × 1148 grid at 0.7 km a texel. Relief: SRTM 90 m v4.1 inside Bangladesh, ETOPO5 around it, lit in a custom WebGL shader. Ground colour: ESA WorldCover 2021. Water: WorldCover, WFP/LGED river polygons, OSM 2017. Rivers: HydroRIVERS v1.0 and Global Map lines. Forest loss: Hansen GFC 2001–2023. Storms: IBTrACS v04r01; the wind animation is a Rankine vortex on each storm's recorded position and maximum wind. Districts: <span id="srcDistricts">BBS boundaries</span>. People: GPW v4 2015. Climate: <span id="srcClimate">see each chapter</span>. Every number has a source in <code>notes/facts.csv</code>.</p>
+    <p>Limits: SRTM reads canopy and roofs as ground; the low-lying shares are floors. River polygons are one epoch of a braided system. Protected-area boundaries were not available on any open host, so forests are shown as the satellite sees them. The wind field is a textbook vortex, not a reanalysis. Vertical exaggeration is a reading aid.</p>
+    <p>Independent project by Abid Hasan, Dhaka, 2026. Not affiliated with any agency named. Code and data on <a href="https://github.com/ahasan722/poli-delta">GitHub</a>, CC BY 4.0; datasets keep their own licences.</p>
+  </section>
+
+  </main>
+</aside>
+
+</div>
 <script src="lib/d3.min.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
