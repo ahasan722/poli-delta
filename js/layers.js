@@ -98,10 +98,10 @@ export function buildFarRivers(geojson, sampleH, exag) {
 // ---- place labels as sprites -----------------------------------------------------------------
 export function makeLabel(text, { size = 22, color = "#efe9dc", weight = 600 } = {}) {
   const pad = 8, c = document.createElement("canvas"), ctx = c.getContext("2d");
-  ctx.font = `${weight} ${size}px "Open Sans", sans-serif`;
+  ctx.font = `${weight} ${size}px "IBM Plex Sans", sans-serif`;
   const w = Math.ceil(ctx.measureText(text).width) + pad * 2, h = size + pad * 2;
   c.width = w * 2; c.height = h * 2; ctx.scale(2, 2);
-  ctx.font = `${weight} ${size}px "Open Sans", sans-serif`; ctx.textBaseline = "middle";
+  ctx.font = `${weight} ${size}px "IBM Plex Sans", sans-serif`; ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0,0,0,.9)"; ctx.shadowBlur = 6; ctx.fillStyle = color; ctx.fillText(text, pad, h / 2);
   const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
@@ -121,19 +121,27 @@ const inside = (lon, lat) => lon > 88.0 && lon < 92.7 && lat > 20.7 && lat < 26.
 export function buildRivers(rivers, sampleH, exag) {
   const group = new THREE.Group(); group.name = "rivers";
   const lift = (lon, lat) => km(Math.max(sampleH(lon, lat), -60), exag) + 0.6;
+  // a line shader with a pulse that travels along each reach, so the network reads as flowing
+  const flowMat = () => new THREE.ShaderMaterial({
+    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uFlow: { value: 1 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true,
+    vertexShader: `attribute float aAlong; varying vec3 vC; varying float vA; void main(){ vC = color; vA = aAlong; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform float uOpacity; uniform float uTime; uniform float uFlow; varying vec3 vC; varying float vA;
+      void main(){ float w = 0.5 + 0.5 * sin(vA * 0.45 - uTime * 2.6); float pulse = mix(1.0, 0.7 + 0.9 * pow(w, 4.0), uFlow); gl_FragColor = vec4(vC * pulse, uOpacity); }`
+  });
   const seg = (lines, colorFn, opacity, name) => {
-    const pos = [], col = [];
+    const pos = [], col = [], along = [];
     for (const l of lines) {
-      const c = colorFn(l);
+      const c = colorFn(l); let acc = 0;
       for (let i = 1; i < l.c.length; i++) {
         const a = l.c[i - 1], b = l.c[i];
-        if (a[0] < GRID.W || a[0] > GRID.E || a[1] < GRID.S || a[1] > GRID.N) continue;
-        const pa = toScene(a[0], a[1]), pb = toScene(b[0], b[1]); pa.y = lift(a[0], a[1]); pb.y = lift(b[0], b[1]);
-        pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z); col.push(...c, ...c);
+        const pa = toScene(a[0], a[1]), pb = toScene(b[0], b[1]); const d = Math.hypot(pb.x - pa.x, pb.z - pa.z);
+        if (a[0] < GRID.W || a[0] > GRID.E || a[1] < GRID.S || a[1] > GRID.N) { acc += d; continue; }
+        pa.y = lift(a[0], a[1]); pb.y = lift(b[0], b[1]);
+        pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z); col.push(...c, ...c); along.push(acc, acc + d); acc += d;
       }
     }
-    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-    const m = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); m.name = name; return m;
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setAttribute("aAlong", new THREE.Float32BufferAttribute(along, 1));
+    const m = new THREE.LineSegments(geo, flowMat()); m.name = name; m.material.opacity = opacity; return m;
   };
   // discharge: 150 m3/s is a thread, 40,000 is the Padma; log scale into brightness
   const disCol = l => { const t = Math.min(1, Math.max(0, (Math.log10(l.dis) - 2.1) / 2.5)); return [0.20 + 0.35 * t, 0.45 + 0.35 * t, 0.55 + 0.35 * t]; };

@@ -26,6 +26,7 @@ const vert = /* glsl */`
   varying vec3 vN;
   varying vec3 vMask;
   varying float vFade;
+  varying vec3 vWorld;
   float decode(vec2 uv){ vec3 c = texture2D(uHeight, uv).rgb * 255.0; return -10000.0 + (c.r*65536.0 + c.g*256.0 + c.b) * 0.1; }
   void main(){
     vUv = uv;
@@ -50,6 +51,7 @@ const vert = /* glsl */`
     vN = normalize(vec3(-dx / stepKm, 1.0, dy / stepKm));
     vec3 p = position;
     p.z = max(h, -60.0) * 0.001 * uExag;          // metres -> km, exaggerated
+    vWorld = (modelMatrix * vec4(p, 1.0)).xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }`;
 
@@ -64,8 +66,12 @@ const frag = /* glsl */`
   uniform float uWet;         // 0..1 lift the wetlands and haors
   uniform float uBuilt;       // 0..1 lift built-up land
   uniform float uLoss;        // 0..1 paint Hansen forest loss (CHT) red
+  uniform float uCutOn;       // 1 = the slice chapter: everything south of uCut is cut away
+  uniform float uCut;         // scene z of the cut (z grows southward)
+  varying vec3 vWorld;
   uniform vec3 uSun;
   uniform float uTime;
+  uniform vec3 uBg;           // the page's canvas colour: the grid edge and the far sea fade into it
   varying vec2 vUv;
   varying float vH;
   varying vec3 vN;
@@ -103,6 +109,7 @@ const frag = /* glsl */`
     return vec3(0.30, 0.25, 0.19);                 // 0 no data: silt
   }
   void main(){
+    if (uCutOn > 0.5 && vWorld.z > uCut) discard;
     vec3 mk = texture2D(uMask, vUv).rgb;
     float inside = mk.r, sea = mk.b;
     vec3 vCover = texture2D(uCover, vUv).rgb;
@@ -123,7 +130,7 @@ const frag = /* glsl */`
     if (uLoss > 0.0 && lossFrac > 0.02) col = mix(col, vec3(0.95, 0.30, 0.16), uLoss * min(1.0, lossFrac * 2.2));
     // the far field: a dim hint of India and Myanmar so the delta has a frame
     col = mix(col * 0.28, col, inside);
-    col = mix(vec3(0.03, 0.035, 0.045), col, max(inside, uFar * vFade));
+    col = mix(uBg, col, max(inside, uFar * vFade));
     // low plain tint (the "mud" chapter)
     if (uLowBand > 0.0 && inside > 0.5 && vH <= uLowBand) {
       float t = 1.0 - clamp(vH / uLowBand, 0.0, 1.0);
@@ -134,8 +141,8 @@ const frag = /* glsl */`
     col = mix(col, riverCol, water * (1.0 - sea) * inside);
     // sea and the estuary: deep, with a slow shimmer
     float shimmer = 0.5 + 0.5 * sin(uTime * 0.6 + vUv.x * 90.0 + vUv.y * 60.0);
-    vec3 seaCol = vec3(0.025, 0.045, 0.065) + 0.012 * shimmer;
-    col = mix(col, seaCol * mix(0.4, 1.0, vFade), sea);
+    vec3 seaCol = uBg * (0.78 + 0.06 * shimmer);          // the Bay is the page's own colour, so the grid has no edge
+    col = mix(col, mix(uBg, seaCol, vFade), sea);
     col = mix(col, seaCol * 1.3, water * (1.0 - inside) * (1.0 - sea));
     // sea-level rise: drown land at or below the level, with a thin bright shoreline
     if (uSeaLevel > 0.0 && inside > 0.5 && vH <= uSeaLevel && water < 0.5) {
@@ -161,7 +168,7 @@ export function buildTerrain(textures, segX = 639) {
     uCover: { value: textures.cover }, uCoverRGB: { value: textures.coverRGB }, uDistrict: { value: textures.district }, uPick: { value: 0 }, uHover: { value: 0 },
     uExag: { value: 12.0 }, uSink: { value: 0.0 }, uSeaLevel: { value: 0.0 }, uRiverGlow: { value: 0.35 },
     uFar: { value: 0.6 }, uLowBand: { value: 0.0 }, uCoverMix: { value: 1.0 }, uForest: { value: 0.0 }, uWet: { value: 0.0 }, uBuilt: { value: 0.0 }, uLoss: { value: 0.0 },
-    uSun: { value: new THREE.Vector3(-0.6, 0.8, 0.5) }, uTime: { value: 0 }
+    uSun: { value: new THREE.Vector3(-0.6, 0.8, 0.5) }, uTime: { value: 0 }, uCutOn: { value: 0 }, uCut: { value: 0 }, uBg: { value: new THREE.Vector3(0, 43 / 255, 54 / 255) }
   };
   const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: vert, fragmentShader: frag });
   const mesh = new THREE.Mesh(geo, mat);
@@ -181,4 +188,44 @@ export function heightSampler(img) {
     const i = (y * img.width + x) * 4;
     return -10000 + (d[i] * 65536 + d[i + 1] * 256 + d[i + 2]) * 0.1;
   };
+}
+
+// ---- the cut face: a vertical wall along one line of latitude, heights from the CPU copy of the DEM ----
+// Rebuilt in place as the slice moves (one column per texel, so about 1,000 columns). Its height is the
+// profile on a square-root scale (10 m stands 10 km tall, 900 m stands 96 km), the same scale as the chart,
+// because a linear wall on a plain a few metres thick would be one pixel high. Contour lines every 5 m
+// on the plain and every 50 m in the hills.
+const wallVert = /* glsl */`
+  attribute float aH; attribute float aTop; attribute float aIn;
+  uniform float uExag; varying float vH; varying float vTop; varying float vIn;
+  void main(){ vH = aH; vTop = aTop; vIn = aIn; vec3 p = position; p.y = aTop > 0.5 ? 3.2 * sqrt(max(aH, 0.0)) + 0.3 : -0.06 * uExag - 0.2; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`;
+const wallFrag = /* glsl */`
+  precision highp float; uniform float uOpacity; varying float vH; varying float vTop; varying float vIn;
+  void main(){
+    float h = max(vH, 0.0);
+    vec3 low = vec3(0.36, 0.26, 0.16), mid = vec3(0.62, 0.48, 0.28), high = vec3(0.80, 0.70, 0.50);
+    vec3 col = h < 20.0 ? mix(low, mid, h / 20.0) : mix(mid, high, clamp((h - 20.0) / 400.0, 0.0, 1.0));
+    float band = h < 60.0 ? 5.0 : 50.0; float f = fract(h / band); float line = smoothstep(0.0, 0.08, f) * smoothstep(0.16, 0.08, f);
+    col = mix(col, vec3(0.95, 0.85, 0.6), line * 0.55 * vTop);
+    col *= mix(0.55, 1.0, vTop) * mix(0.35, 1.0, vIn);
+    gl_FragColor = vec4(col, uOpacity);
+  }`;
+export function buildCutWall(sampleH, insideFn, exagUniform, cols = 1024) {
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(cols * 2 * 3), aH = new Float32Array(cols * 2), aTop = new Float32Array(cols * 2), aIn = new Float32Array(cols * 2), idx = [];
+  for (let i = 0; i < cols; i++) { aTop[i * 2] = 0; aTop[i * 2 + 1] = 1; if (i > 0) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); } }
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setAttribute("aH", new THREE.BufferAttribute(aH, 1)); geo.setAttribute("aTop", new THREE.BufferAttribute(aTop, 1)); geo.setAttribute("aIn", new THREE.BufferAttribute(aIn, 1)); geo.setIndex(idx);
+  const mat = new THREE.ShaderMaterial({ uniforms: { uExag: exagUniform, uOpacity: { value: 0 } }, vertexShader: wallVert, fragmentShader: wallFrag, transparent: true, side: THREE.DoubleSide, depthWrite: true });
+  const mesh = new THREE.Mesh(geo, mat); mesh.name = "cutwall"; mesh.frustumCulled = false;
+  mesh.userData.profile = new Float32Array(cols);
+  mesh.userData.setLat = lat => {
+    const z = toScene(GRID.W, lat).z; const p = geo.attributes.position.array, hh = geo.attributes.aH.array, ii = geo.attributes.aIn.array;
+    for (let i = 0; i < cols; i++) {
+      const lon = GRID.W + (i + 0.5) / cols * (GRID.E - GRID.W); const x = toScene(lon, lat).x; const ins = insideFn(lon, lat); const h = ins ? sampleH(lon, lat) : Math.min(260, sampleH(lon, lat));
+      p[i * 6] = x; p[i * 6 + 1] = 0; p[i * 6 + 2] = z; p[i * 6 + 3] = x; p[i * 6 + 4] = 0; p[i * 6 + 5] = z;
+      hh[i * 2] = h; hh[i * 2 + 1] = h; ii[i * 2] = ins ? 1 : 0; ii[i * 2 + 1] = ins ? 1 : 0; mesh.userData.profile[i] = ins ? h : NaN;
+    }
+    geo.attributes.position.needsUpdate = true; geo.attributes.aH.needsUpdate = true; geo.attributes.aIn.needsUpdate = true; mesh.userData.lat = lat; mesh.userData.z = z;
+  };
+  return mesh;
 }

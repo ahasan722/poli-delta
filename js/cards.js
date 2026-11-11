@@ -1,6 +1,6 @@
 // cards.js  --  the focus card at the top of the panel: a district you clicked, or a storm you are playing.
 const fmt = d3.format(","), f1 = d3.format(".1f");
-const C = { ink: "#ebe5d6", dim: "#8e887c", mute: "#5c574f", amber: "#f2c35a", silt: "#c88a3c", water: "#5fa8c2", red: "#ff5a3c", green: "#4fa36f", cyan: "#7fd8d2", grid: "#242a33" };
+const C = { ink: "#eee8d5", dim: "#93a1a1", mute: "#586e75", amber: "#b58900", silt: "#b58900", water: "#268bd2", red: "#dc322f", green: "#859900", cyan: "#2aa198", grid: "#0e4a5a" };
 const COVER_COL = { cropland: "#a99e5c", "tree cover": "#2b5c33", mangroves: "#1a4d3d", wetland: "#4d857a", "built-up": "#c7946a", water: "#17334d", other: "#4a4740" };
 const windCol = kt => kt >= 96 ? "#ff5a3c" : kt >= 64 ? "#ff9a3c" : kt >= 34 ? "#f2c35a" : "#8fa6bd";
 const cat = kt => kt >= 120 ? "super cyclonic storm" : kt >= 90 ? "extremely severe cyclonic storm" : kt >= 64 ? "very severe cyclonic storm" : kt >= 48 ? "severe cyclonic storm" : kt >= 34 ? "cyclonic storm" : "depression";
@@ -13,26 +13,26 @@ function coverBar(parent, cover) {
   const { s, w } = svg(parent, 46); const order = ["cropland", "tree cover", "water", "mangroves", "wetland", "built-up", "other"]; const x = d3.scaleLinear().domain([0, 100]).range([0, w]); let acc = 0;
   order.forEach(k => { const v = cover[k] || 0; if (v < 0.05) return;
     s.append("rect").attr("x", x(acc)).attr("y", 0).attr("width", Math.max(0, x(acc + v) - x(acc) - 1)).attr("height", 18).attr("fill", COVER_COL[k]);
-    if (v > 9) s.append("text").attr("x", x(acc + v / 2)).attr("y", 13).attr("text-anchor", "middle").attr("fill", "#fff").attr("font-size", 10.5).attr("font-weight", 600).text(Math.round(v) + "%");
-    if (v > 12) s.append("text").attr("x", x(acc + v / 2)).attr("y", 34).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 10.5).text(k === "other" ? "bare, no data" : k);
+    if (v > 9) s.append("text").attr("x", x(acc + v / 2)).attr("y", 13).attr("text-anchor", "middle").attr("fill", "#fff").attr("font-size", 12).attr("font-weight", 600).text(Math.round(v) + "%");
+    if (v > 12) s.append("text").attr("x", x(acc + v / 2)).attr("y", 34).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 12).text(k === "other" ? "bare, no data" : k);
     acc += v; });
 }
 function stormStrip(parent, hits, strongest) {
   const { s, w } = svg(parent, 86); const x = d3.scaleLinear().domain([1960, 2026]).range([6, w - 6]); const r = d3.scaleSqrt().domain([20, 140]).range([2, 9]);
-  [1960, 1980, 2000, 2020].forEach(y => { s.append("line").attr("x1", x(y)).attr("x2", x(y)).attr("y1", 8).attr("y2", 56).attr("stroke", C.grid); s.append("text").attr("x", x(y)).attr("y", 70).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 10).attr("font-family", "IBM Plex Mono").text(y); });
+  [1960, 1980, 2000, 2020].forEach(y => { s.append("line").attr("x1", x(y)).attr("x2", x(y)).attr("y1", 8).attr("y2", 56).attr("stroke", C.grid); s.append("text").attr("x", x(y)).attr("y", 70).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 11.5).attr("font-family", "IBM Plex Mono").text(y); });
   const y = d3.scaleLinear().domain([20, 140]).range([52, 12]);
   hits.forEach(([yr, kt, name]) => s.append("circle").attr("cx", x(yr)).attr("cy", y(kt)).attr("r", r(kt)).attr("fill", windCol(kt)).attr("opacity", .85).append("title").text(`${name || "unnamed"} ${yr}, ${kt} kt`));
-  if (strongest) s.append("text").attr("x", Math.min(w - 70, x(strongest.year) + 10)).attr("y", y(strongest.kt) + 4).attr("fill", C.ink).attr("font-size", 11).text(`${strongest.name || "unnamed"} ${strongest.year}, ${strongest.kt} kt`);
-  s.append("text").attr("x", 6).attr("y", 84).attr("fill", C.dim).attr("font-size", 10.5).text("cyclones that passed within 50 km, higher = stronger wind at that pass");
+  if (strongest) s.append("text").attr("x", Math.min(w - 70, x(strongest.year) + 10)).attr("y", y(strongest.kt) + 4).attr("fill", C.ink).attr("font-size", 12.5).text(`${strongest.name || "unnamed"} ${strongest.year}, ${strongest.kt} kt`);
+  s.append("text").attr("x", 6).attr("y", 84).attr("fill", C.dim).attr("font-size", 12).text("cyclones that passed within 50 km, higher = stronger wind at that pass");
 }
 function windChart(parent, storm) {
   const pts = storm.pts; const n = pts.length; const { s, w } = svg(parent, 128);
   const x = d3.scaleLinear().domain([0, n - 1]).range([30, w - 8]); const y = d3.scaleLinear().domain([0, Math.max(100, d3.max(pts, p => p[2]) + 10)]).range([92, 10]);
-  [34, 64, 96].forEach(v => { if (v > y.domain()[1]) return; s.append("line").attr("x1", 30).attr("x2", w - 8).attr("y1", y(v)).attr("y2", y(v)).attr("stroke", C.grid).attr("stroke-dasharray", "2 3"); s.append("text").attr("x", 27).attr("y", y(v) + 3).attr("text-anchor", "end").attr("fill", C.dim).attr("font-size", 9.5).attr("font-family", "IBM Plex Mono").text(v); });
+  [34, 64, 96].forEach(v => { if (v > y.domain()[1]) return; s.append("line").attr("x1", 30).attr("x2", w - 8).attr("y1", y(v)).attr("y2", y(v)).attr("stroke", C.grid).attr("stroke-dasharray", "2 3"); s.append("text").attr("x", 27).attr("y", y(v) + 3).attr("text-anchor", "end").attr("fill", C.dim).attr("font-size", 12.5).attr("font-family", "IBM Plex Mono").text(v); });
   s.append("path").attr("d", d3.area().x((p, i) => x(i)).y0(92).y1(p => y(p[2])).curve(d3.curveMonotoneX)(pts)).attr("fill", C.amber).attr("opacity", .12);
   s.append("path").attr("d", d3.line().x((p, i) => x(i)).y(p => y(p[2])).curve(d3.curveMonotoneX)(pts)).attr("fill", "none").attr("stroke", C.amber).attr("stroke-width", 1.6);
-  const days = Math.floor((n - 1) / 4); d3.range(0, days + 1, Math.max(1, Math.ceil(days / 6))).forEach(dd => s.append("text").attr("x", x(dd * 4)).attr("y", 106).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 10).attr("font-family", "IBM Plex Mono").text("d" + dd));
-  s.append("text").attr("x", 30).attr("y", 124).attr("fill", C.dim).attr("font-size", 10.5).text("maximum sustained wind along the track, kt; dashed: 34, 64, 96 kt");
+  const days = Math.floor((n - 1) / 4); d3.range(0, days + 1, Math.max(1, Math.ceil(days / 6))).forEach(dd => s.append("text").attr("x", x(dd * 4)).attr("y", 106).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 11.5).attr("font-family", "IBM Plex Mono").text("d" + dd));
+  s.append("text").attr("x", 30).attr("y", 124).attr("fill", C.dim).attr("font-size", 12).text("maximum sustained wind along the track, kt; dashed: 34, 64, 96 kt");
   marker = { dot: s.append("circle").attr("r", 4).attr("fill", "#fff").attr("cx", x(0)).attr("cy", y(pts[0][2])), x, y, pts };
 }
 
