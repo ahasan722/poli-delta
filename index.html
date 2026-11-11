@@ -15,7 +15,8 @@
 
 <div id="stage" aria-label="3D relief of the Bengal delta">
   <div class="loading">loading the relief</div>
-  <nav class="rail" id="rail" aria-label="Chapters"></nav>
+  <nav class="contents" id="contents" aria-label="Chapters"><div class="ctitle">Chapters</div><div id="rail"></div></nav>
+  <button id="navBtn" class="hudbtn navbtn" type="button" aria-label="chapters">☰ Chapters</button>
   <div class="tools">
     <button id="freeBtn" class="hudbtn" type="button" title="Drag to orbit, scroll to zoom">Explore</button>
     <label class="hudrange" title="vertical exaggeration">relief <input id="exagRange" type="range" min="1" max="40" step="1" value="14"></label>
@@ -23,7 +24,8 @@
   <aside id="legend" class="legend" aria-live="polite"></aside>
   <div class="tip" id="tip"></div>
   <div class="clock" id="stormYear"></div>
-  <div class="hint-click" id="clickHint">click a district</div>
+  <div class="slicelat" id="sliceLat"></div>
+  <div class="hint-click" id="clickHint"><span>⌖</span> click any district</div>
 </div>
 
 <aside id="panel">
@@ -36,8 +38,9 @@
   <section class="step cover on" data-id="cover" id="top">
     <div class="kicker">Bangladesh, in relief</div>
     <h1>The country the <i>rivers</i> built</h1>
-    <p class="lede">Silt, forest, water, weather, people. One grid of the ground, lit from the west. Click any district. Play any storm.</p>
-    <p class="hint">scroll</p>
+    <p class="lede">Silt, forest, water, weather, storms, people: one grid of the ground, lit from the west.</p>
+    <p class="lede small">Click any district for its numbers. Play any cyclone. Cut the country open.</p>
+    <p class="hint">scroll to begin</p>
   </section>
 
   <section class="step" data-id="ground">
@@ -60,6 +63,15 @@
     <p>Hill forests of the Chattogram Hill Tracts and Sylhet, up to a kilometre. West of them, delta.</p>
   </section>
 
+  <section class="step" data-id="slice">
+    <div class="n"></div>
+    <h2>A cut through the delta</h2>
+    <p>The ground, sliced along one line of latitude. The plain is a few metres thick for two hundred kilometres; the hills stand at the eastern end.</p>
+    <div class="slider"><input id="sliceRange" type="range" min="20.9" max="26.5" step="0.01" value="22.4" aria-label="latitude of the cut"><div class="sliderout"><b id="sliceOut">22.40° N</b><span><b id="sliceMax">…</b> m highest on this line · <button id="slicePlay" class="chip on" type="button">sweeping</button></span></div></div>
+    <div class="fig" id="chProfile"></div>
+    <p class="src">SRTM 90 m v4.1 along the line. The wall and the chart share a square-root height scale (10 m stands as tall as a quarter of 160 m), because on a true scale the plain is one pixel thick. Contour lines every 5 m on the plain, 50 m in the hills.</p>
+  </section>
+
   <section class="step" data-id="rivers">
     <div class="n"></div>
     <h2>Every river</h2>
@@ -72,6 +84,13 @@
     <h2>The silt is running out</h2>
     <div class="fig" id="chSediment"></div>
     <p class="src">Rahman et al. 2018, Sci Total Environ.</p>
+  </section>
+
+  <section class="step" data-id="floods">
+    <div class="n"></div>
+    <h2>A fifth of the country floods every year</h2>
+    <div class="fig" id="chFloods"></div>
+    <p class="src">BUET satellite series; normal year Dewan et al. 2003. Tinted: land under 8 m.</p>
   </section>
 
   <section class="step" data-id="sundarbans">
@@ -113,6 +132,13 @@
     <p class="src">Delta water levels rose 3 mm/yr 1968–2012; 85–140 cm expected by 2100 (Becker et al. 2020). SRTM understates exposure 5–10× against CoastalDEM (Kulp &amp; Strauss 2019).</p>
   </section>
 
+  <section class="step" data-id="sealevel" data-needs="sea">
+    <div class="n"></div>
+    <h2>Every gauge points up</h2>
+    <div class="fig" id="chSea"></div>
+    <p class="src" id="srcSea"></p>
+  </section>
+
   <section class="step" data-id="warming" data-needs="climate">
     <div class="n"></div>
     <h2>Warmer every decade</h2>
@@ -125,13 +151,6 @@
     <h2>Four months of rain</h2>
     <div class="fig" id="chRain"></div>
     <p class="src" id="srcRain"></p>
-  </section>
-
-  <section class="step" data-id="sealevel" data-needs="sea">
-    <div class="n"></div>
-    <h2>Every gauge points up</h2>
-    <div class="fig" id="chSea"></div>
-    <p class="src" id="srcSea"></p>
   </section>
 
   <section class="step" data-id="storms">
@@ -148,13 +167,6 @@
     <h2>The storms did not weaken. <em>The dying stopped.</em></h2>
     <div class="fig" id="chDeaths"></div>
     <p class="src">Official tolls (IMD, GoB, GFDRR); shelters from CPP and IFRC.</p>
-  </section>
-
-  <section class="step" data-id="floods">
-    <div class="n"></div>
-    <h2>A fifth of the country floods every year</h2>
-    <div class="fig" id="chFloods"></div>
-    <p class="src">BUET satellite series; normal year Dewan et al. 2003. Tinted: land under 8 m.</p>
   </section>
 
   <section class="step" data-id="people">
@@ -180,7 +192,7 @@
 
   <section class="step tail" data-id="plan">
     <h3>How this was made</h3>
-    <p>One 1024 × 1148 grid at 0.7 km a texel. Relief: SRTM 90 m v4.1 inside Bangladesh, ETOPO5 around it, lit in a custom WebGL shader. Ground colour: ESA WorldCover 2021. Water: WorldCover, WFP/LGED river polygons, OSM 2017. Rivers: HydroRIVERS v1.0 and Global Map lines. Forest loss: Hansen GFC 2001–2023. Storms: IBTrACS v04r01; the wind animation is a Rankine vortex on each storm's recorded position and maximum wind. Districts: <span id="srcDistricts">BBS boundaries</span>. People: GPW v4 2015. Climate: <span id="srcClimate">see each chapter</span>. Every number has a source in <code>notes/facts.csv</code>.</p>
+    <p>One 1024 × 1148 grid at 0.7 km a texel. Relief: SRTM 90 m v4.1 inside Bangladesh, ETOPO5 around it, lit in a custom WebGL shader. Ground colour: ESA WorldCover 2021. Water: WorldCover, WFP/LGED river polygons, OSM 2017. Rivers: HydroRIVERS v1.0 and Global Map lines. Forest loss: Hansen GFC 2001–2023. Storms: IBTrACS v04r01; the wind animation is a Rankine vortex on each storm's recorded position and maximum wind. The cut: the same SRTM grid, sliced on world position in the shader, with a wall on a square-root height scale. Districts: <span id="srcDistricts">BBS boundaries</span>. People: GPW v4 2015. Climate: <span id="srcClimate">see each chapter</span>. Every number has a source in <code>notes/facts.csv</code>. Colours: Solarized (Schoonover). Type: Newsreader, IBM Plex.</p>
     <p>Limits: SRTM reads canopy and roofs as ground; the low-lying shares are floors. River polygons are one epoch of a braided system. Protected-area boundaries were not available on any open host, so forests are shown as the satellite sees them. The wind field is a textbook vortex, not a reanalysis. Vertical exaggeration is a reading aid.</p>
     <p>Independent project by Abid Hasan, Dhaka, 2026. Not affiliated with any agency named. Code and data on <a href="https://github.com/ahasan722/poli-delta">GitHub</a>, CC BY 4.0; datasets keep their own licences.</p>
   </section>

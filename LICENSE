@@ -23,3 +23,5 @@ Third-party data and libraries keep their own terms:
 - Disaster impacts (raw/disasters_emdat_bgd): EM-DAT, CRED / UCLouvain, Brussels, public table, non-commercial use with citation; only the Bangladesh extract is kept
 - ERA-Interim 850 hPa winds (raw/wind_erainterim_850hpa_jan_jul): ECMWF, via pydata/xarray-data, not used by the page
 - three.js (lib/): MIT; d3 (lib/): ISC; Newsreader, IBM Plex Sans, IBM Plex Mono (assets/fonts): SIL OFL 1.1
+
+Colours: Solarized (Ethan Schoonover), MIT licence.

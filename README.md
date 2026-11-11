@@ -1,6 +1,6 @@
 # Poli (পলি): the country the rivers built
 
-A 3D relief story about the Ganges-Brahmaputra-Meghna delta, built as a website rather than a scroll of text. The relief fills the left of the screen; a reading panel on the right carries nineteen short chapters, one claim and one figure each. Nothing is ever drawn over the country except a column of chapter dots and a legend in the corners.
+A 3D relief story about the Ganges-Brahmaputra-Meghna delta, built as a website rather than a scroll of text. The relief fills the left of the screen with the chapter list on its left edge; a reading panel on the right carries twenty-one short chapters, one claim and one figure each. The camera fits every chapter to the screen that is actually there, so the country is never cut off on a laptop or a wide monitor. Palette: Solarized Dark (Schoonover), a named colour system rather than a template. Type: Newsreader, IBM Plex Sans, IBM Plex Mono.
 
 Live page: https://ahasan722.github.io/poli-delta/
 
@@ -8,11 +8,13 @@ Live page: https://ahasan722.github.io/poli-delta/
 
 **Click any district** and its profile opens above the story: census population and density, how much of it lies under 5 and 10 m, how many people live on that land, what covers it, every cyclone that passed within 50 km since 1960, hill-forest loss where there is any, the named rivers that cross it. The district stays lit and the rest of the country steps back.
 
+**Cut the country open**: the chapter *A cut through the delta* slices the terrain along a line of latitude and sweeps it north; the cut face stands as a wall on a square-root height scale (the same scale as the live profile chart beside it), with contour lines every 5 m on the plain and 50 m in the hills. Drag the latitude slider to stop and move the cut.
+
 **Pick any storm** (a chip in the cyclone chapter, or a track on the relief) and it plays: a wind field of a few thousand streaks spins around the storm as it moves along its IBTrACS track, the ribbon draws behind it, and the card shows EM-DAT deaths, people affected and damage, the surge, the landfall, and the wind hour by hour with a marker that follows the animation.
 
 ## Chapters
 
-The ground (WorldCover), how low it lies, the rim, every river, the silt running out, Sundarbans, the haors, hill forest going, the ground going down, raise the sea (a slider), warmer every decade, four months of rain, every tide gauge points up, cyclones since 1960 (the wind animation), the storms did not weaken but the dying stopped, floods, people, displaced, the plan.
+The ground: what grows on the mud, how low it lies, the rim of hills, a cut through the delta. Water: every river (the network pulses downstream), the silt runs out, a fifth floods every year. Forest and wetland: Sundarbans, the haors, hill forest going. Sea: the ground goes down, raise the sea (a slider), every gauge points up. Climate: warmer every decade, four months of rain. Storms: cyclones since 1960 (the wind animation), the dying stopped. People: on the low land, displaced, the river can raise it.
 
 ## What is in it
 
@@ -40,11 +42,11 @@ Numbers computed from the files in `raw/`, not quoted: 39.6 % of land at or belo
 
 ```
 index.html, css/, js/, lib/, assets/   the page: vanilla JS, three.js 0.170, d3 7, Newsreader + IBM Plex (OFL); no build step
-  js/terrain.js                        the relief shader (height, cover, water, highlights, district pick)
+  js/terrain.js                        the relief shader (height, cover, water, highlights, district pick, the cut) and the cut wall
   js/layers.js                         storms, rivers, population, outlines, district lines, station columns, labels
   js/wind.js                           the particle wind field and the storm player
   js/story.js                          the chapters: camera, uniforms, layer opacities
-  js/main.js                           scroll, rail, legend, picking, storm selection, frame loop
+  js/main.js                           scroll, chapter list, camera fitting, legend, picking, storm selection, the slice, frame loop
   js/charts.js, js/cards.js            the chapter figures; the district and storm cards
 data/                                  what the page reads (height, mask, cover, pop, district_id PNGs; rivers, storms,
                                        districts, climate, sealevel, cyclones_impact, exposure JSON; outlines GeoJSON)
@@ -80,7 +82,7 @@ Publish: push to `main`, Settings → Pages → branch `main`, folder `/ (root)`
 
 The relief is one `PlaneGeometry`. A custom `ShaderMaterial` decodes height from the terrain-RGB texture in the vertex shader, displaces the vertex, and builds a normal from the four neighbouring texels, so changing the exaggeration is a uniform, not a geometry rebuild. The fragment shader samples the cover, water, and district-id textures per pixel (so coasts and creeks stay sharp at any mesh density) and does the rest: the WorldCover palette or a silt ramp, per-class highlights, the Hansen loss share in red, a sea-level uniform that drowns everything at or below it, the low-plain tint, the picked district kept lit while the rest dims.
 
-Picking is a ray against the ground plane, refined twice against the sampled height, then a lookup in the district-id raster; no raycast against the mesh. Rivers are additive `LineSegments` coloured by log discharge. Storm tracks are ribbon meshes; the selected one is revealed with `drawRange` as the vortex advances. The wind is a few thousand particles, each drawn as a six-point streak from a ring buffer of its last positions, advected by a Rankine vortex (linear to the radius of maximum wind, decaying as r^-0.62 beyond, with a small inflow) placed at the interpolated IBTrACS fix, plus a faint drift so the Bay is never still. Labels are canvas sprites rescaled every frame to a constant screen size. Chapters are plain objects in `js/story.js`; an `IntersectionObserver` on the panel tweens between them, and the rail and legend follow.
+The camera is never hand-placed: each chapter names a box of ground, a tilt and a bearing, and `fitView` projects the box's corners through a probe camera (with a view offset for the chapter list) until they sit inside the padded frame; on resize the fit is redone. The cut is a `discard` in the fragment shader on world z, with a wall mesh rebuilt in place along the line (one column per texel) whose height is the square root of the DEM height. Picking is a ray against the ground plane, refined twice against the sampled height, then a lookup in the district-id raster; no raycast against the mesh. Rivers are additive `LineSegments` coloured by log discharge. Storm tracks are ribbon meshes; the selected one is revealed with `drawRange` as the vortex advances. Rivers carry a per-vertex distance along the reach, and a line shader moves a pulse down it. The wind is a few thousand particles, each drawn as a six-point streak from a ring buffer of its last positions, advected by a Rankine vortex (linear to the radius of maximum wind, decaying as r^-0.62 beyond, with a small inflow) placed at the interpolated IBTrACS fix, plus a faint drift so the Bay is never still. Labels are canvas sprites rescaled every frame to a constant screen size. Chapters are plain objects in `js/story.js`; an `IntersectionObserver` on the panel tweens between them, and the rail and legend follow.
 
 ## Limits
 
