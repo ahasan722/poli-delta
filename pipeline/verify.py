@@ -20,7 +20,8 @@ async def main():
         check(await pg.evaluate("document.body.classList.contains('ready')"), "scene booted")
         ids = await pg.evaluate("[...document.querySelectorAll('.step:not(.tail)')].map(s => s.dataset.id)")
         check(len(ids) >= 19, f"{len(ids)} chapters: {' '.join(ids)}")
-        rail = await pg.evaluate("document.querySelectorAll('#rail a').length"); check(rail == len(ids), f"rail has {rail} dots")
+        rail = await pg.evaluate("document.querySelectorAll('#rail a').length"); check(rail == len(ids), f"chapter list has {rail} entries")
+        vis = await pg.evaluate("(() => { const r = document.querySelector('#rail a').getBoundingClientRect(); return r.width > 100 && r.left >= 0 && getComputedStyle(document.getElementById('contents')).transform === 'none'; })()"); check(vis, "chapter list visible on a 1440 px screen")
         fonts = await pg.evaluate("document.fonts.check('16px Newsreader') && document.fonts.check('16px \"IBM Plex Sans\"') && document.fonts.check('16px \"IBM Plex Mono\"')"); check(fonts, "Newsreader, IBM Plex Sans and Mono loaded")
         scroll = "(id) => { const el = [...document.querySelectorAll('.step')].find(s => s.dataset.id === id); const p = document.getElementById('panel'); p.scrollTo({ top: el.offsetTop - p.clientHeight * 0.2 }); }"
         for cid in ids:
@@ -28,6 +29,19 @@ async def main():
             ch = await pg.evaluate("window.__poli.state.chapter"); leg = await pg.evaluate("document.getElementById('legend').textContent.length")
             on = await pg.evaluate("[...document.querySelectorAll('#rail a.on')].map(a => a.dataset.id)")
             check(ch == cid and on == [cid], f"chapter {cid} active (got {ch}, rail {on}), legend {leg} chars")
+            fr = await pg.evaluate("""(() => { const P = window.__poli; const v = P.state.view; if (!v) return null; const KLAT = 111.32, KLON = 111.32 * Math.cos(23.4 * Math.PI / 180);
+              const toS = (lon, lat) => ({ x: (lon - 90.0) * KLON, z: -(lat - 23.4) * KLAT }); let worst = 0; const nav = innerWidth > 1380 ? 232 : 0; const w = document.getElementById('stage').clientWidth;
+              for (const lon of [v.box[0], v.box[2]]) for (const lat of [v.box[1], v.box[3]]) { const p = toS(lon, lat); const q = P.camera.constructor === Object ? null : (() => { const V = new (P.camera.position.constructor)(p.x, 0, p.z); V.project(P.camera); return V; })();
+                const px = (q.x + 1) / 2 * w; const py = (1 - q.y) / 2 * document.getElementById('stage').clientHeight; if (px < nav - 2 || px > w + 2 || py < -2 || py > document.getElementById('stage').clientHeight + 2) worst = Math.max(worst, 1); }
+              return worst; })()""")
+            check(fr == 0, f"  {cid}: framed box stays inside the visible stage")
+        # slice chapter
+        await pg.evaluate(f"({scroll})('slice')"); await pg.wait_for_timeout(3000)
+        cut = await pg.evaluate("window.__poli.terrain.uniforms.uCutOn.value"); prof = await pg.evaluate("document.querySelectorAll('#chProfile svg path').length")
+        lat0 = await pg.evaluate("window.__poli.state.slice.lat")
+        await pg.evaluate("const r = document.getElementById('sliceRange'); r.value = 24.5; r.dispatchEvent(new Event('input', { bubbles: true }))"); await pg.wait_for_timeout(800)
+        lat1 = await pg.evaluate("window.__poli.state.slice.lat"); mx = await pg.evaluate("document.getElementById('sliceMax').textContent")
+        check(cut == 1 and prof >= 2 and abs(lat1 - 24.5) < 0.01 and mx not in ("…", ""), f"slice: cut on, profile drawn, slider moves the cut to {lat1} (highest {mx} m)")
         # sea slider
         await pg.evaluate(f"({scroll})('rise')"); await pg.wait_for_timeout(2600)
         before = await pg.evaluate("document.getElementById('seaPeople').textContent")
@@ -37,7 +51,7 @@ async def main():
         await pg.evaluate("const r = document.getElementById('exagRange'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles: true }))"); await pg.wait_for_timeout(600)
         ex = await pg.evaluate("window.__poli.terrain.uniforms.uExag.value"); check(abs(ex - 30) < 0.5, f"relief slider sets uExag {ex:.1f}")
         await pg.click("#freeBtn"); await pg.wait_for_timeout(300); check(await pg.evaluate("window.__poli.state.free") is True, "Explore toggles free mode"); await pg.click("#freeBtn"); await pg.wait_for_timeout(300)
-        for cid in ["chCover", "chSediment", "chLoss", "chSubsidence", "chExposure", "chDeaths", "chFloods", "chTemp", "chRain", "chSea"]:
+        for cid in ["chCover", "chSediment", "chLoss", "chSubsidence", "chExposure", "chDeaths", "chFloods", "chTemp", "chRain", "chSea", "chProfile"]:
             k = await pg.evaluate(f"document.querySelectorAll('#{cid} svg *').length"); check(k > 10, f"chart {cid}: {k} svg nodes")
         for nid in ["numLow10", "numLow5", "numPeople10", "numStorms", "numSund", "numHak", "numTan"]:
             t = await pg.evaluate(f"document.getElementById('{nid}').textContent"); check(t not in ("…", ""), f"number {nid} = {t}")
@@ -69,7 +83,7 @@ async def main():
         m = await b.new_page(viewport={"width": 390, "height": 760}); merr = []; m.on("pageerror", lambda e: merr.append(str(e)))
         await m.goto(URL + "?lod=low"); await m.wait_for_timeout(8000)
         sw = await m.evaluate("document.documentElement.scrollWidth"); check(sw <= 390, f"phone: scrollWidth {sw}")
-        check(await m.evaluate("getComputedStyle(document.getElementById('rail')).display") == "none", "phone: rail hidden")
+        check(await m.evaluate("document.getElementById('contents').getBoundingClientRect().right <= 0"), "phone: chapter list folded away")
         await m.evaluate("(() => { const el = [...document.querySelectorAll('.step')].find(s => s.dataset.id === 'sundarbans'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - innerHeight * 0.5 }); })()"); await m.wait_for_timeout(2500)
         check(await m.evaluate("window.__poli.state.chapter") == "sundarbans", "phone: sundarbans reached"); check(not merr, f"phone errors {merr[:1]}")
         await b.close()
