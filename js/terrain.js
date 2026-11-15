@@ -85,11 +85,11 @@ const frag = /* glsl */`
   varying float vFade;
   // palette: night delta. silt, not grass.
   vec3 ramp(float h){
-    vec3 c0 = vec3(0.16, 0.14, 0.12);   // 0 m   wet silt
-    vec3 c1 = vec3(0.30, 0.25, 0.19);   // 8 m   dry silt
-    vec3 c2 = vec3(0.42, 0.36, 0.26);   // 30 m  terrace
-    vec3 c3 = vec3(0.36, 0.33, 0.30);   // 150 m hills
-    vec3 c4 = vec3(0.46, 0.43, 0.40);   // 600 m+
+    vec3 c0 = vec3(0.62, 0.60, 0.55);   // 0 m   wet silt (v5: a daylight ramp for the white page)
+    vec3 c1 = vec3(0.72, 0.69, 0.61);   // 8 m   dry silt
+    vec3 c2 = vec3(0.78, 0.74, 0.64);   // 30 m  terrace
+    vec3 c3 = vec3(0.70, 0.70, 0.66);   // 150 m hills
+    vec3 c4 = vec3(0.82, 0.82, 0.80);   // 600 m+
     if (h < 8.0)   return mix(c0, c1, clamp(h / 8.0, 0.0, 1.0));
     if (h < 30.0)  return mix(c1, c2, (h - 8.0) / 22.0);
     if (h < 150.0) return mix(c2, c3, (h - 30.0) / 120.0);
@@ -129,25 +129,25 @@ const frag = /* glsl */`
     float lossFrac = vCover.g;                        // share of the texel that lost canopy 2001-2023
     if (uLoss > 0.0 && lossFrac > 0.02) col = mix(col, vec3(0.95, 0.30, 0.16), uLoss * min(1.0, lossFrac * 2.2));
     // the far field: a dim hint of India and Myanmar so the delta has a frame
-    col = mix(col * 0.28, col, inside);
+    col = mix(mix(uBg, col, 0.42), col, inside);          // outside Bangladesh: a pale frame, not a dark one
     col = mix(uBg, col, max(inside, uFar * vFade));
     // low plain tint (the "mud" chapter)
     if (uLowBand > 0.0 && inside > 0.5 && vH <= uLowBand) {
       float t = 1.0 - clamp(vH / uLowBand, 0.0, 1.0);
-      col = mix(col, vec3(0.78, 0.52, 0.22), 0.25 + 0.45 * t);
+      col = mix(col, vec3(0.90, 0.62, 0.0), 0.35 + 0.5 * t);   // Okabe-Ito orange
     }
     // rivers: dark water with a faint glow, the glow is a chapter uniform
-    vec3 riverCol = mix(vec3(0.05, 0.08, 0.11), vec3(0.27, 0.58, 0.70), uRiverGlow);
+    vec3 riverCol = mix(vec3(0.55, 0.66, 0.74), vec3(0.20, 0.47, 0.70), uRiverGlow);
     col = mix(col, riverCol, water * (1.0 - sea) * inside);
     // sea and the estuary: deep, with a slow shimmer
     float shimmer = 0.5 + 0.5 * sin(uTime * 0.6 + vUv.x * 90.0 + vUv.y * 60.0);
-    vec3 seaCol = uBg * (0.78 + 0.06 * shimmer);          // the Bay is the page's own colour, so the grid has no edge
+    vec3 seaCol = mix(uBg, vec3(0.80, 0.86, 0.90), 0.55 + 0.08 * shimmer);   // the Bay: a cool tint of the page, so the grid has no edge
     col = mix(col, mix(uBg, seaCol, vFade), sea);
-    col = mix(col, seaCol * 1.3, water * (1.0 - inside) * (1.0 - sea));
+    col = mix(col, vec3(0.70, 0.79, 0.86), water * (1.0 - inside) * (1.0 - sea));
     // sea-level rise: drown land at or below the level, with a thin bright shoreline
     if (uSeaLevel > 0.0 && inside > 0.5 && vH <= uSeaLevel && water < 0.5) {
       float depth = clamp((uSeaLevel - vH) / 2.0, 0.0, 1.0);
-      vec3 flood = mix(vec3(0.75, 0.30, 0.16), vec3(0.18, 0.09, 0.08), depth);
+      vec3 flood = mix(vec3(0.34, 0.71, 0.91), vec3(0.0, 0.45, 0.70), depth);   // Okabe-Ito sky blue to blue: the sea taking the land
       col = mix(col, flood, 0.85);
     }
     // district picking: the chosen one keeps its light, everything else steps back
@@ -168,7 +168,7 @@ export function buildTerrain(textures, segX = 639) {
     uCover: { value: textures.cover }, uCoverRGB: { value: textures.coverRGB }, uDistrict: { value: textures.district }, uPick: { value: 0 }, uHover: { value: 0 },
     uExag: { value: 12.0 }, uSink: { value: 0.0 }, uSeaLevel: { value: 0.0 }, uRiverGlow: { value: 0.35 },
     uFar: { value: 0.6 }, uLowBand: { value: 0.0 }, uCoverMix: { value: 1.0 }, uForest: { value: 0.0 }, uWet: { value: 0.0 }, uBuilt: { value: 0.0 }, uLoss: { value: 0.0 },
-    uSun: { value: new THREE.Vector3(-0.6, 0.8, 0.5) }, uTime: { value: 0 }, uCutOn: { value: 0 }, uCut: { value: 0 }, uBg: { value: new THREE.Vector3(0, 43 / 255, 54 / 255) }
+    uSun: { value: new THREE.Vector3(-0.6, 0.8, 0.5) }, uTime: { value: 0 }, uCutOn: { value: 0 }, uCut: { value: 0 }, uBg: { value: new THREE.Vector3(0.945, 0.953, 0.961) }
   };
   const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: vert, fragmentShader: frag });
   const mesh = new THREE.Mesh(geo, mat);

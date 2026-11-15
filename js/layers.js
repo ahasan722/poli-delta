@@ -10,7 +10,7 @@ export function buildStorms(storms, sampleH, exag) {
   // each track becomes a flat ribbon lying a little above the ground; width and height follow the wind,
   // so a depression is a thread and a super-cyclone is a road. Additive blending makes crossings glow.
   const group = new THREE.Group(); group.name = "storms";
-  const windCol = kt => kt >= 96 ? [1.0, 0.36, 0.22] : kt >= 64 ? [1.0, 0.6, 0.25] : kt >= 34 ? [0.95, 0.77, 0.36] : [0.6, 0.64, 0.68];
+  const windCol = kt => kt >= 96 ? [0.84, 0.37, 0.0] : kt >= 64 ? [0.90, 0.62, 0.0] : kt >= 34 ? [0.0, 0.45, 0.70] : [0.55, 0.60, 0.66];   // Okabe-Ito vermillion, orange, blue
   for (const s of storms) {
     const pts = [], fixIndex = [];
     s.pts.forEach(([lon, lat, w], j) => {
@@ -25,7 +25,7 @@ export function buildStorms(storms, sampleH, exag) {
       const dir = new THREE.Vector3().subVectors(b, a); dir.y = 0; dir.normalize();
       const nrm = new THREE.Vector3(-dir.z, 0, dir.x);
       const half = 0.7 + (pts[i].w / 150) * 2.2;        // km
-      const c = windCol(pts[i].w); const P = pts[i].p;
+      const c = windCol(pts[i].w).map(v => Math.pow(v, 2.2)); const P = pts[i].p;   // vertex colours are linear; the page is sRGB
       pos.push(P.x + nrm.x * half, P.y, P.z + nrm.z * half, P.x - nrm.x * half, P.y, P.z - nrm.z * half);
       col.push(...c, ...c);
       if (i > 0) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
@@ -33,15 +33,15 @@ export function buildStorms(storms, sampleH, exag) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx);
-    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
     const ribbon = new THREE.Mesh(geo, mat); ribbon.userData = { ...s, fixIndex, isRibbon: true }; ribbon.name = s.sid; group.add(ribbon);
     if (s.note) {
       // a ring where the track first crosses 21.5 N heading for the coast
       const lf = pts.find(q => q.p.z < toScene(0, 21.5).z) || pts[pts.length - 1];
       const ringGeo = new THREE.RingGeometry(9, 12, 40); ringGeo.rotateX(-Math.PI / 2);
-      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xd55e00, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
       ring.position.copy(lf.p); ring.position.y = 3; ring.name = "ring-" + s.sid; ring.userData = s; group.add(ring);
-      const lab = makeLabel(`${s.note.label} ${s.note.year}`, { size: 14, color: "#ffd27a", weight: 700 }); lab.position.copy(ring.position); lab.position.y += 14; lab.name = "lab-" + s.sid; lab.userData = { ...s, base: lab.userData.base, isStormLabel: true }; group.add(lab);
+      const lab = makeLabel(`${s.note.label} ${s.note.year}`, { size: 14, color: "#a3400a", weight: 700 }); lab.position.copy(ring.position); lab.position.y += 14; lab.name = "lab-" + s.sid; lab.userData = { ...s, base: lab.userData.base, isStormLabel: true }; group.add(lab);
     }
   }
   return group;
@@ -89,20 +89,21 @@ export function buildFarRivers(geojson, sampleH, exag) {
     for (const ln of lines) {
       const pts = ln.map(([lon, lat]) => { const p = toScene(lon, lat); p.y = km(Math.max(sampleH(lon, lat), -60), exag) + 0.5; return p; });
       if (pts.length < 2) continue;
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2c5a70, transparent: true, opacity: 0.55 })));
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x7fa3bb, transparent: true, opacity: 0.55 })));
     }
   }
   return group;
 }
 
 // ---- place labels as sprites -----------------------------------------------------------------
-export function makeLabel(text, { size = 22, color = "#efe9dc", weight = 600 } = {}) {
+export function makeLabel(text, { size = 22, color = "#1f2933", weight = 600, halo = "#ffffff" } = {}) {
   const pad = 8, c = document.createElement("canvas"), ctx = c.getContext("2d");
   ctx.font = `${weight} ${size}px "IBM Plex Sans", sans-serif`;
   const w = Math.ceil(ctx.measureText(text).width) + pad * 2, h = size + pad * 2;
   c.width = w * 2; c.height = h * 2; ctx.scale(2, 2);
   ctx.font = `${weight} ${size}px "IBM Plex Sans", sans-serif`; ctx.textBaseline = "middle";
-  ctx.shadowColor = "rgba(0,0,0,.9)"; ctx.shadowBlur = 6; ctx.fillStyle = color; ctx.fillText(text, pad, h / 2);
+  // a solid halo keeps the label legible on any ground colour
+  ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = halo; ctx.strokeText(text, pad, h / 2); ctx.fillStyle = color; ctx.fillText(text, pad, h / 2);
   const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
   sp.scale.set(w * 0.42, h * 0.42, 1); sp.userData.base = { w: w * 0.42, h: h * 0.42 };
@@ -123,10 +124,10 @@ export function buildRivers(rivers, sampleH, exag) {
   const lift = (lon, lat) => km(Math.max(sampleH(lon, lat), -60), exag) + 0.6;
   // a line shader with a pulse that travels along each reach, so the network reads as flowing
   const flowMat = () => new THREE.ShaderMaterial({
-    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uFlow: { value: 1 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true,
+    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uFlow: { value: 1 } }, transparent: true, depthWrite: false, vertexColors: true,
     vertexShader: `attribute float aAlong; varying vec3 vC; varying float vA; void main(){ vC = color; vA = aAlong; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform float uOpacity; uniform float uTime; uniform float uFlow; varying vec3 vC; varying float vA;
-      void main(){ float w = 0.5 + 0.5 * sin(vA * 0.45 - uTime * 2.6); float pulse = mix(1.0, 0.7 + 0.9 * pow(w, 4.0), uFlow); gl_FragColor = vec4(vC * pulse, uOpacity); }`
+      void main(){ float w = 0.5 + 0.5 * sin(vA * 0.45 - uTime * 2.6); float pulse = pow(w, 4.0) * uFlow; gl_FragColor = vec4(mix(vC, vC * 0.45, pulse), uOpacity * (0.75 + 0.25 * pulse)); }`
   });
   const seg = (lines, colorFn, opacity, name) => {
     const pos = [], col = [], along = [];
@@ -144,9 +145,9 @@ export function buildRivers(rivers, sampleH, exag) {
     const m = new THREE.LineSegments(geo, flowMat()); m.name = name; m.material.opacity = opacity; return m;
   };
   // discharge: 150 m3/s is a thread, 40,000 is the Padma; log scale into brightness
-  const disCol = l => { const t = Math.min(1, Math.max(0, (Math.log10(l.dis) - 2.1) / 2.5)); return [0.20 + 0.35 * t, 0.45 + 0.35 * t, 0.55 + 0.35 * t]; };
+  const disCol = l => { const t = Math.min(1, Math.max(0, (Math.log10(l.dis) - 2.1) / 2.5)); return [0.34 - 0.34 * t, 0.62 - 0.17 * t, 0.86 - 0.16 * t]; };   // sky blue to Okabe-Ito blue with discharge
   group.add(seg(rivers.major, disCol, 0.0, "major"));
-  group.add(seg(rivers.minor, () => [0.18, 0.32, 0.40], 0.0, "minor"));
+  group.add(seg(rivers.minor, () => [0.45, 0.62, 0.74], 0.0, "minor"));
   // one label per named river, on the reach nearest the middle of all its reaches (inside Bangladesh), so
   // the Meghna is not labelled on top of the Lower Meghna and the Brahmaputra not in Assam
   const byName = {};
@@ -190,7 +191,7 @@ export function buildDistricts(geojson, sampleH, exag) {
       pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
     }
     const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    const line = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xf2c35a, transparent: true, opacity: 0, depthWrite: false }));
+    const line = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x111827, transparent: true, opacity: 0, depthWrite: false }));
     line.name = "d-" + f.properties.id; line.userData = { id: f.properties.id, name: f.properties.name }; group.add(line);
   }
   return group;
@@ -211,5 +212,32 @@ export function buildGauges(climate, sea, sampleH, exag) {
     if (st.rain_mm != null) add(st, "rain", 0x5fa8c2, st.rain_mm / 60, `${st.name} ${Math.round(st.rain_mm / 100) / 10} m`);
   }
   if (sea && sea.gauges) for (const g of sea.gauges) if (g.lon != null) add(g, "tide", 0x7fd8d2, Math.max(4, (g.trend_mm_yr || 0) * 3), `${g.name} ${g.trend_mm_yr > 0 ? "+" : ""}${(g.trend_mm_yr || 0).toFixed(1)} mm/yr`);
+  return group;
+}
+
+// ---- district columns: each district extruded from its own outline, height = a value, colour = a class ------
+// The shape is drawn in the XY plane with y = -z so that, after rotating the mesh -90 degrees about X,
+// the outline lies on the ground and the extrusion points up (+y). Height is the mesh's scale.y.
+export function buildPrisms(geojson, valueOf, colourOf, kmPerUnit) {
+  const group = new THREE.Group(); group.name = "prisms";
+  for (const f of geojson.features) {
+    const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+    const shapes = [];
+    for (const poly of polys) {
+      const ring = poly[0]; if (ring.length < 4) continue;
+      const pts = ring.map(([lon, lat]) => { const p = toScene(lon, lat); return new THREE.Vector2(p.x, -p.z); });
+      const sh = new THREE.Shape(pts);
+      for (const hole of poly.slice(1)) sh.holes.push(new THREE.Path(hole.map(([lon, lat]) => { const p = toScene(lon, lat); return new THREE.Vector2(p.x, -p.z); })));
+      shapes.push(sh);
+    }
+    if (!shapes.length) continue;
+    const geo = new THREE.ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false });
+    geo.rotateX(-Math.PI / 2);
+    const v = valueOf(f.properties.id);
+    const mat = new THREE.MeshLambertMaterial({ color: colourOf(f.properties.id), transparent: true, opacity: 0, depthWrite: true });
+    const m = new THREE.Mesh(geo, mat); m.name = "p-" + f.properties.id;
+    m.userData = { id: f.properties.id, name: f.properties.name, h: Math.max(0.15, v * kmPerUnit) };
+    m.scale.y = 0.001; m.position.y = 0.3; group.add(m);
+  }
   return group;
 }
