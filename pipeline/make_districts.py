@@ -60,7 +60,7 @@ for r in d.itertuples():
     area = float(A[sel].sum()); land_area = float(A[land].sum())
     hh = H[land]; aa = A[land]
     share5 = float(aa[hh <= 5].sum() / land_area) if land_area else 0; share10 = float(aa[hh <= 10].sum() / land_area) if land_area else 0
-    pop = int(POP[sel].sum()); pop10 = int(POP[sel & (H <= 10)].sum())
+    pop = int(POP[sel].sum()); pop10 = int(POP[sel & (H <= 10)].sum()); pop5 = int(POP[sel & (H <= 5)].sum()); pop2 = int(POP[sel & (H <= 2)].sum())
     cls = CLS[sel2]; a2 = A2[sel2]; tot2 = a2.sum() or 1; wm = (cls == 80) | CW[sel2]
     cover = {k: round(float(a2[np.isin(cls, v) & ~wm].sum() / tot2 * 100), 1) for k, v in
              {"cropland": [40], "tree cover": [10], "mangroves": [95], "wetland": [90], "built-up": [50]}.items()}
@@ -82,10 +82,10 @@ for r in d.itertuples():
     rivers_in = [n for n, _ in sorted(riv.items(), key=lambda x: -x[1])]
     cen = geom.representative_point(); b = geom.bounds
     profiles.append({"id": int(r.id), "name": r.name, "division": r.division, "pcode": r.pcode, "area_km2": round(area), "land_km2": round(land_area),
-                     "pop_gpw2015": pop, "pop_census2022": int(r.pop2022), "pop_le10": pop10, "share_le5": round(share5 * 100, 1), "share_le10": round(share10 * 100, 1),
+                     "pop_gpw2015": pop, "pop_census2022": int(r.pop2022), "pop_le10": pop10, "pop_le5": pop5, "pop_le2": pop2, "share_le5": round(share5 * 100, 1), "share_le10": round(share10 * 100, 1),
                      "h_max": int(hh.max()) if hh.size else 0, "h_mean": round(float(hh.mean()), 1) if hh.size else 0,
                      "cover": cover, "loss_km2": round(loss_km2, 1) if (loss_km2 > 1 and r.name in ("Bandarban", "Rangamati", "Khagrachhari")) else 0,   # the Hansen clip covers the three hill districts only
-                     "storms": {"n": len(hits), "strongest": strongest, "hits": [[x["year"], x["kt"], x["name"], x["sid"]] for x in hits]},
+                     "severe": sum(1 for x in hits if x["kt"] >= 64), "storms": {"n": len(hits), "strongest": strongest, "hits": [[x["year"], x["kt"], x["name"], x["sid"]] for x in hits]},
                      "rivers": rivers_in[:8], "centroid": [round(cen.x, 3), round(cen.y, 3)], "bbox": [round(v, 3) for v in b],
                      "coastal": bool(geom.distance(Point(cen.x, 21.0)) < 0 or b[1] < 22.6)})
 

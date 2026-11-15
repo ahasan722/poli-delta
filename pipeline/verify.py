@@ -1,12 +1,10 @@
-"""functional walk of the page in headless Chromium: python pipeline/verify.py http://localhost:8000/index.html
-Checks every chapter loads without a page error, the rail and legend follow, the sea and relief sliders move their
-uniforms, Explore toggles orbit, every chart draws, a district click opens its profile and highlights it, a storm plays
-with its card and vortex, and a phone-width viewport has no horizontal scroll."""
+"""functional walk of v5 in headless Chromium: python pipeline/verify.py http://localhost:8000/index.html
+Scrolls through every chapter and checks the spine, the panel text, the key and the camera framing; then the
+explore tools (rule switches, ranked list, search, a canvas click, a storm), the keyboard, and a phone viewport."""
 import sys, asyncio
 from playwright.async_api import async_playwright
 URL = sys.argv[1]
 ARGS = ["--no-sandbox", "--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist", "--enable-unsafe-swiftshader"]
-
 async def main():
     fails = []
     def check(ok, msg):
@@ -14,79 +12,75 @@ async def main():
         if not ok: fails.append(msg)
     async with async_playwright() as p:
         b = await p.chromium.launch(args=ARGS)
-        pg = await b.new_page(viewport={"width": 1440, "height": 860}); errs = []; cons = []
+        pg = await b.new_page(viewport={"width": 1440, "height": 860}); errs, cons = [], []
         pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: cons.append(m.text) if m.type == "error" else None)
         await pg.goto(URL + "?lod=low"); await pg.wait_for_timeout(9000)
         check(await pg.evaluate("document.body.classList.contains('ready')"), "scene booted")
-        ids = await pg.evaluate("[...document.querySelectorAll('.step:not(.tail)')].map(s => s.dataset.id)")
-        check(len(ids) >= 19, f"{len(ids)} chapters: {' '.join(ids)}")
-        rail = await pg.evaluate("document.querySelectorAll('#rail a').length"); check(rail == len(ids), f"chapter list has {rail} entries")
-        vis = await pg.evaluate("(() => { const r = document.querySelector('#rail a').getBoundingClientRect(); return r.width > 100 && r.left >= 0 && getComputedStyle(document.getElementById('contents')).transform === 'none'; })()"); check(vis, "chapter list visible on a 1440 px screen")
-        fonts = await pg.evaluate("document.fonts.check('16px Newsreader') && document.fonts.check('16px \"IBM Plex Sans\"') && document.fonts.check('16px \"IBM Plex Mono\"')"); check(fonts, "Newsreader, IBM Plex Sans and Mono loaded")
-        scroll = "(id) => { const el = [...document.querySelectorAll('.step')].find(s => s.dataset.id === id); const p = document.getElementById('panel'); p.scrollTo({ top: el.offsetTop - p.clientHeight * 0.2 }); }"
-        for cid in ids:
-            await pg.evaluate(f"({scroll})('{cid}')"); await pg.wait_for_timeout(2400)
-            ch = await pg.evaluate("window.__poli.state.chapter"); leg = await pg.evaluate("document.getElementById('legend').textContent.length")
-            on = await pg.evaluate("[...document.querySelectorAll('#rail a.on')].map(a => a.dataset.id)")
-            check(ch == cid and on == [cid], f"chapter {cid} active (got {ch}, rail {on}), legend {leg} chars")
-            fr = await pg.evaluate("""(() => { const P = window.__poli; const v = P.state.view; if (!v) return null; const KLAT = 111.32, KLON = 111.32 * Math.cos(23.4 * Math.PI / 180);
-              const toS = (lon, lat) => ({ x: (lon - 90.0) * KLON, z: -(lat - 23.4) * KLAT }); let worst = 0; const nav = innerWidth > 1380 ? 232 : 0; const w = document.getElementById('stage').clientWidth;
-              for (const lon of [v.box[0], v.box[2]]) for (const lat of [v.box[1], v.box[3]]) { const p = toS(lon, lat); const q = P.camera.constructor === Object ? null : (() => { const V = new (P.camera.position.constructor)(p.x, 0, p.z); V.project(P.camera); return V; })();
-                const px = (q.x + 1) / 2 * w; const py = (1 - q.y) / 2 * document.getElementById('stage').clientHeight; if (px < nav - 2 || px > w + 2 || py < -2 || py > document.getElementById('stage').clientHeight + 2) worst = Math.max(worst, 1); }
-              return worst; })()""")
-            check(fr == 0, f"  {cid}: framed box stays inside the visible stage")
-        # slice chapter
-        await pg.evaluate(f"({scroll})('slice')"); await pg.wait_for_timeout(3000)
-        cut = await pg.evaluate("window.__poli.terrain.uniforms.uCutOn.value"); prof = await pg.evaluate("document.querySelectorAll('#chProfile svg path').length")
-        lat0 = await pg.evaluate("window.__poli.state.slice.lat")
-        await pg.evaluate("const r = document.getElementById('sliceRange'); r.value = 24.5; r.dispatchEvent(new Event('input', { bubbles: true }))"); await pg.wait_for_timeout(800)
-        lat1 = await pg.evaluate("window.__poli.state.slice.lat"); mx = await pg.evaluate("document.getElementById('sliceMax').textContent")
-        check(cut == 1 and prof >= 2 and abs(lat1 - 24.5) < 0.01 and mx not in ("…", ""), f"slice: cut on, profile drawn, slider moves the cut to {lat1} (highest {mx} m)")
-        # sea slider
-        await pg.evaluate(f"({scroll})('rise')"); await pg.wait_for_timeout(2600)
-        before = await pg.evaluate("document.getElementById('seaPeople').textContent")
-        await pg.evaluate("const r = document.getElementById('seaRange'); r.value = 4; r.dispatchEvent(new Event('input', { bubbles: true }))"); await pg.wait_for_timeout(1200)
-        after = await pg.evaluate("document.getElementById('seaPeople').textContent"); u = await pg.evaluate("window.__poli.terrain.uniforms.uSeaLevel.value")
-        check(before != after and abs(u - 4) < 0.05, f"sea slider: {before} -> {after}, uSeaLevel {u:.2f}")
-        await pg.evaluate("const r = document.getElementById('exagRange'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles: true }))"); await pg.wait_for_timeout(600)
-        ex = await pg.evaluate("window.__poli.terrain.uniforms.uExag.value"); check(abs(ex - 30) < 0.5, f"relief slider sets uExag {ex:.1f}")
-        await pg.click("#freeBtn"); await pg.wait_for_timeout(300); check(await pg.evaluate("window.__poli.state.free") is True, "Explore toggles free mode"); await pg.click("#freeBtn"); await pg.wait_for_timeout(300)
-        for cid in ["chCover", "chSediment", "chLoss", "chSubsidence", "chExposure", "chDeaths", "chFloods", "chTemp", "chRain", "chSea", "chProfile"]:
-            k = await pg.evaluate(f"document.querySelectorAll('#{cid} svg *').length"); check(k > 10, f"chart {cid}: {k} svg nodes")
-        for nid in ["numLow10", "numLow5", "numPeople10", "numStorms", "numSund", "numHak", "numTan"]:
-            t = await pg.evaluate(f"document.getElementById('{nid}').textContent"); check(t not in ("…", ""), f"number {nid} = {t}")
-        # district: select by id, then by a real click on the canvas
-        await pg.evaluate(f"({scroll})('ground')"); await pg.wait_for_timeout(2400)
-        await pg.evaluate("window.__poli.select(5)"); await pg.wait_for_timeout(1800)
-        name = await pg.evaluate("document.querySelector('#focus h3')?.firstChild?.textContent"); pick = await pg.evaluate("window.__poli.terrain.uniforms.uPick.value")
-        check(name == "Bhola" and pick == 5, f"district profile opens ({name}, uPick {pick})")
-        stats = await pg.evaluate("document.querySelectorAll('#focus .stat').length"); figs = await pg.evaluate("document.querySelectorAll('#focus svg *').length"); check(stats == 6 and figs > 20, f"district card: {stats} stats, {figs} svg nodes")
-        await pg.click("#focus .x"); await pg.wait_for_timeout(800); check(await pg.evaluate("window.__poli.terrain.uniforms.uPick.value") == 0, "close clears the pick")
-        await pg.evaluate(f"({scroll})('ground')"); await pg.wait_for_timeout(2600)
+        n = await pg.evaluate("document.querySelectorAll('#spine a').length"); check(n == 9, f"spine lists {n} chapters, all visible text")
+        fonts = await pg.evaluate("document.fonts.check('16px Newsreader') && document.fonts.check('16px \"IBM Plex Sans\"')"); check(fonts, "Newsreader and IBM Plex loaded, no Open Sans")
+        no_open = await pg.evaluate("![...document.querySelectorAll('*')].some(e => getComputedStyle(e).fontFamily.includes('Open Sans'))"); check(no_open, "no element uses Open Sans")
+        bg = await pg.evaluate("getComputedStyle(document.querySelector('#side')).backgroundColor"); check(bg == "rgb(255, 255, 255)", f"panels are plain white ({bg})")
+        ids = ["cover", "low", "silt", "sink", "sea", "storms", "priority", "raise", "explore"]
+        for i, cid in enumerate(ids):
+            await pg.evaluate(f"scrollTo(0, {i} * innerHeight * 1.4 + innerHeight * 0.7)"); await pg.wait_for_timeout(5000)
+            dom = await pg.evaluate("window.__poli.state.dom"); on = await pg.evaluate("[...document.querySelectorAll('#spine a.on')].map(a => +a.dataset.i)")
+            vis = await pg.evaluate("[...document.querySelectorAll('.cap.vis')].map(c => c.dataset.ch)")
+            panel_ok = (vis == [cid]) if cid != "explore" else await pg.evaluate("!document.getElementById('explorePanel').hidden")
+            check(dom == i and on == [i] and panel_ok, f"chapter {i} {cid}: dominant {dom}, spine {on}, panel {vis if cid != 'explore' else 'explore tools'}")
+        # framing check against the story's own boxes
+        boxes = await pg.evaluate("(async () => (await import('./js/story.js')).CHAPTERS.map(c => c.view.box))()")
+        for i, box in enumerate(boxes[:-1]):
+            await pg.evaluate(f"scrollTo(0, {i} * innerHeight * 1.4 + innerHeight * 0.3)"); await pg.wait_for_timeout(4500)
+            bad = await pg.evaluate("""(() => { const P = window.__poli; const box = %s; const K = 111.32 * Math.cos(23.4 * Math.PI / 180); const st = document.getElementById('stage');
+              let bad = 0; for (const lon of [box[0], box[2]]) for (const lat of [box[1], box[3]]) { const V = new (P.camera.position.constructor)((lon - 90) * K, 0, -(lat - 23.4) * 111.32); V.project(P.camera);
+                const x = (V.x + 1) / 2 * st.clientWidth, y = (1 - V.y) / 2 * st.clientHeight; if (x < -4 || x > st.clientWidth + 4 || y < -4 || y > st.clientHeight + 4) bad++; } return bad; })()""" % box)
+            check(bad == 0, f"  chapter {i}: its ground box stays on screen ({bad} corners off)")
+        # scroll-driven animation: the sea rises and the clock runs as the reader scrolls
+        await pg.evaluate("scrollTo(0, 4 * innerHeight * 1.4 + innerHeight * 0.05)"); await pg.wait_for_timeout(4000); s0 = await pg.evaluate("document.getElementById('seaM').textContent")
+        await pg.evaluate("scrollTo(0, 4 * innerHeight * 1.4 + innerHeight * 0.75)"); await pg.wait_for_timeout(4000); s1 = await pg.evaluate("document.getElementById('seaM').textContent")
+        check(float(s1.split()[0]) > float(s0.split()[0]) + 0.5, f"sea rises with the scroll: {s0} -> {s1}")
+        await pg.evaluate("scrollTo(0, 5 * innerHeight * 1.4 + innerHeight * 0.05)"); await pg.wait_for_timeout(4000); y0 = await pg.evaluate("+document.getElementById('stormY').textContent")
+        await pg.evaluate("scrollTo(0, 5 * innerHeight * 1.4 + innerHeight * 0.75)"); await pg.wait_for_timeout(4000); y1 = await pg.evaluate("+document.getElementById('stormY').textContent")
+        check(y1 > y0 + 20, f"cyclone clock runs with the scroll: {y0} -> {y1}")
+        await pg.evaluate("scrollTo(0, 6 * innerHeight * 1.4 + innerHeight * 0.7)"); await pg.wait_for_timeout(5000)
+        ten = await pg.evaluate("document.querySelectorAll('#chTen text').length"); share = await pg.evaluate("document.getElementById('tenShare').textContent")
+        check(ten >= 30 and share.endswith("%"), f"the ten: chart drawn ({ten} labels), share {share}")
+        # keyboard
+        await pg.keyboard.press("ArrowDown"); await pg.wait_for_timeout(4500); check(await pg.evaluate("window.__poli.state.dom") == 7, "arrow key moves to the next chapter")
+        # explore tools
+        await pg.click("#modeExplore"); await pg.wait_for_timeout(5000)
+        check(await pg.evaluate("window.__poli.state.dom") == 8, "Explore switch jumps to the tools")
+        first = await pg.evaluate("document.querySelector('#rankList li .nm').textContent")
+        await pg.click("#metricSeg button[data-m=severe]"); await pg.wait_for_timeout(800); first2 = await pg.evaluate("document.querySelector('#rankList li .nm').textContent")
+        await pg.click("#sevSeg button[data-s='0']"); await pg.wait_for_timeout(800); n0 = await pg.evaluate("document.querySelectorAll('#rankList li[data-id]').length")
+        check(first == "Satkhira" and first2 in ("Chattogram", "Noakhali") and n0 == 15, f"rule switches re-rank: {first} -> {first2}, list {n0}")
+        await pg.click("#rankList li[data-id]"); await pg.wait_for_timeout(2500)
+        sheet = await pg.evaluate("document.querySelector('#focus h3')?.firstChild?.textContent"); verdict = await pg.evaluate("document.querySelector('#focus .verdict')?.textContent || ''")
+        check(bool(sheet) and len(verdict) > 10, f"list click opens the district sheet: {sheet}: {verdict[:60]}")
+        await pg.click("#focus .back"); await pg.wait_for_timeout(600); check(await pg.evaluate("window.__poli.state.pick") == 0, "back arrow closes the sheet")
+        await pg.fill("#search", "Bhola"); await pg.dispatch_event("#search", "change"); await pg.wait_for_timeout(1500)
+        check(await pg.evaluate("document.querySelector('#focus h3')?.firstChild?.textContent") == "Bhola", "search opens Bhola")
+        await pg.keyboard.press("Escape"); await pg.wait_for_timeout(500)
         box = await pg.evaluate("(() => { const r = document.querySelector('#stage canvas').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()")
-        await pg.mouse.move(box[0] + box[2] * 0.5, box[1] + box[3] * 0.5); await pg.wait_for_timeout(400)
-        hover = await pg.evaluate("window.__poli.terrain.uniforms.uHover.value"); tipShown = await pg.evaluate("getComputedStyle(document.getElementById('tip')).display")
-        await pg.mouse.down(); await pg.mouse.up(); await pg.wait_for_timeout(1500)
-        clicked = await pg.evaluate("window.__poli.terrain.uniforms.uPick.value"); cname = await pg.evaluate("document.querySelector('#focus h3')?.firstChild?.textContent")
-        check(hover > 0 and tipShown == "block" and clicked > 0 and bool(cname), f"canvas hover + click picks a district (hover {hover}, picked {clicked} {cname})")
-        await pg.click("#focus .x"); await pg.wait_for_timeout(600)
-        # storm playback
-        await pg.evaluate("window.__poli.play('2007314N10093')"); await pg.wait_for_timeout(4500)
-        st = await pg.evaluate("({ ch: window.__poli.state.chapter, storm: window.__poli.state.storm, mode: window.__poli.state.mode, card: document.querySelector('#focus h3')?.firstChild?.textContent, tick: document.getElementById('fTick')?.textContent, chips: document.querySelectorAll('#stormChips .chip.on').length })")
-        check(st["ch"] == "storms" and st["storm"] == "2007314N10093" and st["card"] == "Sidr" and st["tick"].startswith("day") and st["chips"] == 1, f"storm plays: {st}")
-        vort = await pg.evaluate("(() => { const sc = window.__poli.terrain.mesh.parent; const w = sc.children.find(c => c.name === 'wind'); return { op: w.material.opacity, n: w.geometry.attributes.position.count }; })()")
-        check(vort["op"] > 0.5 and vort["n"] > 1000, f"wind field visible: {vort}")
-        await pg.click("#stormAll"); await pg.wait_for_timeout(800); check(await pg.evaluate("window.__poli.state.mode") == "all", "back to all storms")
-        fr = await pg.evaluate("window.__poli.state.frames"); print("frames rendered", fr)
+        hitc = False
+        for fx, fy in [(0.45, 0.6), (0.5, 0.55), (0.4, 0.5), (0.55, 0.62)]:
+            await pg.mouse.move(box[0] + box[2] * fx, box[1] + box[3] * fy); await pg.wait_for_timeout(500)
+            if await pg.evaluate("window.__poli.state.hover") > 0:
+                await pg.mouse.down(); await pg.mouse.up(); await pg.wait_for_timeout(1500); hitc = await pg.evaluate("window.__poli.state.pick") > 0; break
+        tipok = await pg.evaluate("document.getElementById('tip').innerHTML.includes('people under 5 m')")
+        check(hitc and tipok, "hover shows the tooltip and a canvas click opens a district")
+        await pg.keyboard.press("Escape"); await pg.wait_for_timeout(500)
+        await pg.click("#stormChips .chip[data-sid='2007314N10093']"); await pg.wait_for_timeout(4000)
+        st = await pg.evaluate("({ storm: window.__poli.state.storm, card: document.querySelector('#focus h3')?.firstChild?.textContent, tick: document.getElementById('fTick')?.textContent })")
+        check(st["storm"] == "2007314N10093" and st["card"] == "Sidr" and st["tick"].startswith("day"), f"Sidr plays: {st}")
+        await pg.click("#modeStory"); await pg.wait_for_timeout(5000); check(await pg.evaluate("window.__poli.state.dom") == 0 and not await pg.evaluate("window.__poli.state.storm"), "Story switch returns to the start and stops the storm")
         check(not errs, f"page errors: {errs[:2]}"); check(not cons, f"console errors: {cons[:2]}")
-        # phone width
-        m = await b.new_page(viewport={"width": 390, "height": 760}); merr = []; m.on("pageerror", lambda e: merr.append(str(e)))
+        m = await b.new_page(viewport={"width": 390, "height": 800}); merr = []; m.on("pageerror", lambda e: merr.append(str(e)))
         await m.goto(URL + "?lod=low"); await m.wait_for_timeout(8000)
-        sw = await m.evaluate("document.documentElement.scrollWidth"); check(sw <= 390, f"phone: scrollWidth {sw}")
-        check(await m.evaluate("document.getElementById('contents').getBoundingClientRect().right <= 0"), "phone: chapter list folded away")
-        await m.evaluate("(() => { const el = [...document.querySelectorAll('.step')].find(s => s.dataset.id === 'sundarbans'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - innerHeight * 0.5 }); })()"); await m.wait_for_timeout(2500)
-        check(await m.evaluate("window.__poli.state.chapter") == "sundarbans", "phone: sundarbans reached"); check(not merr, f"phone errors {merr[:1]}")
+        check(await m.evaluate("document.documentElement.scrollWidth") <= 390, "phone: no sideways scroll")
+        await m.evaluate("scrollTo(0, 3 * innerHeight * 1.4 + innerHeight * 0.5)"); await m.wait_for_timeout(5000)
+        check(await m.evaluate("window.__poli.state.dom") == 3 and await m.evaluate("document.querySelector('.cap.vis')?.dataset.ch") == "sink", "phone: scrolling drives the chapters")
+        check(not merr, f"phone errors {merr[:1]}")
         await b.close()
-    print("\n" + ("ALL PASSED" if not fails else f"{len(fails)} FAILED"))
-    sys.exit(1 if fails else 0)
+    print("\n" + ("ALL PASSED" if not fails else f"{len(fails)} FAILED")); sys.exit(1 if fails else 0)
 asyncio.run(main())
