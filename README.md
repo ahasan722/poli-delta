@@ -1,20 +1,20 @@
-# Poli (পলি): the country the rivers built
+# Poli (পলি): where should Bangladesh defend first?
 
-A 3D relief story about the Ganges-Brahmaputra-Meghna delta, built as a website rather than a scroll of text. The relief fills the left of the screen with the chapter list on its left edge; a reading panel on the right carries twenty-one short chapters, one claim and one figure each. The camera fits every chapter to the screen that is actually there, so the country is never cut off on a laptop or a wide monitor. Palette: Solarized Dark (Schoonover), a named colour system rather than a template. Type: Newsreader, IBM Plex Sans, IBM Plex Mono.
+A 3D scroll story on the Ganges-Brahmaputra-Meghna delta that ends in a decision. Eight short chapters stack five things on the same map: low ground, a shrinking silt supply, a sinking coast, a rising sea and the cyclone track. They land in the same ten districts, which together hold 45% of everyone living under 5 metres. Then the story turns into a tool: rank the 64 districts yourself.
 
 Live page: https://ahasan722.github.io/poli-delta/
 
 ![Poli](notes/cover.jpg)
 
-**Click any district** and its profile opens above the story: census population and density, how much of it lies under 5 and 10 m, how many people live on that land, what covers it, every cyclone that passed within 50 km since 1960, hill-forest loss where there is any, the named rivers that cross it. The district stays lit and the rest of the country steps back.
+## How it reads
 
-**Cut the country open**: the chapter *A cut through the delta* slices the terrain along a line of latitude and sweeps it north; the cut face stands as a wall on a square-root height scale (the same scale as the live profile chart beside it), with contour lines every 5 m on the plain and 50 m in the hills. Drag the latitude slider to stop and move the cut.
+- **Scroll anywhere.** The page scrolls an invisible track and that one number drives the whole film: the camera glides between chapters, the relief changes, and each chapter animates with the wheel (the low ground spreads, the coast sinks, the sea rises to 1.4 m with a live count of the people below it, the cyclone clock runs 1960 to 2025, the district columns grow). Scrolling back plays it backwards. Arrow keys, Page Up/Down and the chapter list jump.
+- **The chapter list is always on screen**, with a progress line, and the current chapter's words sit under it in the same white panel, so text never covers the map.
+- **The ten.** Each district is extruded from its own outline: height = people living under 5 m, colour = how many times a hurricane-force cyclone (64 kt+) passed within 50 km since 1960. The rule is printed on the page: at least 3 such passes, ranked by people under 5 m.
+- **What works.** Beel Bhaina, where tidal river management let silt back into a sunken polder and the ground rose 0.8 to 1.2 m in four years.
+- **Your turn.** Rank by people under 5 m, under 2 m, or cyclone hits; set the cyclone threshold (any, 3+, 5+); search a district; hover for a tooltip; click a column or a name for a district sheet that opens with its verdict under the rule and every value ranked among the 64; play any of 14 named cyclones with a modelled wind field and its EM-DAT toll. Drag to turn the ground.
 
-**Pick any storm** (a chip in the cyclone chapter, or a track on the relief) and it plays: a wind field of a few thousand streaks spins around the storm as it moves along its IBTrACS track, the ribbon draws behind it, and the card shows EM-DAT deaths, people affected and damage, the surge, the landfall, and the wind hour by hour with a marker that follows the animation.
-
-## Chapters
-
-The ground: what grows on the mud, how low it lies, the rim of hills, a cut through the delta. Water: every river (the network pulses downstream), the silt runs out, a fifth floods every year. Forest and wetland: Sundarbans, the haors, hill forest going. Sea: the ground goes down, raise the sea (a slider), every gauge points up. Climate: warmer every decade, four months of rain. Storms: cyclones since 1960 (the wind animation), the dying stopped. People: on the low land, displaced, the river can raise it.
+Design: white panels on a cool grey map, Okabe & Ito's colour-blind-safe colours (vermillion for what is at stake, blue for water, orange for low ground and hurricane force), Newsreader for the sentences, IBM Plex Sans and Mono for the interface and numbers. Direct labels, one small key per chapter, no legends panel.
 
 ## What is in it
 
@@ -42,23 +42,23 @@ Numbers computed from the files in `raw/`, not quoted: 39.6 % of land at or belo
 
 ```
 index.html, css/, js/, lib/, assets/   the page: vanilla JS, three.js 0.170, d3 7, Newsreader + IBM Plex (OFL); no build step
-  js/terrain.js                        the relief shader (height, cover, water, highlights, district pick, the cut) and the cut wall
-  js/layers.js                         storms, rivers, population, outlines, district lines, station columns, labels
+  js/terrain.js                        the relief shader (height, cover, water, low-ground tint, sinking, drowning, district pick)
+  js/layers.js                         storms, flowing rivers, district outlines, district columns (extruded outlines), labels
   js/wind.js                           the particle wind field and the storm player
-  js/story.js                          the chapters: camera, uniforms, layer opacities
-  js/main.js                           scroll, chapter list, camera fitting, legend, picking, storm selection, the slice, frame loop
-  js/charts.js, js/cards.js            the chapter figures; the district and storm cards
+  js/story.js                          the eight chapters: a ground box to frame, relief uniforms, layers, and what animates with the scroll
+  js/main.js                           scroll -> film, chapter spine, camera fitting, the rule and its ranking, picking, storms, frame loop
+  js/charts.js, js/cards.js            the two panel charts (silt, the ten); the district and storm sheets
 data/                                  what the page reads (height, mask, cover, pop, district_id PNGs; rivers, storms,
                                        districts, climate, sealevel, cyclones_impact, exposure JSON; outlines GeoJSON)
 raw/                                   the source rasters and tables, each directory with a SOURCE.md
 pipeline/make_terrain.py               raw -> data: relief, masks, population, exposure
 pipeline/make_storms.py                raw -> data: storm tracks and notes
 pipeline/make_cover.py                 raw -> data: land cover, water, forest loss, rivers with names, haors
-pipeline/make_districts.py             raw -> data: district id raster, outlines, 64 profiles
+pipeline/make_districts.py             raw -> data: district id raster, outlines, 64 profiles (people under 2/5/10 m, hurricane-force passes)
 pipeline/make_climate.py               raw -> data: climate series, tide gauges, EM-DAT impact rows
 pipeline/pipeline.ipynb                runs all five and asserts the quoted numbers
-pipeline/verify.py                     functional walk in headless Chromium: chapters, sliders, charts, a district click, a storm playback, phone width
-pipeline/shots.py                      chapter screenshots, optionally after a district click or a storm playback
+pipeline/verify.py                     functional walk in headless Chromium: every chapter, framing, scroll-driven animation, keyboard, explore tools, a canvas click, a storm, phone width
+pipeline/shots.py                      chapter screenshots at any viewport
 pipeline/rda_raster_to_tif.py, basemap_dat_to_geojson.py, worldcover_downsample.py   how the SRTM, GSHHG and WorldCover files were extracted
 notes/facts.csv, sources.md            every number with its URL
 notes/data_inventory.md                where each dataset came from and what was tried and failed
@@ -72,7 +72,7 @@ git clone https://github.com/ahasan722/poli-delta.git && cd poli-delta
 python -m http.server 8000        # open http://localhost:8000
 ```
 
-`?lod=hi` draws the full 1024-column mesh (a real GPU), `?lod=low` a quarter of it with fewer wind particles (old laptops, screenshots). Default is 512 columns and 5,000 particles.
+`?lod=hi` draws the full 1024-column mesh (a real GPU), `?lod=low` a quarter of it with fewer wind particles (old laptops, screenshots). Default is 512 columns and 4,500 particles.
 
 Rebuild the data: `pip install rasterio geopandas shapely pillow pandas numpy nbclient ipykernel`, then `jupyter nbconvert --execute --inplace pipeline/pipeline.ipynb`. Check the page: `pip install playwright && python pipeline/verify.py http://localhost:8000/index.html`.
 
@@ -82,14 +82,14 @@ Publish: push to `main`, Settings → Pages → branch `main`, folder `/ (root)`
 
 The relief is one `PlaneGeometry`. A custom `ShaderMaterial` decodes height from the terrain-RGB texture in the vertex shader, displaces the vertex, and builds a normal from the four neighbouring texels, so changing the exaggeration is a uniform, not a geometry rebuild. The fragment shader samples the cover, water, and district-id textures per pixel (so coasts and creeks stay sharp at any mesh density) and does the rest: the WorldCover palette or a silt ramp, per-class highlights, the Hansen loss share in red, a sea-level uniform that drowns everything at or below it, the low-plain tint, the picked district kept lit while the rest dims.
 
-The camera is never hand-placed: each chapter names a box of ground, a tilt and a bearing, and `fitView` projects the box's corners through a probe camera (with a view offset for the chapter list) until they sit inside the padded frame; on resize the fit is redone. The cut is a `discard` in the fragment shader on world z, with a wall mesh rebuilt in place along the line (one column per texel) whose height is the square root of the DEM height. Picking is a ray against the ground plane, refined twice against the sampled height, then a lookup in the district-id raster; no raycast against the mesh. Rivers are additive `LineSegments` coloured by log discharge. Storm tracks are ribbon meshes; the selected one is revealed with `drawRange` as the vortex advances. Rivers carry a per-vertex distance along the reach, and a line shader moves a pulse down it. The wind is a few thousand particles, each drawn as a six-point streak from a ring buffer of its last positions, advected by a Rankine vortex (linear to the radius of maximum wind, decaying as r^-0.62 beyond, with a small inflow) placed at the interpolated IBTrACS fix, plus a faint drift so the Bay is never still. Labels are canvas sprites rescaled every frame to a constant screen size. Chapters are plain objects in `js/story.js`; an `IntersectionObserver` on the panel tweens between them, and the rail and legend follow.
+The scroll is the clock. `scrollY` becomes a float chapter index, smoothed every frame with an exponential filter so wheel notches become glides. Each chapter holds for the first 58% of its span (its own animation runs on the progress through that hold) and blends into the next over the rest: uniforms and layer opacities interpolate linearly, the camera interpolates its look point, log distance, tilt and bearing (shortest way round), rising a little in the middle of long moves. The camera is never hand-placed: each chapter names a box of ground, a tilt and a bearing, and `fitView` projects the box's corners through a probe camera until they sit inside the part of the stage nothing covers (a view offset keeps the district sheet from hiding the ground); on resize or when the sheet opens, every view is refitted. Picking is a ray against the ground plane, refined twice against the sampled height, then a lookup in the district-id raster; no raycast against the mesh. District columns are `ExtrudeGeometry` from each BBS outline, scaled in y. Rivers are `LineSegments` coloured by log discharge. Storm tracks are ribbon meshes; the selected one is revealed with `drawRange` as the vortex advances. Rivers carry a per-vertex distance along the reach, and a line shader moves a pulse down it. The wind is a few thousand particles, each drawn as a six-point streak from a ring buffer of its last positions, advected by a Rankine vortex (linear to the radius of maximum wind, decaying as r^-0.62 beyond, with a small inflow) placed at the interpolated IBTrACS fix, plus a faint drift so the Bay is never still. Labels are canvas sprites rescaled every frame to a constant screen size. Chapters are plain objects in `js/story.js`.
 
 ## Limits
 
-SRTM is a surface model and the Sundarbans canopy makes the mangroves look like 10 m land; the low-lying shares are floors. WorldCover is a 2021 composite, so the haors show their dry-season face. Protected-area boundaries were not available on any reachable open host, so forests are shown as the satellite sees them. HydroRIVERS carries no names; 21 come from discharge class and FFWC gauge positions and the rest of the network is unnamed on purpose. The wind field is a textbook vortex on two numbers per fix, not a reanalysis; real storms are wider, wetter and lopsided. The CRU country series steps 0.6 °C low after 2011 in its Kaggle re-host and is cut there; the BMD series carries the recent decades. PSMSL has no Bangladesh gauge after 2003 except Chittagong, and Khepupara carries a datum problem. EM-DAT tolls differ from government tolls (Sidr 4,234 against 3,406); the card says which it shows. District statistics are computed on a 0.7 km grid, so small districts carry grid error. Vertical exaggeration is a reading aid.
+SRTM is a surface model and the Sundarbans canopy makes the mangroves look like 10 m land; the low-lying shares are floors. WorldCover is a 2021 composite, so the haors show their dry-season face. Protected-area boundaries were not available on any reachable open host, so forests are shown as the satellite sees them. HydroRIVERS carries no names; 21 come from discharge class and FFWC gauge positions and the rest of the network is unnamed on purpose. The wind field is a textbook vortex on two numbers per fix, not a reanalysis; real storms are wider, wetter and lopsided. The CRU country series steps 0.6 °C low after 2011 in its Kaggle re-host and is cut there; the BMD series carries the recent decades. PSMSL has no Bangladesh gauge after 2003 except Chittagong, and Khepupara carries a datum problem. EM-DAT tolls differ from government tolls (Sidr 4,234 against 3,406); the card says which it shows. District statistics are computed on a 0.7 km grid, so small districts carry grid error. The ranking rule (3 hurricane-force passes, people under 5 m) is a transparent screen, not a cost-benefit model; the explore tools exist so a reader can change it. Vertical exaggeration is a reading aid.
 
 ## Licence
 
-Code, text and the derived files in `data/`: CC BY 4.0, Abid Hasan, Dhaka, 2026. SRTM v4.1: CGIAR-CSI, free with attribution. ETOPO5 and IBTrACS: NOAA, public domain. ESA WorldCover 2021: CC BY 4.0. HydroRIVERS: HydroSHEDS licence. Hansen GFC: CC BY 4.0. OpenStreetMap 2017 water: ODbL, © OpenStreetMap contributors. GPW v4: CIESIN, CC BY 4.0. GSHHG/WDBII: LGPL-3. BBS Census 2022 GIS layer: Bangladesh Bureau of Statistics, as published. BMD station records: Bangladesh Meteorological Department, via the cited compilations. PSMSL: free with acknowledgement. CSIRO GMSL: ODC-PDDL via datasets/sea-level-rise. EM-DAT: CRED / UCLouvain, non-commercial use with citation (only the Bangladesh extract is kept). three.js: MIT. d3: ISC. Newsreader, IBM Plex Sans and Mono: SIL OFL 1.1.
+Code, text and the derived files in `data/`: CC BY 4.0, Abid Hasan, Dhaka, 2026. SRTM v4.1: CGIAR-CSI, free with attribution. ETOPO5 and IBTrACS: NOAA, public domain. ESA WorldCover 2021: CC BY 4.0. HydroRIVERS: HydroSHEDS licence. Hansen GFC: CC BY 4.0. OpenStreetMap 2017 water: ODbL, © OpenStreetMap contributors. GPW v4: CIESIN, CC BY 4.0. GSHHG/WDBII: LGPL-3. BBS Census 2022 GIS layer: Bangladesh Bureau of Statistics, as published. BMD station records: Bangladesh Meteorological Department, via the cited compilations. PSMSL: free with acknowledgement. CSIRO GMSL: ODC-PDDL via datasets/sea-level-rise. EM-DAT: CRED / UCLouvain, non-commercial use with citation (only the Bangladesh extract is kept). three.js: MIT. d3: ISC. Newsreader, IBM Plex Sans and Mono: SIL OFL 1.1. Colours: Okabe & Ito (2008).
 
 Independent project; not affiliated with any agency named above.

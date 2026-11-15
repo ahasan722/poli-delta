@@ -24,4 +24,4 @@ Third-party data and libraries keep their own terms:
 - ERA-Interim 850 hPa winds (raw/wind_erainterim_850hpa_jan_jul): ECMWF, via pydata/xarray-data, not used by the page
 - three.js (lib/): MIT; d3 (lib/): ISC; Newsreader, IBM Plex Sans, IBM Plex Mono (assets/fonts): SIL OFL 1.1
 
-Colours: Solarized (Ethan Schoonover), MIT licence.
+Colours: the Okabe & Ito (2008) colour-blind-safe set.
