@@ -1,6 +1,7 @@
 // layers.js  --  everything that sits on top of the relief: storm tracks, population lights, labels, rivers beyond the border.
 import * as THREE from "three";
 import { toScene, GRID } from "./terrain.js";
+import { windHex, rgb01, RIVER, BASE } from "./palette.js";
 
 const km = (m, exag) => m * 0.001 * exag;
 
@@ -10,7 +11,7 @@ export function buildStorms(storms, sampleH, exag) {
   // each track becomes a flat ribbon lying a little above the ground; width and height follow the wind,
   // so a depression is a thread and a super-cyclone is a road. Additive blending makes crossings glow.
   const group = new THREE.Group(); group.name = "storms";
-  const windCol = kt => kt >= 96 ? [0.84, 0.37, 0.0] : kt >= 64 ? [0.90, 0.62, 0.0] : kt >= 34 ? [0.0, 0.45, 0.70] : [0.55, 0.60, 0.66];   // Okabe-Ito vermillion, orange, blue
+  const windCol = kt => rgb01(windHex(kt));   // palette.js: ColorBrewer YlOrRd by wind class
   for (const s of storms) {
     const pts = [], fixIndex = [];
     s.pts.forEach(([lon, lat, w], j) => {
@@ -39,9 +40,9 @@ export function buildStorms(storms, sampleH, exag) {
       // a ring where the track first crosses 21.5 N heading for the coast
       const lf = pts.find(q => q.p.z < toScene(0, 21.5).z) || pts[pts.length - 1];
       const ringGeo = new THREE.RingGeometry(9, 12, 40); ringGeo.rotateX(-Math.PI / 2);
-      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xd55e00, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x111827, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
       ring.position.copy(lf.p); ring.position.y = 3; ring.name = "ring-" + s.sid; ring.userData = s; group.add(ring);
-      const lab = makeLabel(`${s.note.label} ${s.note.year}`, { size: 14, color: "#a3400a", weight: 700 }); lab.position.copy(ring.position); lab.position.y += 14; lab.name = "lab-" + s.sid; lab.userData = { ...s, base: lab.userData.base, isStormLabel: true }; group.add(lab);
+      const lab = makeLabel(`${s.note.label} ${s.note.year}`, { size: 13, color: "#111827", weight: 600 }); lab.position.copy(ring.position); lab.position.y += 14; lab.name = "lab-" + s.sid; lab.userData = { ...s, base: lab.userData.base, isStormLabel: true }; group.add(lab);
     }
   }
   return group;
@@ -89,7 +90,7 @@ export function buildFarRivers(geojson, sampleH, exag) {
     for (const ln of lines) {
       const pts = ln.map(([lon, lat]) => { const p = toScene(lon, lat); p.y = km(Math.max(sampleH(lon, lat), -60), exag) + 0.5; return p; });
       if (pts.length < 2) continue;
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x7fa3bb, transparent: true, opacity: 0.55 })));
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xa9bccb, transparent: true, opacity: 0.55 })));
     }
   }
   return group;
@@ -145,9 +146,10 @@ export function buildRivers(rivers, sampleH, exag) {
     const m = new THREE.LineSegments(geo, flowMat()); m.name = name; m.material.opacity = opacity; return m;
   };
   // discharge: 150 m3/s is a thread, 40,000 is the Padma; log scale into brightness
-  const disCol = l => { const t = Math.min(1, Math.max(0, (Math.log10(l.dis) - 2.1) / 2.5)); return [0.34 - 0.34 * t, 0.62 - 0.17 * t, 0.86 - 0.16 * t]; };   // sky blue to Okabe-Ito blue with discharge
+  const q = rgb01(RIVER.quiet), st = rgb01(RIVER.strong); const L2 = c => c.map(x => Math.pow(x, 2.2));
+  const disCol = l => { const t = Math.min(1, Math.max(0, (Math.log10(l.dis) - 2.1) / 2.5)); return L2(q.map((a, i) => a + (st[i] - a) * t)); };   // ColorBrewer Blues by discharge (linear for the GPU)
   group.add(seg(rivers.major, disCol, 0.0, "major"));
-  group.add(seg(rivers.minor, () => [0.45, 0.62, 0.74], 0.0, "minor"));
+  group.add(seg(rivers.minor, () => L2(q), 0.0, "minor"));
   // one label per named river, on the reach nearest the middle of all its reaches (inside Bangladesh), so
   // the Meghna is not labelled on top of the Lower Meghna and the Brahmaputra not in Assam
   const byName = {};
@@ -155,7 +157,7 @@ export function buildRivers(rivers, sampleH, exag) {
   for (const [n, reaches] of Object.entries(byName)) {
     const cx = reaches.reduce((a, r) => a + r[0][0], 0) / reaches.length, cy = reaches.reduce((a, r) => a + r[0][1], 0) / reaches.length;
     const mid = reaches.reduce((b, r) => (Math.hypot(r[0][0] - cx, r[0][1] - cy) < Math.hypot(b[0] - cx, b[1] - cy) ? r[0] : b), reaches[0][0]);
-    const sp = makeLabel(n, { size: 19, color: "#b9e2f2", weight: 600 }); const p = toScene(mid[0], mid[1]); p.y = lift(mid[0], mid[1]) + 3; sp.position.copy(p); sp.userData.kind = "river"; sp.name = "rl-" + n; group.add(sp);
+    const sp = makeLabel(n, { size: 16, color: "#1c5585", weight: 500 }); const p = toScene(mid[0], mid[1]); p.y = lift(mid[0], mid[1]) + 3; sp.position.copy(p); sp.userData.kind = "river"; sp.name = "rl-" + n; group.add(sp);
   }
   return group;
 }
@@ -215,28 +217,29 @@ export function buildGauges(climate, sea, sampleH, exag) {
   return group;
 }
 
-// ---- district columns: each district extruded from its own outline, height = a value, colour = a class ------
-// The shape is drawn in the XY plane with y = -z so that, after rotating the mesh -90 degrees about X,
-// the outline lies on the ground and the extrusion points up (+y). Height is the mesh's scale.y.
-export function buildPrisms(geojson, valueOf, colourOf, kmPerUnit) {
+// ---- district columns: each district extruded from its own outline ---------------------------------------
+// The shape is drawn in the XY plane with y = -z so that, after rotating -90 degrees about X, the outline lies on
+// the ground and the extrusion points up (+y). Height is the mesh's scale.y, so 2D is the same mesh laid flat.
+// Two materials: the caps are unlit, so the top of a column shows exactly the key's colour in 2D and 3D;
+// the walls are lit, so the columns still read as solids.
+export function buildPrisms(geojson) {
   const group = new THREE.Group(); group.name = "prisms";
   for (const f of geojson.features) {
     const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
     const shapes = [];
     for (const poly of polys) {
       const ring = poly[0]; if (ring.length < 4) continue;
-      const pts = ring.map(([lon, lat]) => { const p = toScene(lon, lat); return new THREE.Vector2(p.x, -p.z); });
-      const sh = new THREE.Shape(pts);
+      const sh = new THREE.Shape(ring.map(([lon, lat]) => { const p = toScene(lon, lat); return new THREE.Vector2(p.x, -p.z); }));
       for (const hole of poly.slice(1)) sh.holes.push(new THREE.Path(hole.map(([lon, lat]) => { const p = toScene(lon, lat); return new THREE.Vector2(p.x, -p.z); })));
       shapes.push(sh);
     }
     if (!shapes.length) continue;
     const geo = new THREE.ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false });
     geo.rotateX(-Math.PI / 2);
-    const v = valueOf(f.properties.id);
-    const mat = new THREE.MeshLambertMaterial({ color: colourOf(f.properties.id), transparent: true, opacity: 0, depthWrite: true });
-    const m = new THREE.Mesh(geo, mat); m.name = "p-" + f.properties.id;
-    m.userData = { id: f.properties.id, name: f.properties.name, h: Math.max(0.15, v * kmPerUnit) };
+    const cap = new THREE.MeshBasicMaterial({ color: BASE.out, transparent: true, opacity: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const wall = new THREE.MeshLambertMaterial({ color: BASE.out, transparent: true, opacity: 0 });
+    const m = new THREE.Mesh(geo, [cap, wall]); m.name = "p-" + f.properties.id;
+    m.userData = { id: f.properties.id, name: f.properties.name, h: 1, rank: 99 };
     m.scale.y = 0.001; m.position.y = 0.3; group.add(m);
   }
   return group;

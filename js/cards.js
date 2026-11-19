@@ -1,10 +1,12 @@
 // cards.js  --  v5: the sheet that docks on the right when you pick a district or a storm.
 // A district sheet opens with its verdict under the story's rule (in the first ten or not, and why),
 // then one big number and a short table where every value carries its rank among the 64 districts.
+import { BASE, windHex, sevHex, WIND } from "./palette.js";
 const fmt = d3.format(","), f1 = d3.format(".1f");
-const C = { ink: "#111827", dim: "#6b7280", faint: "#9ca3af", line: "#e5e7eb", verm: "#D55E00", blue: "#0072B2", orange: "#E69F00", slate: "#6b7280" };
-const COVER_COL = { cropland: "#c9b56b", "tree cover": "#3f7d4e", mangroves: "#1f6b56", wetland: "#5fa39a", "built-up": "#c08a63", water: "#4f8fbf", other: "#d1d5db" };
-const windCol = kt => kt >= 96 ? C.verm : kt >= 64 ? C.orange : kt >= 34 ? C.blue : C.faint;
+const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line };
+// land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map
+const COVER_COL = { cropland: "#c9b56b", "tree cover": "#4d7f57", mangroves: "#2f6b5a", wetland: "#6aa39b", "built-up": "#b98a6a", water: "#6f9cc2", other: "#d5d9de" };
+const windCol = windHex;
 const cat = kt => kt >= 120 ? "super cyclonic storm" : kt >= 90 ? "extremely severe cyclonic storm" : kt >= 64 ? "very severe cyclonic storm" : kt >= 48 ? "severe cyclonic storm" : kt >= 34 ? "cyclonic storm" : "depression";
 const ord = n => n + (["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] || "th");
 let el, api, D, marker = null, tickOut = null;
@@ -21,7 +23,7 @@ function coverBar(parent, cover) {
 function stormStrip(parent, hits) {
   const { s, w } = svg(parent, 74); const x = d3.scaleLinear().domain([1960, 2026]).range([6, w - 6]); const y = d3.scaleLinear().domain([20, 140]).range([50, 8]); const r = d3.scaleSqrt().domain([20, 140]).range([2, 8]);
   s.append("line").attr("x1", 0).attr("x2", w).attr("y1", y(64)).attr("y2", y(64)).attr("stroke", C.line).attr("stroke-dasharray", "3 3");
-  s.append("text").attr("x", w).attr("y", y(64) - 4).attr("text-anchor", "end").attr("fill", C.faint).attr("font-size", 11).text("hurricane force, 64 kt");
+  s.append("text").attr("x", w).attr("y", y(64) - 4).attr("text-anchor", "end").attr("fill", C.dim).attr("font-size", 11).text("hurricane force, 64 kt");
   [1960, 1980, 2000, 2020].forEach(v => s.append("text").attr("x", x(v)).attr("y", 68).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 11).attr("font-family", "IBM Plex Mono").text(v));
   hits.forEach(([yr, kt, name]) => s.append("circle").attr("cx", x(yr)).attr("cy", y(Math.min(140, kt))).attr("r", r(kt)).attr("fill", windCol(kt)).attr("fill-opacity", .85).append("title").text(`${name || "unnamed"} ${yr}, ${kt} kt`));
 }
@@ -29,13 +31,13 @@ function windChart(parent, storm) {
   const pts = storm.pts; const n = pts.length; const { s, w } = svg(parent, 116);
   const x = d3.scaleLinear().domain([0, n - 1]).range([28, w - 6]); const y = d3.scaleLinear().domain([0, Math.max(100, d3.max(pts, p => p[2]) + 10)]).range([90, 8]);
   [34, 64, 96].forEach(v => { s.append("line").attr("x1", 28).attr("x2", w - 6).attr("y1", y(v)).attr("y2", y(v)).attr("stroke", C.line).attr("stroke-dasharray", "2 3"); s.append("text").attr("x", 24).attr("y", y(v) + 4).attr("text-anchor", "end").attr("fill", C.dim).attr("font-size", 11).attr("font-family", "IBM Plex Mono").text(v); });
-  s.append("path").attr("d", d3.area().x((p, i) => x(i)).y0(90).y1(p => y(p[2])).curve(d3.curveMonotoneX)(pts)).attr("fill", C.orange).attr("opacity", .15);
-  s.append("path").attr("d", d3.line().x((p, i) => x(i)).y(p => y(p[2])).curve(d3.curveMonotoneX)(pts)).attr("fill", "none").attr("stroke", C.verm).attr("stroke-width", 1.8);
+  s.append("path").attr("d", d3.area().x((p, i) => x(i)).y0(90).y1(p => y(p[2])).curve(d3.curveMonotoneX)(pts)).attr("fill", WIND.gale).attr("opacity", .18);
+  s.append("path").attr("d", d3.line().x((p, i) => x(i)).y(p => y(p[2])).curve(d3.curveMonotoneX)(pts)).attr("fill", "none").attr("stroke", WIND.hurricane).attr("stroke-width", 1.8);
   const days = Math.floor((n - 1) / 4); d3.range(0, days + 1, Math.max(1, Math.ceil(days / 6))).forEach(dd => s.append("text").attr("x", x(dd * 4)).attr("y", 106).attr("text-anchor", "middle").attr("fill", C.dim).attr("font-size", 11).attr("font-family", "IBM Plex Mono").text("day " + dd));
   marker = { dot: s.append("circle").attr("r", 5).attr("fill", C.ink).attr("stroke", "#fff").attr("stroke-width", 2).attr("cx", x(0)).attr("cy", y(pts[0][2])), x, y, pts };
 }
 function head(eyebrow, dot, title, sub) {
-  return `<div class="fhead"><button class="back" type="button" aria-label="close">←</button><div><div class="eyebrow"><i style="background:${dot}"></i>${eyebrow}</div><h3>${title}<small>${sub}</small></h3></div></div>`;
+  return `<div class="fhead"><button class="back" type="button" aria-label="Close" title="Close  [Esc]">×</button><div><div class="eyebrow"><i style="background:${dot}"></i>${eyebrow}</div><h3>${title}<small>${sub}</small></h3></div></div>`;
 }
 
 export const cards = {
@@ -50,7 +52,7 @@ export const cards = {
         ? `<div class="verdict"><b>Not in the first ten:</b> ${d.severe === 0 ? "no hurricane-force cyclone" : d.severe === 1 ? "one hurricane-force pass" : "two hurricane-force passes"} within 50 km since 1960 (the rule asks for 3).</div>`
         : `<div class="verdict"><b>Not in the first ten:</b> on the cyclone coast, but fewer people under 5 m than the ten.</div>`;
     const row = (l, v, r) => `<tr><td>${l}${r ? `<small>${ord(r)} of 64</small>` : ""}</td><td>${v}</td></tr>`;
-    el.innerHTML = head(`District · ${d.division}`, i10 >= 0 ? C.verm : C.faint, d.name, `${fmt(d.area_km2)} km²${d.rivers.length ? " · on the " + d.rivers.slice(0, 2).join(" and ") : ""}`) + `
+    el.innerHTML = head(`District · ${d.division}`, sevHex(d.severe), d.name, `${fmt(d.area_km2)} km²${d.rivers.length ? " · on the " + d.rivers.slice(0, 2).join(" and ") : ""}`) + `
       <div class="fbody">
         ${verdict}
         <div class="hero"><b>${f1(d.pop_le5 / 1e6)} M</b><span>people living under 5 m · ${ord(rank("pop_le5"))} of 64</span></div>
@@ -78,11 +80,11 @@ export const cards = {
     const dmg = im.damage_adj_musd != null ? (im.damage_adj_musd >= 1000 ? "$" + f1(im.damage_adj_musd / 1000) + " bn" : "$" + fmt(im.damage_adj_musd) + " M") : "–";
     const surge = im.surge_m ?? n.surge_m; const landfall = im.landfall || n.landfall;
     const row = (l, v) => `<tr><td>${l}</td><td>${v}</td></tr>`;
-    el.innerHTML = head(`Cyclone · ${s.season}`, C.verm, name, `${cat(peak)} · peak ${peak} kt (${Math.round(peak * 1.852)} km/h)`) + `
+    el.innerHTML = head(`Cyclone · ${s.season}`, windHex(peak), name, `${cat(peak)} · peak ${peak} kt (${Math.round(peak * 1.852)} km/h)`) + `
       <div class="fbody">
         <div class="hero"><b>${deaths}</b><span>${im.deaths != null ? "deaths, EM-DAT" : "deaths, official toll"}</span></div>
         <table>${row("People affected", affected)}${row("Damage, 2024 US$", dmg)}${row("Storm surge", surge ? surge + " m" : "–")}${n.shelters ? row("Cyclone shelters at the time", fmt(n.shelters)) : ""}${landfall ? row("Landfall", `<span style="font-family:var(--sans)">${landfall}</span>`) : ""}</table>
-        <div class="sub">Wind along the track <span id="fTick" style="color:#111827;margin-left:6px;text-transform:none;letter-spacing:0"></span></div><div class="fig" id="fWind"></div>
+        <div class="sub">Wind along the track <span id="fTick" style="color:#111827;font-family:var(--mono);margin-left:6px;text-transform:none;letter-spacing:0"></span></div><div class="fig" id="fWind"></div>
         ${near.length ? `<div class="sub">Hurricane force within 50 km of</div><p>${near.join(", ")}</p>` : ""}
         <p class="src">IBTrACS v04r01, a fix every 6 h. Impact: EM-DAT (CRED/UCLouvain)${im.disno ? ", " + im.disno : ""}. The animation spins a textbook vortex on each fix's position and wind; real storms are wider and lopsided.</p>
       </div>`;

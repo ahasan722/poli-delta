@@ -1,364 +1,678 @@
-// main.js  --  v5: the scroll drives one continuous film.
-// The page scrolls an invisible track. Its position becomes a float "chapter" value that is smoothed every
-// frame, and that one number sets the camera, the relief, the layers, the panel text and the chapter spine.
-// Each chapter holds still for the first part of its span (its own animation runs there: the sea rising,
-// the cyclone clock, the columns growing) and glides into the next over the rest. Scrolling back plays it
-// backwards. The last chapter turns the story's rule into a tool: rank the 64 districts yourself.
+// main.js  --  v6: one scene, one camera, two views of it.
+// 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
+// camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
+// runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
+// Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
+// Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { OrbitControls } from "../lib/OrbitControls.js";
 import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js";
 import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js";
 import { CHAPTERS, SITE } from "./story.js";
 import { charts } from "./charts.js";
 import { cards } from "./cards.js";
 import { WindField, StormPlayer } from "./wind.js";
+import { BASE, SEV, sevHex, WIND, FLOOD, LOW, RIVER, ACCENT, hex } from "./palette.js";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
-const lod = new URLSearchParams(location.search).get("lod");
-const BG = 0xf1f3f5;
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(lod === "low" ? 1 : Math.min(devicePixelRatio, 1.75)); renderer.setClearColor(BG, 1);
-stage.appendChild(renderer.domElement);
-const scene = new THREE.Scene(); scene.fog = new THREE.Fog(BG, 1100, 2400);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8a96a3, 1.5)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-300, 520, 260); scene.add(sun);
-const camera = new THREE.PerspectiveCamera(38, 1, 1, 4000);
-const controls = new OrbitControls(camera, renderer.domElement); controls.enabled = false; controls.enableZoom = false; controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.46;
-
-const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
-const loadJson = src => fetch(src).then(r => r.ok ? r.json() : null).catch(() => null);
-const tex = (img, nearest = false) => { const t = new THREE.Texture(img); t.needsUpdate = true; t.minFilter = t.magFilter = nearest ? THREE.NearestFilter : THREE.LinearFilter; t.generateMipmaps = false; t.flipY = true; return t; };
-const pixels = img => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); return x.getImageData(0, 0, img.width, img.height).data; };
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, t) => a + (b - a) * t, smooth = t => t * t * (3 - 2 * t);
+const Q = new URLSearchParams(location.search);
+const lod = Q.get("lod");
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;           // easeInOutCubic
+const seg = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
+const smoothstep = (a, b, x) => { const t = seg(x, a, b); return t * t * (3 - 2 * t); };
+const lerpAngle = (a, b, t) => { let d = b - a; while (d > 180) d -= 360; while (d < -180) d += 360; return a + d * t; };
 const fmt = d3.format(","), f1 = d3.format(".1f");
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const mq = matchMedia("(prefers-reduced-motion: reduce)");
+let reduced = mq.matches || Q.get("motion") === "reduce";
+mq.addEventListener?.("change", e => { reduced = e.matches; });
+const phone = () => innerWidth <= 820;
 
-const N = CHAPTERS.length, HOLD = 0.58, SPAN = 1.4;       // each chapter is 1.4 screens of scroll; the first 58% holds
-const EXPLORE = N - 1;
+const N = CHAPTERS.length, EXPLORE = N - 1;
 const DEFAULT_RULE = { metric: "pop_le5", sevMin: 3 };
-const state = { p: 0, ps: 0, dom: -1, pick: 0, hover: 0, storm: null, override: null, userCam: false, t0: performance.now(), frames: 0, rule: { ...DEFAULT_RULE }, first: true };
+const FOV = 26, DUR_DIM = 1.4;
+const state = {
+  step: 0, lastStory: 0, dimTarget: 1, dimP: 0, pick: 0, hover: 0, storm: null, rule: { ...DEFAULT_RULE },
+  tl: { t: 0, playing: false, speed: 1, def: null }, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
+};
 const D = {};
-let terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH, views = [];
-window.__poli = { get state() { return state; }, get terrain() { return terrain; }, get camera() { return camera; }, get data() { return D; }, go: i => goChapter(i, true), select: id => selectDistrict(id), play: sid => playStorm(sid), views: () => views };
+let renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
+const cur = {};                       // the values on screen, eased toward the step's targets
 
+// ---- loading, with real progress ------------------------------------------------------------------
+let loaded = 0; const TOTAL = 13;
+const tick = x => { loaded += 1; $("loadFill").style.width = Math.round(loaded / TOTAL * 100) + "%"; $("loadPct").textContent = Math.round(loaded / TOTAL * 100) + "%"; return x; };
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(tick(i)); i.onerror = () => rej(new Error("could not load " + src)); i.src = src; });
+const loadJson = src => fetch(src).then(r => r.ok ? r.json() : null).catch(() => null).then(tick);
+const hasGL = () => { if (Q.get("nogl")) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; } };
+
+// ---- the camera: a target pose, a rendered pose that follows it, and flights between poses ----------
+// pose = { look: Vector3 on the ground, d: distance, pitch: degrees from straight down (3D intent), az: degrees }
+const cam = { look: new THREE.Vector3(), d: 900, pitch: 40, az: 190 };
+const camT = { look: new THREE.Vector3(), d: 900, pitch: 40, az: 190 };
+let flight = null;
+const copyPose = (a, b) => { a.look.copy(b.look); a.d = b.d; a.pitch = b.pitch; a.az = b.az; return a; };
+const clonePose = p => ({ look: p.look.clone(), d: p.d, pitch: p.pitch, az: p.az });
+function flyTo(to, ms) {
+  if (reduced) { copyPose(camT, to); copyPose(cam, to); flight = null; kick(); return; }
+  const from = clonePose(camT); const far = from.look.distanceTo(to.look) + Math.abs(Math.log(to.d / from.d)) * 300;
+  flight = { from, to: clonePose(to), t0: performance.now(), dur: ms || clamp(1200 + far * 0.6, 1200, 1800) }; kick();
+}
+function stepFlight(now) {
+  if (!flight) return 0;
+  const raw = clamp((now - flight.t0) / flight.dur, 0, 1), e = ease(raw); const a = flight.from, b = flight.to;
+  const far = a.look.distanceTo(b.look); const lift = 1 + Math.sin(Math.PI * e) * Math.min(0.35, far / 800);   // arc over long moves
+  camT.look.copy(a.look).lerp(b.look, e); camT.d = Math.exp(lerp(Math.log(a.d), Math.log(b.d), e)) * lift;
+  camT.pitch = lerp(a.pitch, b.pitch, e); camT.az = lerpAngle(a.az, b.az, e);
+  if (raw >= 1) flight = null; return Math.sin(Math.PI * e) * Math.min(1, far / 300);
+}
+const cancelFlight = () => { flight = null; };
+// the rendered orientation: in 2D the camera looks straight down with north up; dimP blends to the 3D intent
+function view(p) { const t = ease(seg(state.dimP, 0, 0.5)); return { pitch: p.pitch * t, az: lerpAngle(180, p.az, t), tilt: t }; }
+function pose(c, p) {
+  const v = view(p); const pr = v.pitch * Math.PI / 180, az = v.az * Math.PI / 180;
+  const dir = new THREE.Vector3(Math.sin(az) * Math.sin(pr), Math.cos(pr), -Math.cos(az) * Math.sin(pr));
+  c.up.set(-Math.sin(az), 0, Math.cos(az));                      // screen-up = the horizontal direction the camera faces
+  c.position.copy(p.look).addScaledVector(dir, p.d); c.lookAt(p.look); c.updateMatrixWorld();
+}
+const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hitV = new THREE.Vector3();
+function groundAt(c, x, y) {
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, c); return ray.ray.intersectPlane(ground, hitV) ? hitV.clone() : null;
+}
+
+// ---- the free part of the stage: what the panel, the sheet and the phone sheet leave uncovered ------------
+const off = { r: 0, b: 0 };
+function freeTarget() {
+  const sheetOpen = $("focus").classList.contains("on");
+  if (phone()) return { r: 0, b: Math.max(state.sheetH, sheetOpen ? $("focus").offsetHeight : 0) };
+  return { r: sheetOpen ? 380 + 32 : 0, b: 0 };
+}
+function applyOffset(c, o) {
+  const w = stage.clientWidth || 1000, h = stage.clientHeight || 700; const rw = Math.max(50, w - o.r), rh = Math.max(50, h - o.b);
+  c.aspect = rw / rh; c.setViewOffset(rw, rh, 0, 0, w, h); c.updateProjectionMatrix();
+}
+const probe = new THREE.PerspectiveCamera(FOV, 1, 1, 30000);
+// distance that fits a box of ground in the free region, at a given pitch and bearing
+function fitView(v, pitch, az) {
+  const b = v.box; const look = toScene((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); look.y = 0; const top = pitch < 1 ? 0 : (v.top || 8);
+  const corners = []; for (const lon of [b[0], b[2]]) for (const lat of [b[1], b[3]]) for (const y of [0, top]) { const p = toScene(lon, lat); p.y = y; corners.push(p); }
+  const pr = pitch * Math.PI / 180, a = az * Math.PI / 180; const dir = new THREE.Vector3(Math.sin(a) * Math.sin(pr), Math.cos(pr), -Math.cos(a) * Math.sin(pr));
+  const t = freeTarget(); const w = stage.clientWidth || 1000, h = stage.clientHeight || 700;
+  probe.aspect = (w - t.r) / (h - t.b - (state.tl.def ? 70 : 0)); probe.updateProjectionMatrix(); probe.up.set(-Math.sin(a), 0, Math.cos(a));
+  let d = Math.hypot((b[2] - b[0]) * KM_PER_DEG_LON, (b[3] - b[1]) * KM_PER_DEG_LAT) * 1.6;
+  for (let k = 0; k < 10; k++) {
+    probe.position.copy(look).addScaledVector(dir, d); probe.lookAt(look); probe.updateMatrixWorld();
+    let m = 0; for (const c of corners) { const q = c.clone().project(probe); m = Math.max(m, Math.abs(q.x) / 0.92, Math.abs(q.y) / 0.86); }
+    d *= m; if (Math.abs(m - 1) < 0.004) break;
+  }
+  return { look, d, pitch: v.pitch, az: v.az };
+}
+// a step's pose: in 2D fitted straight down, in 3D at its own pitch and bearing; both keep the 3D intent
+const stepPose = i => { const v = CHAPTERS[i].view; return state.dimTarget ? fitView(v, v.pitch, v.az) : { ...fitView(v, 0, 180), pitch: v.pitch, az: v.az }; };
+
+// ---- boot ------------------------------------------------------------------------------------------
 async function boot() {
+  state.gl = hasGL();
   const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact] = await Promise.all([
     loadImg("data/height.png"), loadImg("data/mask.png"), loadImg("data/cover.png"), loadImg("data/cover_rgb.png"), loadImg("data/district_id.png"),
     loadJson("data/rivers_far.geojson"), loadJson("data/storms.json"), loadJson("data/exposure.json"), loadJson("data/rivers.json"),
     loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json")
   ]);
-  try { await document.fonts.load('500 20px "IBM Plex Sans"'); await document.fonts.load('600 20px "IBM Plex Sans"'); } catch (e) {}
+  try { await Promise.all(['500 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '500 20px "Newsreader"'].map(f => document.fonts.load(f))); } catch (e) {}
+  tick();
   const ds = distJson.districts;
   Object.assign(D, { storms: stormsJson, expo, districts: ds, byId: Object.fromEntries(ds.map(d => [d.id, d])), impact: impact || [],
-    le5Total: ds.reduce((s, d) => s + d.pop_le5, 0), idPix: pixels(dImg), idW: dImg.width, idH: dImg.height, geo: distGeo });
+    le5Total: ds.reduce((s, d) => s + d.pop_le5, 0), geo: distGeo, slug: n => n.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "") });
   D.ten = rankBy(DEFAULT_RULE).slice(0, 10);
+  if (state.gl) buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }); else buildFallback();
+  charts.init(D); cards.init(D, { clear: () => clearFocus(true) });
+  buildSteps(); buildExplore(); buildSearch(); bindUI(); resize();
+  Object.assign(cur, valuesAt(0, 0));
+  const h = readHash(); state.dimTarget = h.dim; setDimUI();
+  goStep(h.step, { push: false, instant: true });
+  if (h.district) selectDistrict(h.district, { push: false });
+  if (h.storm) playStorm(h.storm, { push: false });
+  copyPose(cam, camT);
+  if (reduced || !state.gl) state.dimP = state.dimTarget;
+  history.replaceState(null, "", hashFor());
+  document.body.classList.add("ready"); state.ready = true;
+  if (!store.get("poli-hint")) $("hint").hidden = false;
+  if (!state.gl) toast("3D is not available in this browser, so this is the flat map.", 5000);
+  requestAnimationFrame(frame);
+}
+
+function buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }) {
+  const tex = (img, nearest = false) => { const t = new THREE.Texture(img); t.needsUpdate = true; t.minFilter = t.magFilter = nearest ? THREE.NearestFilter : THREE.LinearFilter; t.generateMipmaps = false; t.flipY = true; return t; };
+  const pixels = img => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); return x.getImageData(0, 0, img.width, img.height).data; };
+  D.idPix = pixels(dImg); D.idW = dImg.width; D.idH = dImg.height;
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(lod === "low" ? 1 : Math.min(devicePixelRatio, 2)); renderer.setClearColor(new THREE.Color(BASE.map), 1);
+  stage.insertBefore(renderer.domElement, stage.firstChild);
+  scene = new THREE.Scene(); scene.fog = new THREE.Fog(new THREE.Color(BASE.map), 1000, 3000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a96a3, 1.6)); const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-300, 520, 260); scene.add(sun);
+  camera = new THREE.PerspectiveCamera(FOV, 1, 1, 30000);
   sampleH = heightSampler(hImg);
   terrain = buildTerrain({ height: tex(hImg), mask: tex(mImg), cover: tex(cImg, true), coverRGB: tex(cRGB), district: tex(dImg, true) }, lod === "hi" ? 1023 : lod === "low" ? 255 : 511); scene.add(terrain.mesh);
   rivers = buildRivers(riversJson, sampleH, 14); scene.add(rivers);
   farRivers = buildFarRivers(far, sampleH, 14); scene.add(farRivers);
   districts = buildDistricts(distGeo, sampleH, 14); scene.add(districts);
-  storms = buildStorms(stormsJson, sampleH, 14); scene.add(storms);
+  storms = buildStorms(D.storms, sampleH, 14); scene.add(storms);
   wind = new WindField(lod === "low" ? 1800 : 4500, sampleH, 14); scene.add(wind.mesh);
-  player = new StormPlayer(wind); player.onTick = t => cards.stormTick(t);
-  prisms = buildPrisms(distGeo, () => 0, () => 0xcccccc, 1); scene.add(prisms);
+  player = new StormPlayer(wind); player.loop = false; player.speed = 0; player.onTick = t => { cards.stormTick(t); state.stormTick = t; };
+  prisms = buildPrisms(distGeo); scene.add(prisms);
   ranks = new THREE.Group(); scene.add(ranks);
-  applyRule();
   labels = new THREE.Group();
-  for (const [n, lon, lat] of PLACES) { const s = makeLabel(n, { size: n === "Bay of Bengal" ? 22 : 18, weight: n === "Dhaka" ? 700 : 500, color: n === "Bay of Bengal" ? "#4f7a99" : "#1f2933" }); const p = toScene(lon, lat); p.y = Math.max(sampleH(lon, lat), 0) * 0.001 * 14 + 6; s.position.copy(p); labels.add(s); }
+  for (const [n, lon, lat] of PLACES) { const s = makeLabel(n, { size: n === "Bay of Bengal" ? 21 : 17, weight: n === "Dhaka" ? 600 : 500, color: n === "Bay of Bengal" ? "#4b6478" : BASE.ink }); const p = toScene(lon, lat); p.y = Math.max(sampleH(lon, lat), 0) * 0.001 * 14 + 6; s.position.copy(p); labels.add(s); }
   scene.add(labels);
-  // the place where silt was let back in: a column, a pulsing ring, a label
   site = new THREE.Group(); const sp = toScene(SITE.lon, SITE.lat);
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 12, 12), new THREE.MeshBasicMaterial({ color: 0x0072b2, transparent: true, opacity: 0 })); col.position.set(sp.x, 6, sp.z); site.add(col);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(3.0, 3.8, 48), new THREE.MeshBasicMaterial({ color: 0x0072b2, transparent: true, opacity: 0, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(sp.x, 0.6, sp.z); ring.name = "ring"; site.add(ring);
-  const lab = makeLabel("Beel Bhaina: ground up 0.8–1.2 m in 4 years", { size: 24, color: "#005a8c", weight: 600 }); lab.position.set(sp.x, 15, sp.z); site.add(lab);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 12, 12), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0 })); col.position.set(sp.x, 6, sp.z); site.add(col);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(3.0, 3.8, 48), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(sp.x, 0.6, sp.z); ring.name = "ring"; site.add(ring);
+  const lab = makeLabel("Beel Bhaina: ground up 0.8–1.2 m in 4 years", { size: 20, color: "#006b4f", weight: 600 }); lab.position.set(sp.x, 15, sp.z); site.add(lab);
   scene.add(site);
-
-  charts.init(D); cards.init(D, { clear: clearFocus });
-  buildSpine(); buildExplore(); layoutTrack(); resize();
-  document.body.classList.add("ready");
-  addEventListener("scroll", onScroll, { passive: true }); onScroll(); state.ps = state.p;
-  requestAnimationFrame(frame);
+  applyRule();
+  bindMap();
+  new ResizeObserver(resize).observe(stage);
 }
 
-// ---- the rule: who is in the first ten, and how tall each column stands --------------------------------
+// ---- the rule: who is in the first ten, and how tall each column stands -----------------------------
 function rankBy(rule) { return D.districts.filter(d => d.severe >= rule.sevMin).sort((a, b) => b[rule.metric] - a[rule.metric] || b.pop_le5 - a.pop_le5); }
+const OUTC = new THREE.Color(BASE.out);
 const HEIGHT = { pop_le5: v => v / 1e6 * 32, pop_le2: v => v / 1e6 * 48, severe: v => v * 7 };
-const sevCol = n => n >= 6 ? 0xa33c00 : n >= 5 ? 0xc04f00 : n >= 4 ? 0xd55e00 : n >= 3 ? 0xe69f00 : 0xc9ced4;
 function applyRule() {
-  const r = state.rule; const list = rankBy(r); const top = new Set(list.slice(0, 10).map(d => d.id)); D.list = list;
-  prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = d.severe >= r.sevMin;
-    m.userData.q = q; m.userData.top = top.has(d.id); m.userData.h = Math.max(0.3, HEIGHT[r.metric](d[r.metric]));
-    m.material.color.setHex(q ? sevCol(d.severe) : 0xc9ced4); });
-  ranks.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); ranks.clear();
-  list.slice(0, 10).forEach((d, i) => { const v = r.metric === "severe" ? `${d.severe} hits` : `${f1(d[r.metric] / 1e6)} M`;
-    const s = makeLabel(`${i + 1} ${d.name}`, { size: 21, color: "#111827", weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
-  renderList();
-}
-
-// ---- scroll -> chapter float ----------------------------------------------------------------------
-function spanPx() { return innerHeight * SPAN; }
-function layoutTrack() { $("track").style.height = ((N - 1) * spanPx() + innerHeight) + "px"; }
-function onScroll() { state.p = clamp(scrollY / spanPx(), 0, N - 1); }
-function goChapter(i, instant = false) { i = clamp(i, 0, N - 1); window.scrollTo({ top: i * spanPx() + 1, behavior: instant ? "auto" : "smooth" }); if (instant) { onScroll(); } }
-addEventListener("keydown", e => {
-  if (e.target.closest && e.target.closest("input,textarea")) return;
-  if (["ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); goChapter(Math.floor(state.p + 0.05) + 1); }
-  if (["ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); goChapter(Math.ceil(state.p - 0.05) - 1); }
-  if (e.key === "Home") { e.preventDefault(); goChapter(0); } if (e.key === "End") { e.preventDefault(); goChapter(N - 1); }
-  if (e.key === "Escape") clearFocus();
-});
-
-// ---- the chapter spine on the side, the mode switch, the next button --------------------------------
-function buildSpine() {
-  const sp = $("spine"); sp.innerHTML = '<div class="bar"></div><div class="fill" id="fill"></div>';
-  CHAPTERS.forEach((ch, i) => { const a = document.createElement("a"); a.href = "#"; a.dataset.i = i; a.innerHTML = `<i></i><span class="n">${String(i).padStart(2, "0")}</span><span class="t">${ch.nav}</span>`;
-    a.addEventListener("click", e => { e.preventDefault(); goChapter(i); }); sp.appendChild(a); });
-  $("modeStory").addEventListener("click", () => { if (state.dom === EXPLORE) goChapter(0); });
-  $("modeExplore").addEventListener("click", () => goChapter(EXPLORE));
-  $("brand").addEventListener("click", e => { e.preventDefault(); goChapter(0); });
-  $("nextBtn").addEventListener("click", () => goChapter(Math.floor(state.p + 0.05) + 1));
-}
-function spineFill(ps) {
-  const items = [...document.querySelectorAll("#spine a")]; if (!items.length) return;
-  const i = Math.floor(ps), f = ps - i; const a = items[i], b = items[Math.min(items.length - 1, i + 1)];
-  const top = items[0].offsetTop + items[0].offsetHeight / 2; const y = lerp(a.offsetTop + a.offsetHeight / 2, b.offsetTop + b.offsetHeight / 2, f);
-  const fill = $("fill"); fill.style.top = top + "px"; fill.style.height = Math.max(0, y - top) + "px";
-}
-
-// ---- explore: the rule becomes a tool ---------------------------------------------------------------
-function buildExplore() {
-  const seg = (id, key, parse) => $(id).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-    $(id).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); state.rule[key] = parse(b.dataset[key === "metric" ? "m" : "s"]); applyRule(); }));
-  seg("metricSeg", "metric", v => v); seg("sevSeg", "sevMin", v => +v);
-  const dl = $("dlist"); D.districts.map(d => d.name).sort().forEach(n => { const o = document.createElement("option"); o.value = n; dl.appendChild(o); });
-  $("search").addEventListener("change", e => { const d = D.districts.find(x => x.name.toLowerCase() === e.target.value.trim().toLowerCase()); if (d) { selectDistrict(d.id); e.target.value = ""; } });
-  const box = $("stormChips");
-  D.storms.filter(s => s.note).forEach(s => { const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.dataset.sid = s.sid; b.innerHTML = `${s.note.label}<small>${s.season}</small>`; b.addEventListener("click", () => playStorm(s.sid)); box.appendChild(b); });
-}
-function renderList() {
-  const ol = $("rankList"); if (!ol) return; const r = state.rule; const list = D.list.slice(0, 15); const max = d3.max(list, d => d[r.metric]) || 1;
-  ol.innerHTML = list.map((d, i) => { const v = r.metric === "severe" ? d.severe + " hits" : f1(d[r.metric] / 1e6) + " M";
-    return `<li data-id="${d.id}" class="${i >= 10 ? "out" : ""}${state.pick === d.id ? " on" : ""}"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(d[r.metric] / max * 100).toFixed(1)}%"></i></span></li>`; }).join("")
-    + (D.list.length > 15 ? `<li class="out" style="cursor:default"><span></span><span class="nm" style="color:#9ca3af;font-weight:400">${D.list.length - 15} more meet the rule</span></li>` : "")
-    + (D.list.length === 0 ? `<li class="out"><span></span><span class="nm">No district meets this rule</span></li>` : "");
-  ol.querySelectorAll("li[data-id]").forEach(li => li.addEventListener("click", () => selectDistrict(+li.dataset.id)));
-}
-
-// ---- views: each chapter's box fitted to the part of the stage nothing covers ---------------------------
-function freeRegion() {
-  const w = stage.clientWidth || 1000, h = stage.clientHeight || 700; const sheet = $("focus").classList.contains("on") && innerWidth > 820 ? $("focus").offsetWidth + 24 : 0;
-  return { x0: 8, x1: w - 8 - sheet, y0: 8, y1: h - 56 };
-}
-function applyOffset(cam) {
-  const w = stage.clientWidth, h = stage.clientHeight, r = freeRegion(); const rw = r.x1 - r.x0, rh = r.y1 - r.y0;
-  cam.aspect = rw / rh; cam.setViewOffset(rw, rh, -r.x0, -r.y0, w, h); cam.updateProjectionMatrix();
-}
-const probe = new THREE.PerspectiveCamera(38, 1, 1, 4000);
-function fitView(v) {
-  const b = v.box; const look = toScene((b[0] + b[2]) / 2, (b[1] + b[3]) / 2); look.y = 0;
-  const corners = []; for (const lon of [b[0], b[2]]) for (const lat of [b[1], b[3]]) for (const y of [0, v.top || 8]) { const p = toScene(lon, lat); p.y = y; corners.push(p); }
-  const tilt = v.tilt * Math.PI / 180, az = v.az * Math.PI / 180;
-  const dir = new THREE.Vector3(Math.sin(az) * Math.cos(tilt), Math.sin(tilt), -Math.cos(az) * Math.cos(tilt));
-  const r = freeRegion(); probe.aspect = (r.x1 - r.x0) / (r.y1 - r.y0); probe.updateProjectionMatrix();
-  let d = Math.hypot((b[2] - b[0]) * KM_PER_DEG_LON, (b[3] - b[1]) * KM_PER_DEG_LAT) * 1.2;
-  for (let k = 0; k < 8; k++) {
-    probe.position.copy(look).addScaledVector(dir, d); probe.lookAt(look); probe.updateMatrixWorld();
-    let m = 0; for (const c of corners) { const q = c.clone().project(probe); m = Math.max(m, Math.abs(q.x) / 0.94, Math.abs(q.y) / 0.9); }
-    d *= m; if (Math.abs(m - 1) < 0.005) break;
+  const r = state.rule; const list = rankBy(r); D.list = list; const order = new Map(list.map((d, i) => [d.id, i]));
+  if (prisms) {
+    prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = d.severe >= r.sevMin;
+      m.userData.q = q; m.userData.rank = order.has(d.id) ? order.get(d.id) : 99; m.userData.h = Math.max(0.3, HEIGHT[r.metric](d[r.metric]));
+      m.userData.col = new THREE.Color(q ? sevHex(d.severe) : BASE.out); });
+    ranks.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); ranks.clear();
+    list.slice(0, 10).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
   }
-  return { look, d: d * 1.02, tilt, az };
-}
-function camFrom(v) { const dir = new THREE.Vector3(Math.sin(v.az) * Math.cos(v.tilt), Math.sin(v.tilt), -Math.cos(v.az) * Math.cos(v.tilt)); return { pos: v.look.clone().addScaledVector(dir, v.d), look: v.look.clone() }; }
-function blendView(a, b, e) {
-  let da = b.az - a.az; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
-  // rise a little in the middle of a long move, so the camera arcs over the country instead of skimming it
-  const far = a.look.distanceTo(b.look); const lift = 1 + Math.sin(Math.PI * e) * Math.min(0.3, far / 900);
-  return { look: a.look.clone().lerp(b.look, e), d: Math.exp(lerp(Math.log(a.d), Math.log(b.d), e)) * lift, tilt: lerp(a.tilt, b.tilt, e), az: a.az + da * e };
+  if (D.svg) paintFallback();
+  renderList(); kick();
 }
 
-// ---- the blended state at the smoothed scroll position -------------------------------------------------
-const BASE = { ...CHAPTERS[0].u, ...CHAPTERS[0].layers, year: 2025, grow: 0 };
-function valuesAt(i, t) { const ch = CHAPTERS[i]; return { ...BASE, ...ch.u, ...ch.layers, ...(ch.inner ? ch.inner(t) : {}) }; }
-function frameState(ps) {
-  const i = Math.min(N - 1, Math.floor(ps)), f = ps - i;
-  if (i === N - 1 || f <= HOLD) { const t = i === N - 1 ? 1 : f / HOLD; return { a: i, b: i, e: 0, v: valuesAt(i, t), view: views[i] }; }
-  const e = smooth((f - HOLD) / (1 - HOLD)); const va = valuesAt(i, 1), vb = valuesAt(i + 1, 0); const v = {};
-  for (const k of Object.keys(va)) v[k] = lerp(va[k], vb[k] ?? va[k], e);
-  return { a: i, b: i + 1, e, v, view: blendView(views[i], views[i + 1], e) };
+// ---- the values on screen ---------------------------------------------------------------------------
+function valuesAt(i, t) {
+  const ch = CHAPTERS[i]; const v = { ...ch.u, ...ch.layers };
+  if (ch.time) v[ch.time.key] = lerp(ch.time.from, ch.time.to, t);
+  return v;
 }
 
-// ---- frame loop -------------------------------------------------------------------------------------
-let last = performance.now();
-const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+// ---- steps ------------------------------------------------------------------------------------------
+function goStep(i, { push = true, instant = false } = {}) {
+  i = clamp(i, 0, N - 1); const prev = state.step; state.step = i; const ch = CHAPTERS[i];
+  if (!ch.explore) state.lastStory = i;
+  if (state.storm && !ch.explore) stopStorm();
+  if (state.pick && !pickable()) clearFocus(false);
+  if (!ch.explore && (state.rule.metric !== DEFAULT_RULE.metric || state.rule.sevMin !== DEFAULT_RULE.sevMin)) { state.rule = { ...DEFAULT_RULE }; resetSegs(); applyRule(); }
+  // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
+  setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
+  if (ch.time && instant) cur[ch.time.key] = lerp(ch.time.from, ch.time.to, state.tl.t);
+  stepUI(i);
+  if (state.gl) { const p = stepPose(i); if (instant) { copyPose(camT, p); copyPose(cam, p); flight = null; } else if (!state.pick) flyTo(p); }
+  if (push && i !== prev) history.pushState(null, "", hashFor()); else history.replaceState(null, "", hashFor());
+  $("live").textContent = `Step ${i + 1} of ${N}: ${ch.nav}`;
+  kick();
+}
+const pickable = () => ["priority", "explore"].includes(CHAPTERS[state.step].id);
+function stepUI(i) {
+  const ch = CHAPTERS[i], ex = !!ch.explore;
+  document.querySelectorAll("#steps li").forEach((li, n) => { li.classList.toggle("on", n === i); li.classList.toggle("done", n < i); li.querySelector("button").setAttribute("aria-current", n === i ? "step" : "false"); });
+  document.querySelectorAll(".cap").forEach(c => c.classList.toggle("vis", c.dataset.ch === ch.id));
+  $("storyText").hidden = ex; $("explorePanel").hidden = !ex;
+  $("modeStory").classList.toggle("on", !ex); $("modeExplore").classList.toggle("on", ex);
+  $("modeStory").setAttribute("aria-selected", !ex); $("modeExplore").setAttribute("aria-selected", ex);
+  $("stepLabel").textContent = `Step ${i + 1} of ${N}${ex ? " · Explore" : ""}`;
+  $("prevBtn").disabled = i === 0;
+  $("nextTxt").textContent = i === 0 ? "Start" : i === EXPLORE ? "Back to the start" : i === EXPLORE - 1 ? "Explore the 64 districts" : "Next: " + CHAPTERS[i + 1].nav;
+  $("progFill").style.width = (i / (N - 1) * 100) + "%";
+  showKey(ch.id);
+  if (state.gl) renderer.domElement.style.cursor = "grab";
+}
+function buildSteps() {
+  const ol = $("steps");
+  CHAPTERS.forEach((ch, i) => { const li = document.createElement("li"); li.innerHTML = `<button type="button"><span class="dot"></span><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="t">${ch.nav}</span></button>`;
+    li.querySelector("button").addEventListener("click", () => goStep(i)); ol.appendChild(li); });
+}
+const next = () => goStep(state.step === EXPLORE ? 0 : state.step + 1), prevStep = () => goStep(state.step - 1);
+
+// ---- the timeline: a step's own animation, or a cyclone being played ------------------------------------
+function setTimeline(def, { autoplay = true, at = 0 } = {}) {
+  const tl = state.tl; tl.def = def; tl.t = at; tl.playing = !!def && autoplay && at < 1;
+  const el = $("timeline"); el.hidden = !def; document.body.classList.toggle("has-timeline", !!def);
+  if (!def) return syncTimeline();
+  $("tlLabel").textContent = def.label;
+  $("ticks").innerHTML = def.ticks.map(v => `<span style="left:${((v - def.from) / (def.to - def.from) * 100).toFixed(2)}%">${def.tick(v)}</span>`).join("");
+  syncTimeline();
+}
+function syncTimeline() {
+  const tl = state.tl, def = tl.def; $("timeline").classList.toggle("playing", tl.playing);
+  $("playBtn").setAttribute("aria-label", tl.playing ? "Pause" : "Play");
+  if (!def) return;
+  const s = $("scrub"); s.value = Math.round(tl.t * 1000); s.style.setProperty("--fill", (tl.t * 100).toFixed(2) + "%");
+  s.setAttribute("aria-valuetext", def.fmt(lerp(def.from, def.to, tl.t)));
+  $("tlValue").textContent = def.value ? def.value() : def.fmt(lerp(def.from, def.to, tl.t));
+}
+function togglePlay() { const tl = state.tl; if (!tl.def) return; if (!tl.playing && tl.t >= 1) tl.t = 0; tl.playing = !tl.playing; syncTimeline(); kick(); }
+
+// ---- 2D / 3D ------------------------------------------------------------------------------------------
+function setDim(three, { user = true } = {}) {
+  if (!state.gl) return; const t = three ? 1 : 0; if (t === state.dimTarget) return;
+  state.dimTarget = t; setDimUI();
+  if (t && camT.pitch < 12) { camT.pitch = CHAPTERS[state.step].view.pitch; if (!flight) cam.pitch = camT.pitch; }
+  if (reduced) state.dimP = t;
+  if (user) history.replaceState(null, "", hashFor());
+  kick();
+}
+function setDimUI() { document.querySelectorAll("#dimSeg button").forEach(b => { const on = +b.dataset.dim === (state.dimTarget ? 3 : 2); b.classList.toggle("on", on); b.setAttribute("aria-checked", on); }); }
+
+// ---- the frame loop: renders only while something moves ---------------------------------------------
+let last = performance.now(), need = 2, interacting = false, lastFrame = 0;
+function kick() { need = Math.max(need, 2); }
+const camPrev = { x: 0, y: 0, z: 0 };
 function frame(now) {
-  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now; state.frames += 1;
-  state.ps += (state.p - state.ps) * (1 - Math.exp(-dt * 5)); if (Math.abs(state.p - state.ps) < 1e-4) state.ps = state.p;
-  const F = frameState(state.ps), v = F.v; const dom = F.e < 0.5 ? F.a : F.b;
-  if (dom !== state.dom) onChapter(dom);
-  // camera: the chapter's view, or the district / storm the reader picked; damped so nothing ever jumps
-  const intro = smooth(clamp((now - state.t0) / 2600, 0, 1));
-  let target;
-  if (state.override) target = state.override;
-  else { target = camFrom(F.view); if (intro < 1) target.pos.copy(target.look).addScaledVector(target.pos.clone().sub(target.look), lerp(1.7, 1, intro)); }
-  const k = state.first ? 1 : 1 - Math.exp(-dt * (state.override ? 3 : 9)); state.first = false;
-  camPos.lerp(target.pos, k); camLook.lerp(target.look, k);
-  if (!state.userCam) { camera.position.copy(camPos); camera.lookAt(camLook); controls.target.copy(camLook); } else controls.update();
-  // the relief
-  const U = terrain.uniforms;
+  requestAnimationFrame(frame);
+  const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); last = now; state.frames += 1;   // real time, so slow machines finish animations on time
+  if (!state.gl) return;
+  let moving = false;
+  // timeline
+  const tl = state.tl;
+  if (tl.playing && tl.def) { tl.t = Math.min(1, tl.t + dt * tl.speed / tl.def.dur); if (tl.t >= 1) tl.playing = false; syncTimeline(); moving = true; }
+  // 2D <-> 3D
+  if (state.dimP !== state.dimTarget) { const s = dt / DUR_DIM; state.dimP = state.dimTarget > state.dimP ? Math.min(state.dimTarget, state.dimP + s) : Math.max(state.dimTarget, state.dimP - s); moving = true; }
+  const P = state.dimP; const eExag = ease(seg(P, 0.21, 0.79));
+  // values: everything eases toward the step's targets; the timeline's own value follows quickly
+  const ch = CHAPTERS[state.step]; const tgt = valuesAt(state.step, tl.def && !state.storm ? tl.t : 1);
+  const k = reduced ? 1 : 1 - Math.exp(-dt * 6), kf = reduced ? 1 : 1 - Math.exp(-dt * 22);
+  for (const key in tgt) { const a = cur[key] ?? tgt[key], b = tgt[key]; const kk = ch.time && key === ch.time.key ? kf : k; const v = Math.abs(b - a) < 1e-4 ? b : a + (b - a) * kk; if (v !== a) moving = true; cur[key] = v; }
+  const v = cur;
+  // camera
+  const fl = stepFlight(now); if (flight) moving = true;
+  const kc = reduced ? 1 : 1 - Math.exp(-dt * 12);
+  cam.look.lerp(camT.look, kc); cam.d = Math.exp(lerp(Math.log(cam.d), Math.log(camT.d), kc)); cam.pitch = lerp(cam.pitch, camT.pitch, kc); cam.az = lerpAngle(cam.az, camT.az, kc);
+  if (cam.look.distanceTo(camT.look) > 0.01 || Math.abs(cam.d / camT.d - 1) > 1e-4 || Math.abs(cam.pitch - camT.pitch) > 0.01 || Math.abs(lerpAngle(cam.az, camT.az, 1) - cam.az) > 0.01) moving = true;
+  off.r += (freeTarget().r - off.r) * kc; off.b += (freeTarget().b - off.b) * kc; if (Math.abs(freeTarget().r - off.r) > 0.5 || Math.abs(freeTarget().b - off.b) > 0.5) moving = true;
+  applyOffset(camera, off); pose(camera, cam);
+  const vw = view(cam); $("needle").style.transform = `rotate(${(180 - vw.az).toFixed(1)}deg)`;
+  // continuous animations that need frames
+  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || (v.uRiverGlow > 0.8 && v.rivers > 0.5);
+  if (!(moving || live || interacting || need > 0)) { lastFrame = now; return; }
+  need = Math.max(0, need - 1);
+  scene.fog.near = cam.d * 1.2; scene.fog.far = cam.d * 3.2;
+  // relief
+  const U = terrain.uniforms; const time = now / 1000;
   for (const key of ["uSeaLevel", "uRiverGlow", "uFar", "uLowBand", "uSink", "uCoverMix", "uForest", "uWet", "uBuilt", "uLoss"]) U[key].value = v[key];
-  U.uExag.value = 1 + (v.uExag - 1) * intro; U.uCutOn.value = 0; U.uTime.value = (now - state.t0) / 1000;
-  // layers
-  rivers.children.forEach(o => { if (o.material.uniforms) { o.material.uniforms.uOpacity.value = (o.name === "major" ? 0.9 : 0.4) * v.rivers; o.material.uniforms.uTime.value = U.uTime.value; } else o.material.opacity = v.riverLabels; });
+  U.uExag.value = v.uExag * eExag; U.uCutOn.value = 0; U.uTime.value = time;
+  // the overlays were built at 14x; they follow the relief as it rises and lies down
+  const ys = Math.max(0.03, eExag * v.uExag / 14); [rivers, farRivers, districts, storms, wind.mesh, labels, site].forEach(g => g.scale.y = ys);
+  // labels step back while the camera flies or the view changes dimension
+  const lf = (1 - smoothstep(0, 0.12, P) * smoothstep(1, 0.88, P)) * (1 - 0.85 * fl);
+  rivers.children.forEach(o => { if (o.material.uniforms) { o.material.uniforms.uOpacity.value = (o.name === "major" ? 0.9 : 0.45) * v.rivers; o.material.uniforms.uTime.value = time; } else o.material.opacity = v.riverLabels * lf; });
   farRivers.children.forEach(l => l.material.opacity = 0.5 * v.farRivers);
-  labels.children.forEach(s => s.material.opacity = v.labels);
-  stormLayer(v); prismLayer(v);
-  site.children.forEach(o => { o.material.opacity = v.site * (o.name === "ring" ? 0.45 + 0.45 * Math.sin(U.uTime.value * 2.4) : 1); });
-  site.children[1].scale.setScalar(1 + 0.25 * Math.sin(U.uTime.value * 2.4));
-  panel(F); readouts(v, dom); spineFill(state.ps);
-  const dist = camera.position.distanceTo(camLook), sc = dist / 680;   // labels keep one size on screen
+  labels.children.forEach(s => s.material.opacity = v.labels * lf);
+  districts.children.forEach(l => { const sel = l.userData.id === state.pick; l.material.color.setHex(sel ? hex(BASE.ink) : hex(BASE.outline)); l.material.opacity = sel ? 0.95 : 0.55 * v.borders; });
+  stormLayer(v, lf); prismLayer(v, P, lf);
+  site.children.forEach(o => { o.material.opacity = v.site * (o.name === "ring" ? 0.45 + 0.45 * Math.sin(time * 2.4) : o.isSprite ? lf : 1); });
+  site.children[1].scale.setScalar(1 + 0.25 * Math.sin(time * 2.4));
+  readouts(v);
+  // labels keep one size on screen
+  const sc = camera.position.distanceTo(cam.look) / 1020;
   const fit = s => { if (s.isSprite && s.userData.base) s.scale.set(s.userData.base.w * sc, s.userData.base.h * sc, 1); };
   labels.children.forEach(fit); rivers.children.forEach(fit); ranks.children.forEach(fit); site.children.forEach(fit); storms.children.forEach(s => { if (s.userData.isStormLabel) fit(s); });
+  if (state.storm && state.tl.def) { const s = player.storm; const n = s.pts.length; player.t = player.t0 + state.tl.t * (n - 1 - player.t0); syncTimeline(); }
   player.step(); wind.step();
-  renderer.render(scene, camera); requestAnimationFrame(frame);
+  renderer.render(scene, camera); state.renders += 1;
+  if (state.frameTimes.length > 400) state.frameTimes.shift(); state.frameTimes.push(now - lastFrame); lastFrame = now;
 }
 
-// cyclones: the storm chapter is a clock run by the scroll; the last chapter plays the storm the reader picks
-function stormLayer(v) {
-  const yr = v.year, playing = state.storm && state.dom === EXPLORE;
+// cyclones: the storm step is a clock run by the timeline; Explore plays the storm the reader picks
+function stormLayer(v, lf) {
+  const yr = v.year, playing = !!state.storm;
   storms.children.forEach(o => {
     const s = o.userData; const marker = o.name.startsWith("ring-") || o.name.startsWith("lab-");
-    if (playing) { o.material.opacity = s.sid === state.storm ? 0.95 : 0; return; }
-    o.material.opacity = s.season <= yr ? v.storms * (marker ? 0.9 : s.note ? 0.8 : 0.4) : 0;
+    if (playing) { o.material.opacity = s.sid === state.storm ? (o.isSprite ? lf : 0.95) : 0; return; }
+    o.material.opacity = s.season <= yr ? v.storms * (marker ? 0.9 : s.note ? 0.85 : 0.45) * (o.isSprite ? lf : 1) : 0;
   });
   if (playing) { wind.mat.opacity = 0.95; return; }
   wind.mat.opacity = v.wind;
   if (v.wind > 0.01) {
-    // the year's strongest storm, moving along its track as the year on the clock runs
     const y = Math.floor(yr), frac = yr - y; const yrs = D.storms.filter(s => s.season === y);
     if (yrs.length) { const s = yrs.reduce((a, b) => (a.peak_kt > b.peak_kt ? a : b)); const kk = Math.min(s.pts.length - 1, Math.floor(frac * (s.pts.length - 1))); const p = s.pts[kk]; wind.vortices = [{ lon: p[0], lat: p[1], kt: Math.max(30, p[2]) }]; }
     else wind.vortices = [];
   } else wind.vortices = [];
 }
-// the ten: columns grow with the scroll; the districts that meet the rule are coloured by how often
-// hurricane-force wind reached them, the rest stay as low grey slabs
-function prismLayer(v) {
-  const g = smooth(clamp(v.grow, 0, 1)); const on = v.prisms > 0.01;
-  prisms.children.forEach(m => { m.visible = on; if (!on) return; const q = m.userData.q;
-    const sel = state.pick && state.pick === m.userData.id;
-    m.material.opacity = v.prisms * (q ? (state.pick && !sel ? 0.55 : 1) : 0.16);
-    m.scale.y = Math.max(0.001, q ? m.userData.h * g : 0.25 * g); });   // districts outside the rule stay a faint tint on the ground
+// the ten: in 2D a choropleth, in 3D columns that rise tallest-first after the ground has risen
+function prismLayer(v, P, lf) {
+  const on = v.prisms > 0.01; const g = clamp(v.grow, 0, 1);
+  prisms.children.forEach(m => { m.visible = on; if (!on) return; const q = m.userData.q; const sel = state.pick && state.pick === m.userData.id;
+    const st = 0.43 + Math.min(m.userData.rank, 10) * 0.025; const ex = ease(seg(P, st, st + 0.32));
+    // a picked district keeps its colour; the others stay solid but fade toward the neutral grey, so the columns never turn to glass
+    const o = v.prisms * (q ? 1 : 0.75); const fade = state.pick && !sel ? 0.7 : 0;
+    m.material.forEach(mm => { mm.opacity = o; mm.transparent = o < 0.999; mm.depthWrite = o > 0.6; mm.color.copy(m.userData.col).lerp(OUTC, fade); });
+    m.scale.y = Math.max(0.001, (q ? m.userData.h : 0.25) * g * ex); });
   ranks.children.forEach(s => { const d = s.userData.d; const m = prisms.getObjectByName("p-" + d.id); const p = toScene(d.centroid[0], d.centroid[1]);
-    p.y = (m ? m.scale.y : 0) + 3 + (s.userData.rank % 3) * 3.5; s.position.copy(p); s.material.opacity = v.ranks * smooth(clamp((g - 0.55) / 0.45, 0, 1)); });
+    p.y = (m ? m.scale.y : 0) + 2 + (s.userData.rank % 3) * 3 * P; s.position.copy(p); s.material.opacity = v.ranks * g * lf; });
 }
-// the panel: the outgoing chapter's words lift and fade in the first half of a move, the next ones rise in
-const caps = [...document.querySelectorAll(".cap")];
-function panel(F) {
-  caps.forEach((el, i) => {
-    let o = 0, y = 0;
-    if (i === F.a) { o = F.e === 0 ? 1 : 1 - smooth(clamp(F.e * 2, 0, 1)); y = -18 * F.e; }
-    if (i === F.b && F.b !== F.a) { o = smooth(clamp(F.e * 2 - 1, 0, 1)); y = 18 * (1 - F.e); }
-    el.style.opacity = o; el.style.transform = `translateY(${y}px)`; el.classList.toggle("vis", o > 0.02);
-  });
-}
-function readouts(v, dom) {
-  const id = CHAPTERS[dom].id;
+function readouts(v) {
+  const id = CHAPTERS[state.step].id;
   if (id === "sea") { const lvl = Math.max(0, v.uSeaLevel); const i = clamp(Math.round(lvl / 0.25), 0, D.expo.steps_m.length - 1);
     $("seaM").textContent = lvl.toFixed(2) + " m"; $("seaP").textContent = f1(D.expo.people[i] / 1e6) + " M"; }
   if (id === "storms") { const y = Math.min(2025, Math.floor(v.year)); $("stormY").textContent = y; $("stormN").textContent = D.storms.filter(s => s.season <= y).length; }
 }
-// a direct key: one or two swatches for what the relief is showing right now, nothing more
+
+// ---- the key: one compact block, the same in 2D and 3D -----------------------------------------------
+const ramp = (a, b) => `<i class="ramp" style="background:linear-gradient(to right,${a},${b})"></i>`;
+const sevKey = below => [["", "Hurricane-force passes since 1960"], ...[6, 5, 4, 3].map(n => [SEV[n], n === 6 ? "6" : String(n)]), [BASE.out, below]];
 const KEYS = {
-  cover: [["#c9b56b", "cropland"], ["#3f7d4e", "trees and groves"], ["#1f6b56", "mangrove"]],
-  low: [["#E69F00", "land under 5 m, darker = lower"]],
-  silt: [["l:#0072B2", "rivers, darker = more water"]],
-  sink: [["#56B4E9", "land that drops below the sea"]],
-  sea: [["#56B4E9", "land below the chosen sea level"]],
-  storms: [["l:#D55E00", "96 kt and more"], ["l:#E69F00", "64–95 kt"], ["l:#0072B2", "34–63 kt"]],
-  priority: [["#a33c00", "6 hurricane-force passes"], ["#d55e00", "4"], ["#e69f00", "3"], ["#c9ced4", "fewer than 3"]],
-  raise: [["#0072B2", "tidal river management site"]],
-  explore: [["#a33c00", "6 hurricane-force passes"], ["#d55e00", "4"], ["#e69f00", "3"], ["#c9ced4", "below the rule"]]
+  low: [["", "Land under the cutoff"], ["r:" + LOW.low + "," + LOW.high, "lower → higher"]],
+  silt: [["l:" + RIVER.strong, "rivers, darker = more water"]],
+  sink: [["", "Land below the sea"], ["r:" + FLOOD.shallow + "," + FLOOD.deep, "shallow → deep"]],
+  sea: [["", "Land below the sea"], ["r:" + FLOOD.shallow + "," + FLOOD.deep, "shallow → deep"]],
+  storms: [["", "Cyclone wind"], ["l:" + WIND.major, "96 kt and more"], ["l:" + WIND.hurricane, "64–95 kt"], ["l:" + WIND.gale, "34–63 kt"]],
+  priority: sevKey("fewer than 3"),
+  raise: [[ACCENT, "tidal river management site"]],
+  explore: sevKey("below the rule")
 };
-function showKey(id) { const k = KEYS[id] || []; $("key").innerHTML = k.map(([c, t]) => { const l = c.startsWith("l:"); return `<div><i class="${l ? "l" : ""}" style="background:${l ? c.slice(2) : c}"></i>${t}</div>`; }).join(""); }
-// a chapter became dominant: spine, mode, key, next button, and whatever the reader had open
-function onChapter(i) {
-  state.dom = i; const ch = CHAPTERS[i];
-  document.querySelectorAll("#spine a").forEach(a => { const n = +a.dataset.i; a.classList.toggle("on", n === i); a.classList.toggle("done", n < i); });
-  const ex = i === EXPLORE; $("storyText").hidden = ex; $("explorePanel").hidden = !ex;
-  $("modeStory").classList.toggle("on", !ex); $("modeExplore").classList.toggle("on", ex);
-  $("nextBtn").classList.toggle("hide", ex); $("nextTxt").textContent = i === 0 ? "Scroll to begin" : "Next: " + CHAPTERS[Math.min(N - 1, i + 1)].nav;
-  $("clickHint")?.remove();
-  showKey(ch.id);
-  state.userCam = false; controls.enabled = ex;
-  if (!ex) { if (state.storm) { state.storm = null; player.stop(); markChips(); } if (state.pick && ch.id !== "priority") clearFocus(); state.override = null;
-    if (state.rule.metric !== DEFAULT_RULE.metric || state.rule.sevMin !== DEFAULT_RULE.sevMin) { state.rule = { ...DEFAULT_RULE }; resetSegs(); applyRule(); } }
-  renderer.domElement.style.cursor = ex ? "grab" : "default";
+function showKey(id) {
+  const k = KEYS[id] || [];
+  $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
 }
-function resetSegs() { document.querySelectorAll("#metricSeg button").forEach(b => b.classList.toggle("on", b.dataset.m === DEFAULT_RULE.metric)); document.querySelectorAll("#sevSeg button").forEach(b => b.classList.toggle("on", +b.dataset.s === DEFAULT_RULE.sevMin)); }
-controls.addEventListener("start", () => { if (state.dom === EXPLORE) { state.userCam = true; state.override = null; } });
 
-// ---- districts: hover and click ----------------------------------------------------------------------
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
-function setNdc(ev) { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
-const pickable = () => ["priority", "explore"].includes(CHAPTERS[state.dom]?.id);
-function districtAt(ev) {
-  setNdc(ev);
-  const cols = prisms.children.filter(m => m.visible && m.material.opacity > 0.05 && m.scale.y > 0.5); if (cols.length) { const h = ray.intersectObjects(cols, false); if (h.length) return h[0].object.userData.id; }
-  if (!ray.ray.intersectPlane(plane, hit)) return 0;
-  let lon = hit.x / KM_PER_DEG_LON + (GRID.W + GRID.E) / 2, lat = -hit.z / KM_PER_DEG_LAT + (GRID.S + GRID.N) / 2;
-  for (let n = 0; n < 2; n++) { const hh = Math.max(sampleH(lon, lat), 0) * 0.001 * terrain.uniforms.uExag.value; plane.constant = -hh; if (!ray.ray.intersectPlane(plane, hit)) break; lon = hit.x / KM_PER_DEG_LON + (GRID.W + GRID.E) / 2; lat = -hit.z / KM_PER_DEG_LAT + (GRID.S + GRID.N) / 2; }
-  plane.constant = 0;
-  if (lon < GRID.W || lon > GRID.E || lat < GRID.S || lat > GRID.N) return 0;
-  const x = Math.min(D.idW - 1, Math.floor((lon - GRID.W) / (GRID.E - GRID.W) * D.idW)), y = Math.min(D.idH - 1, Math.floor((GRID.N - lat) / (GRID.N - GRID.S) * D.idH));
-  return D.idPix[(y * D.idW + x) * 4];
+// ---- explore: the rule becomes a tool ---------------------------------------------------------------
+function buildExplore() {
+  const segs = (id, key, attr, parse) => $(id).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    $(id).querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); }); state.rule[key] = parse(b.dataset[attr]); applyRule(); }));
+  segs("metricSeg", "metric", "m", v => v); segs("sevSeg", "sevMin", "s", v => +v);
+  const box = $("stormChips");
+  D.storms.filter(s => s.note).forEach(s => { const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.dataset.sid = s.sid; b.innerHTML = `${s.note.label}<small>${s.season}</small>`; b.addEventListener("click", () => playStorm(s.sid)); box.appendChild(b); });
 }
-let down = null;
-const tip = $("tip");
-renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
-renderer.domElement.addEventListener("pointermove", e => {
-  if (!terrain || !pickable()) { tip.style.display = "none"; return; }
-  const id = districtAt(e); if (id !== state.hover) { state.hover = id; terrain.uniforms.uHover.value = id; }
-  if (id) { const d = D.byId[id]; const r = D.list.findIndex(x => x.id === id);
-    tip.style.display = "block"; tip.style.left = e.clientX + "px"; tip.style.top = e.clientY + "px";
-    tip.innerHTML = `<div class="t">${d.name}${r >= 0 && r < 10 ? ` <span style="color:#D55E00;font-weight:500">· ${r + 1} of the ten</span>` : ""}</div>
-      <div class="row">people under 5 m <b>${f1(d.pop_le5 / 1e6)} M</b></div><div class="row">hurricane-force passes <b>${d.severe}</b></div><div class="hint">click for the district sheet</div>`;
-    renderer.domElement.style.cursor = "pointer"; }
-  else { tip.style.display = "none"; renderer.domElement.style.cursor = state.dom === EXPLORE ? "grab" : "default"; }
-});
-renderer.domElement.addEventListener("pointerleave", () => { tip.style.display = "none"; if (terrain) terrain.uniforms.uHover.value = state.hover = 0; });
-renderer.domElement.addEventListener("pointerup", e => {
-  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) { down = null; return; } down = null;
-  if (!pickable()) return; const id = districtAt(e); if (id) selectDistrict(id); else if (state.pick) clearFocus();
-});
-function selectDistrict(id) {
+function resetSegs() {
+  document.querySelectorAll("#metricSeg button").forEach(b => { const on = b.dataset.m === DEFAULT_RULE.metric; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+  document.querySelectorAll("#sevSeg button").forEach(b => { const on = +b.dataset.s === DEFAULT_RULE.sevMin; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+}
+function renderList() {
+  const ol = $("rankList"); if (!ol || !D.list) return; const r = state.rule; const list = D.list.slice(0, 15); const max = d3.max(list, d => d[r.metric]) || 1;
+  ol.innerHTML = list.map((d, i) => { const v = r.metric === "severe" ? d.severe + " hits" : f1(d[r.metric] / 1e6) + " M";
+    return `<li data-id="${d.id}" tabindex="0" class="${i === 10 ? "cut" : ""}${state.pick === d.id ? " on" : ""}"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(d[r.metric] / max * 100).toFixed(1)}%;background:${i < 10 ? sevHex(d.severe) : BASE.out}"></i></span></li>`; }).join("")
+    + (D.list.length > 15 ? `<li class="more"><span></span><span class="nm" style="font-weight:400;color:#6b7280">${D.list.length - 15} more meet the rule</span></li>` : "")
+    + (D.list.length === 0 ? `<li class="more"><span></span><span class="nm">No district meets this rule</span></li>` : "");
+  ol.querySelectorAll("li[data-id]").forEach(li => { const go = () => selectDistrict(+li.dataset.id); li.addEventListener("click", go); li.addEventListener("keydown", e => { if (e.key === "Enter") go(); }); });
+}
+
+// ---- selection --------------------------------------------------------------------------------------
+function selectDistrict(id, { push = true, fly = true } = {}) {
   const d = D.byId[id]; if (!d) return;
-  if (state.storm) { state.storm = null; player.stop(); markChips(); }
-  state.pick = id; terrain.uniforms.uPick.value = id;
-  districts.children.forEach(l => l.material.opacity = l.userData.id === id ? 0.9 : 0);
-  cards.showDistrict(d); refit();
-  if (state.dom === EXPLORE) { const pad = 0.15; state.override = camFrom(fitView({ box: [d.bbox[0] - pad, d.bbox[1] - pad, d.bbox[2] + pad, d.bbox[3] + pad], tilt: 46, az: 198, top: 40 })); state.userCam = false; }
-  renderList();
+  if (!pickable()) goStep(EXPLORE, { push: false });
+  if (state.storm) stopStorm();
+  state.pick = id; if (terrain) terrain.uniforms.uPick.value = id;
+  cards.showDistrict(d); document.body.classList.add("sheet-open");
+  if (state.gl && fly) { const pad = 0.4; const p = fitView({ box: [d.bbox[0] - pad, d.bbox[1] - pad, d.bbox[2] + pad, d.bbox[3] + pad], top: Math.min(60, 8 + (prisms?.getObjectByName('p-' + id)?.userData.h || 0)), pitch: 40, az: 196 }, state.dimTarget ? 40 : 0, state.dimTarget ? 196 : 180); p.pitch = 40; p.az = 196; flyTo(p); }
+  if (D.svg) paintFallback();
+  renderList(); if (push) history.pushState(null, "", hashFor()); else history.replaceState(null, "", hashFor()); kick();
 }
-function clearFocus() {
-  if (state.pick) { state.pick = 0; terrain.uniforms.uPick.value = 0; districts.children.forEach(l => l.material.opacity = 0); }
-  if (state.storm) { state.storm = null; player.stop(); markChips(); }
-  state.override = null; cards.hide(); refit(); renderList();
+function clearFocus(fly = true) {
+  const had = state.pick || state.storm;
+  if (state.pick) { state.pick = 0; if (terrain) terrain.uniforms.uPick.value = 0; }
+  if (state.storm) stopStorm();
+  cards.hide(); document.body.classList.remove("sheet-open"); renderList(); if (D.svg) paintFallback();
+  if (had && fly && state.gl) flyTo(stepPose(state.step));
+  if (had) history.pushState(null, "", hashFor()); kick();
 }
 
-// ---- storms in the last chapter -------------------------------------------------------------------------
+// ---- cyclones in Explore ------------------------------------------------------------------------------
 function markChips() { document.querySelectorAll("#stormChips .chip").forEach(b => b.classList.toggle("on", b.dataset.sid === state.storm)); }
-function playStorm(sid) {
+function stopStorm() { state.storm = null; if (player) player.stop(); markChips(); if (CHAPTERS[state.step].time) setTimeline(CHAPTERS[state.step].time, { autoplay: false, at: 1 }); else setTimeline(null); }
+function playStorm(sid, { push = true } = {}) {
   const s = D.storms.find(x => x.sid === sid); if (!s) return;
-  if (state.dom !== EXPLORE) { goChapter(EXPLORE, true); state.ps = state.p; onChapter(EXPLORE); }
-  if (state.pick) { state.pick = 0; terrain.uniforms.uPick.value = 0; districts.children.forEach(l => l.material.opacity = 0); }
-  state.storm = sid; markChips(); cards.showStorm(s); refit();
-  const pts = s.pts.filter(p => p[0] > GRID.W - 1 && p[0] < GRID.E + 1 && p[1] > 15 && p[1] < GRID.N);
-  const b = [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
-  state.override = camFrom(fitView({ box: [b[0] - 0.3, Math.max(15, b[1]), b[2] + 0.3, b[3]], tilt: 62, az: 185, top: 10 })); state.userCam = false;
-  player.play(s, storms.children.find(o => o.name === sid)); renderList();
+  if (state.step !== EXPLORE) goStep(EXPLORE, { push: false, instant: !state.ready });
+  if (state.pick) { state.pick = 0; if (terrain) terrain.uniforms.uPick.value = 0; }
+  state.storm = sid; markChips(); cards.showStorm(s); document.body.classList.add("sheet-open");
+  const name = s.note ? s.note.label : s.name;
+  if (state.gl) {
+    player.play(s, storms.children.find(o => o.name === sid));
+    const n = s.pts.length; const span = n - 1 - player.t0;
+    setTimeline({ key: "_storm", label: `Cyclone ${name}, ${s.season}`, from: 0, to: span * 0.25, dur: clamp(span * 0.16, 6, 14), ticks: d3.range(0, Math.floor(span * 0.25) + 1, Math.max(1, Math.ceil(span * 0.25 / 6))), fmt: x => "day " + x.toFixed(1), tick: x => "day " + x,
+      value: () => state.stormTick ? `day ${((state.stormTick.t - player.t0) * 0.25).toFixed(1)} · ${Math.round(state.stormTick.kt)} kt` : "" }, { autoplay: !reduced, at: reduced ? 1 : 0 });
+    const pts = s.pts.filter(p => p[0] > GRID.W - 1 && p[0] < GRID.E + 1 && p[1] > 15 && p[1] < GRID.N);
+    const b = [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
+    const v = { box: [b[0] - 0.3, Math.max(15, b[1]), b[2] + 0.3, b[3]], top: 10, pitch: 30, az: 185 };
+    const p = fitView(v, state.dimTarget ? 30 : 0, state.dimTarget ? 185 : 180); p.pitch = 30; p.az = 185; flyTo(p);
+  }
+  renderList(); if (push) history.pushState(null, "", hashFor()); kick();
 }
 
-// ---- resize: the free region changes when the sheet opens or the window resizes --------------------------
-function refit() { applyOffset(camera); views = CHAPTERS.map(ch => fitView(ch.view)); }
-function resize() { renderer.setSize(stage.clientWidth, stage.clientHeight, false); refit(); layoutTrack(); onScroll(); }
+// ---- the map: drag, wheel, pinch, hover, click -----------------------------------------------------------
+function districtAt(x, y) {
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const cols = prisms.children.filter(m => m.visible && m.material[0].opacity > 0.05 && m.scale.y > 0.5); if (cols.length) { const h = ray.intersectObjects(cols, false); if (h.length) return h[0].object.userData.id; }
+  const pl = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); const hit = new THREE.Vector3(); if (!ray.ray.intersectPlane(pl, hit)) return 0;
+  let lon = hit.x / KM_PER_DEG_LON + (GRID.W + GRID.E) / 2, lat = -hit.z / KM_PER_DEG_LAT + (GRID.S + GRID.N) / 2;
+  for (let n = 0; n < 2; n++) { pl.constant = -Math.max(sampleH(lon, lat), 0) * 0.001 * terrain.uniforms.uExag.value; if (!ray.ray.intersectPlane(pl, hit)) break; lon = hit.x / KM_PER_DEG_LON + (GRID.W + GRID.E) / 2; lat = -hit.z / KM_PER_DEG_LAT + (GRID.S + GRID.N) / 2; }
+  if (lon < GRID.W || lon > GRID.E || lat < GRID.S || lat > GRID.N) return 0;
+  const px = Math.min(D.idW - 1, Math.floor((lon - GRID.W) / (GRID.E - GRID.W) * D.idW)), py = Math.min(D.idH - 1, Math.floor((GRID.N - lat) / (GRID.N - GRID.S) * D.idH));
+  return D.idPix[(py * D.idW + px) * 4];
+}
+const D_MIN = 60, D_MAX = 4200;
+function zoomAt(factor, x, y) {
+  cancelFlight(); const probeC = camera.clone(); pose(probeC, camT);
+  const before = x != null ? groundAt(probeC, x, y) : null;
+  camT.d = clamp(camT.d * factor, D_MIN, D_MAX); pose(probeC, camT);
+  if (before) { const after = groundAt(probeC, x, y); if (after) camT.look.add(before.sub(after)); }
+  dismissHint(); kick();
+}
+function bindMap() {
+  const el = renderer.domElement; const pts = new Map(); let mode = null, start = null, downAt = null, moved = 0, pinch = null;
+  el.addEventListener("contextmenu", e => e.preventDefault());
+  el.addEventListener("pointerdown", e => {
+    el.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); cancelFlight(); copyPose(camT, cam); interacting = true; hideTip();
+    if (pts.size === 1) { const rot = state.dimTarget && (e.button === 2 || e.ctrlKey || e.metaKey || e.shiftKey); mode = rot ? "rotate" : "pan"; start = { x: e.clientX, y: e.clientY, g: groundAt(camera, e.clientX, e.clientY) }; downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; moved = 0; el.style.cursor = rot ? "move" : "grabbing"; }
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; mode = "pinch"; }
+  });
+  el.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) { hover(e); return; }
+    const pr = pts.get(e.pointerId); const dx = e.clientX - pr.x, dy = e.clientY - pr.y; pr.x = e.clientX; pr.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (mode === "pan" && start.g) { pose(camera, cam); const g = groundAt(camera, e.clientX, e.clientY); if (g) { const dv = start.g.clone().sub(g); dv.y = 0; cam.look.add(dv); camT.look.copy(cam.look); } }
+    else if (mode === "rotate") { cam.az = camT.az = (cam.az - dx * 0.3 + 360) % 360; cam.pitch = camT.pitch = clamp(cam.pitch - dy * 0.25, 0, 70); }
+    else if (mode === "pinch" && pts.size === 2) {
+      const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      cam.d = camT.d = clamp(cam.d * pinch.d / d, D_MIN, D_MAX);
+      if (state.dimTarget) { cam.az = camT.az = (cam.az + (ang - pinch.ang) * 180 / Math.PI + 360) % 360; cam.pitch = camT.pitch = clamp(cam.pitch - (my - pinch.my) * 0.3, 0, 70); }
+      else { pose(camera, cam); const g0 = groundAt(camera, pinch.mx, pinch.my), g1 = groundAt(camera, mx, my); if (g0 && g1) { cam.look.add(g0.sub(g1)); camT.look.copy(cam.look); } }
+      pinch = { d, ang, mx, my };
+    }
+    if (moved > 4) dismissHint(); kick();
+  });
+  const up = e => {
+    if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
+    if (pts.size === 0) {
+      interacting = false; el.style.cursor = "grab";
+      if (downAt && moved < 6 && performance.now() - downAt.t < 500 && mode !== "pinch") click(e);
+      mode = null; downAt = null;
+    } else if (pts.size === 1) { const [p] = [...pts.values()]; mode = "pan"; pose(camera, cam); start = { x: p.x, y: p.y, g: groundAt(camera, p.x, p.y) }; }
+    kick();
+  };
+  el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  el.addEventListener("pointerleave", () => { hideTip(); if (terrain) terrain.uniforms.uHover.value = state.hover = 0; kick(); });
+  stage.addEventListener("wheel", e => { if (!e.target.closest("canvas")) return; e.preventDefault(); const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; zoomAt(Math.exp(clamp(dy, -200, 200) * 0.0016), e.clientX, e.clientY); }, { passive: false });
+}
+function click(e) {
+  if (!pickable()) return; const id = districtAt(e.clientX, e.clientY);
+  if (id) selectDistrict(id); else if (state.pick) clearFocus();
+}
+// hover: outline lift at once, a tooltip after 120 ms that stays inside the window
+let tipTimer = null;
+const tip = $("tip");
+function hideTip() { clearTimeout(tipTimer); tip.classList.remove("on"); }
+function hover(e) {
+  if (!terrain || !pickable() || interacting) { hideTip(); return; }
+  const id = districtAt(e.clientX, e.clientY);
+  if (id !== state.hover) { state.hover = id; terrain.uniforms.uHover.value = id; kick(); hideTip(); if (id) tipTimer = setTimeout(() => showTip(id), 120); }
+  if (id) { placeTip(e.clientX, e.clientY); renderer.domElement.style.cursor = "pointer"; } else renderer.domElement.style.cursor = "grab";
+}
+let tipXY = [0, 0];
+function showTip(id) {
+  const d = D.byId[id]; const r = D.list.findIndex(x => x.id === id); const inTen = r >= 0 && r < 10;
+  tip.innerHTML = `<div class="t"><i style="background:${d.severe >= state.rule.sevMin ? sevHex(d.severe) : BASE.out}"></i>${d.name}${inTen ? `<span style="color:#6b7280;font-weight:500">· ${r + 1} of the ten</span>` : ""}</div>
+    <div class="row">people under 5 m <b>${f1(d.pop_le5 / 1e6)} M</b></div><div class="row">hurricane-force passes <b>${d.severe}</b></div><div class="hintline">Click for details</div>`;
+  tip.classList.add("on"); placeTip(...tipXY);
+}
+function placeTip(x, y) {
+  tipXY = [x, y]; const w = tip.offsetWidth || 200, h = tip.offsetHeight || 90; let tx = x + 16, ty = y - h / 2;
+  if (tx + w > innerWidth - 8) tx = x - w - 16; ty = clamp(ty, 8, innerHeight - h - 8);
+  tip.style.transform = `translate(${tx}px,${ty}px)`;
+}
+
+// ---- search -------------------------------------------------------------------------------------------
+function buildSearch() {
+  const inp = $("search"), list = $("searchList"), box = $("searchBox"); let items = [], idx = -1;
+  const all = [...D.districts.map(d => ({ kind: "d", id: d.id, name: d.name, sub: d.division + " division" })),
+               ...D.storms.filter(s => s.note).map(s => ({ kind: "s", id: s.sid, name: "Cyclone " + s.note.label, sub: String(s.season), key: s.note.label }))];
+  const render = () => {
+    const q = inp.value.trim().toLowerCase();
+    items = !q ? [] : all.filter(o => o.name.toLowerCase().includes(q)).sort((a, b) => (a.name.toLowerCase().replace("cyclone ", "").startsWith(q) ? 0 : 1) - (b.name.toLowerCase().replace("cyclone ", "").startsWith(q) ? 0 : 1)).slice(0, 8);
+    idx = items.length ? 0 : -1;
+    list.innerHTML = items.length ? items.map((o, i) => `<li role="option" id="opt${i}" aria-selected="${i === idx}" data-i="${i}">${o.name}<small>${o.sub}</small></li>`).join("") : (q ? `<li class="empty" role="option" aria-disabled="true">No district or cyclone called “${inp.value.trim()}”</li>` : "");
+    list.hidden = !q; box.setAttribute("aria-expanded", !!q); inp.setAttribute("aria-activedescendant", idx >= 0 ? "opt" + idx : "");
+    list.querySelectorAll("li[data-i]").forEach(li => li.addEventListener("mousedown", ev => { ev.preventDefault(); choose(+li.dataset.i); }));
+  };
+  const mark = () => list.querySelectorAll("li[data-i]").forEach((li, i) => li.setAttribute("aria-selected", i === idx));
+  const choose = i => { const o = items[i]; if (!o) return; inp.value = ""; render(); inp.blur(); document.body.classList.remove("searching");
+    if (o.kind === "d") selectDistrict(o.id); else playStorm(o.id); };
+  inp.addEventListener("input", render);
+  inp.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") { e.preventDefault(); idx = Math.min(items.length - 1, idx + 1); mark(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); idx = Math.max(0, idx - 1); mark(); }
+    else if (e.key === "Enter") { e.preventDefault(); choose(Math.max(0, idx)); }
+    else if (e.key === "Escape") { inp.value = ""; render(); inp.blur(); document.body.classList.remove("searching"); }
+  });
+  inp.addEventListener("blur", () => setTimeout(() => { list.hidden = true; box.setAttribute("aria-expanded", false); }, 120));
+  $("searchToggle").addEventListener("click", () => { document.body.classList.toggle("searching"); if (document.body.classList.contains("searching")) inp.focus(); });
+}
+
+// ---- URL: step, view, selection ------------------------------------------------------------------------
+function hashFor() {
+  const p = new URLSearchParams(); p.set("step", state.step + 1); p.set("mode", state.dimTarget ? "3d" : "2d");
+  if (state.pick) p.set("id", D.slug(D.byId[state.pick].name));
+  if (state.storm) { const s = D.storms.find(x => x.sid === state.storm); p.set("storm", s.note ? D.slug(s.note.label) + "-" + s.season : s.sid); }
+  return "#" + p.toString();
+}
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1)); const out = { step: 0, dim: 1, district: 0, storm: null };
+  const st = p.get("step"); if (st) { const n = parseInt(st, 10); out.step = Number.isFinite(n) ? clamp(n - 1, 0, N - 1) : Math.max(0, CHAPTERS.findIndex(c => c.id === st)); }
+  if (p.get("mode") === "2d" || !hasGL()) out.dim = 0;
+  const id = p.get("id"); if (id) { const d = D.districts.find(x => D.slug(x.name) === id || String(x.id) === id); if (d) out.district = d.id; }
+  const s = p.get("storm"); if (s) { const m = D.storms.find(x => x.sid === s || (x.note && D.slug(x.note.label) + "-" + x.season === s) || (x.note && D.slug(x.note.label) === s)); if (m) out.storm = m.sid; }
+  return out;
+}
+addEventListener("popstate", () => {
+  const h = readHash(); if (h.dim !== state.dimTarget) setDim(!!h.dim, { user: false });
+  if (h.step !== state.step) goStep(h.step, { push: false });
+  if (h.district && h.district !== state.pick) selectDistrict(h.district, { push: false });
+  else if (h.storm && h.storm !== state.storm) playStorm(h.storm, { push: false });
+  else if (!h.district && !h.storm && (state.pick || state.storm)) { const had = state.pick || state.storm; state.pick = 0; if (terrain) terrain.uniforms.uPick.value = 0; if (state.storm) stopStorm(); cards.hide(); document.body.classList.remove("sheet-open"); renderList(); if (had && state.gl) flyTo(stepPose(state.step)); }
+  kick();
+});
+
+// ---- the rest of the interface ---------------------------------------------------------------------------
+function toast(msg, ms = 2200) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), ms); }
+function dismissHint() { if (!$("hint").hidden) { $("hint").hidden = true; store.set("poli-hint", "1"); } }
+let helpReturn = null;
+function openHelp() { helpReturn = document.activeElement; $("help").hidden = false; $("helpClose").focus(); }
+function closeHelp() { $("help").hidden = true; helpReturn?.focus?.(); }
+function setCollapsed(c) { document.body.classList.toggle("collapsed", c); $("expandBtn").hidden = !c; $("collapseBtn").setAttribute("aria-expanded", !c); setTimeout(() => { resize(); if (state.gl && !state.pick && !state.storm) flyTo(stepPose(state.step), 600); }, 300); }
+function toggleFs() { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
+function resetNorth() { if (!state.gl) return; const p = clonePose(camT); p.az = 180; p.pitch = state.dimTarget ? 45 : p.pitch; flyTo(p, 800); }
+function bindUI() {
+  $("prevBtn").addEventListener("click", prevStep); $("nextBtn").addEventListener("click", next);
+  $("modeStory").addEventListener("click", () => { if (state.step === EXPLORE) goStep(state.lastStory); });
+  $("modeExplore").addEventListener("click", () => goStep(EXPLORE));
+  $("brand").addEventListener("click", e => { e.preventDefault(); goStep(0); });
+  document.querySelectorAll("#dimSeg button").forEach(b => b.addEventListener("click", () => setDim(b.dataset.dim === "3")));
+  $("zoomIn").addEventListener("click", () => zoomAt(1 / 1.6)); $("zoomOut").addEventListener("click", () => zoomAt(1.6));
+  $("compass").addEventListener("click", resetNorth);
+  $("resetBtn").addEventListener("click", () => { if (state.gl) flyTo(stepPose(state.step)); });
+  $("fsBtn").addEventListener("click", toggleFs);
+  $("playBtn").addEventListener("click", togglePlay);
+  $("speedBtn").addEventListener("click", () => { state.tl.speed = state.tl.speed === 1 ? 2 : 1; $("speedBtn").textContent = state.tl.speed + "×"; });
+  $("scrub").addEventListener("input", e => { state.tl.t = +e.target.value / 1000; state.tl.playing = false; syncTimeline(); kick(); });
+  $("hintClose").addEventListener("click", dismissHint);
+  $("helpBtn").addEventListener("click", openHelp); $("helpClose").addEventListener("click", closeHelp);
+  $("help").addEventListener("click", e => { if (e.target.id === "help") closeHelp(); });
+  $("collapseBtn").addEventListener("click", () => setCollapsed(true)); $("expandBtn").addEventListener("click", () => setCollapsed(false));
+  $("shareBtn").addEventListener("click", async () => { try { await navigator.clipboard.writeText(location.href); toast("Link copied"); } catch (e) { toast("Copy the link from the address bar"); } });
+  // the wheel over the story panel moves between steps; over the explore list it scrolls the list
+  let acc = 0, lock = 0;
+  $("panel").addEventListener("wheel", e => {
+    if (phone() || state.step === EXPLORE) return;
+    e.preventDefault(); const now = performance.now(); if (now < lock) return;
+    acc += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; if (Math.abs(acc) < 40) return;
+    if (acc > 0 && state.step < EXPLORE) next(); else if (acc < 0 && state.step > 0) prevStep();
+    acc = 0; lock = now + 700;
+  }, { passive: false });
+  addEventListener("keydown", e => {
+    if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return;
+    if (!$("help").hidden) { if (e.key === "Escape" || e.key === "?") closeHelp(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown") { e.preventDefault(); if (state.step < EXPLORE) next(); }
+    else if (k === "ArrowLeft" || k === "ArrowUp" || k === "PageUp") { e.preventDefault(); prevStep(); }
+    else if (k === "Home") goStep(0); else if (k === "End") goStep(EXPLORE);
+    else if (k === "2") setDim(false); else if (k === "3") setDim(true);
+    else if (k === " ") { if (state.tl.def) { e.preventDefault(); togglePlay(); } }
+    else if (k === "/") { e.preventDefault(); if (phone()) document.body.classList.add("searching"); $("search").focus(); }
+    else if (k === "?") openHelp();
+    else if (k === "Escape") { if (state.pick || state.storm) clearFocus(); }
+    else if (k === "+" || k === "=") zoomAt(1 / 1.6); else if (k === "-" || k === "_") zoomAt(1.6);
+    else if (k === "n" || k === "N") resetNorth(); else if (k === "r" || k === "R") { if (state.gl) flyTo(stepPose(state.step)); }
+    else if (k === "f" || k === "F") toggleFs(); else if (k === "[") setCollapsed(!document.body.classList.contains("collapsed"));
+  });
+  bindSheet();
+}
+// phones: the panel is a sheet with three stops (peek, half, full), dragged by its grip
+const STOPS = () => [132, Math.round(innerHeight * 0.42), Math.round(innerHeight * 0.82)];
+function setSheet(h, animate = true) {
+  state.sheetH = h; const p = $("panel"); p.classList.toggle("dragging", !animate);
+  document.documentElement.style.setProperty("--sheet", phone() ? h + "px" : "0px"); kick();
+}
+function bindSheet() {
+  const grip = $("grip"); let y0 = null, h0 = 0;
+  const startDrag = e => { if (!phone()) return; y0 = e.clientY; h0 = state.sheetH; grip.setPointerCapture?.(e.pointerId); };
+  grip.addEventListener("pointerdown", startDrag);
+  grip.addEventListener("pointermove", e => { if (y0 == null) return; setSheet(clamp(h0 + (y0 - e.clientY), 96, innerHeight * 0.9), false); });
+  const end = e => { if (y0 == null) return; const moved = Math.abs(e.clientY - y0); y0 = null; const st = STOPS();
+    let h = st.reduce((a, b) => Math.abs(b - state.sheetH) < Math.abs(a - state.sheetH) ? b : a);
+    if (moved < 4) h = st[(st.indexOf(st.reduce((a, b) => Math.abs(b - h0) < Math.abs(a - h0) ? b : a)) + 1) % 3];   // a tap cycles the stops
+    setSheet(h, true); if (state.gl && !state.pick && !state.storm) setTimeout(() => flyTo(stepPose(state.step), 700), 300); };
+  grip.addEventListener("pointerup", end); grip.addEventListener("pointercancel", end);
+}
+
+// ---- no WebGL: the same data as a flat SVG map --------------------------------------------------------------
+function buildFallback() {
+  $("dimSeg").querySelectorAll("button").forEach(b => b.disabled = true); ["compass", "zoomIn", "zoomOut", "resetBtn"].forEach(id => $(id).disabled = true);
+  const svg = d3.select(stage).insert("svg", ":first-child").attr("class", "fallback").attr("role", "img").attr("aria-label", "Flat map of Bangladesh's 64 districts");
+  D.svg = svg; D.paths = svg.append("g").selectAll("path").data(D.geo.features).join("path").attr("stroke", BASE.page).attr("stroke-width", 0.8).style("cursor", "pointer")
+    .on("click", (e, f) => selectDistrict(f.properties.id))
+    .on("mousemove", (e, f) => { tip.innerHTML = `<div class="t">${f.properties.name}</div><div class="hintline">Click for details</div>`; tip.classList.add("on"); placeTip(e.clientX, e.clientY); })
+    .on("mouseleave", hideTip);
+  layoutFallback(); paintFallback();
+}
+function layoutFallback() { if (!D.svg) return; const w = stage.clientWidth, h = stage.clientHeight; const proj = d3.geoMercator().fitExtent([[24, 24], [w - 24 - freeTarget().r, h - 24 - freeTarget().b]], D.geo); D.paths.attr("d", d3.geoPath(proj)); }
+function paintFallback() { if (!D.paths) return; const r = state.rule; D.paths.attr("fill", f => { const d = D.byId[f.properties.id]; return d && d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }).attr("opacity", f => state.pick && state.pick !== f.properties.id ? 0.45 : 1); }
+
+function resize() {
+  if (phone() && !state.sheetH) setSheet(STOPS()[1], false); else if (!phone()) setSheet(0, false);
+  if (renderer) { renderer.setSize(stage.clientWidth, stage.clientHeight, false); off.r = freeTarget().r; off.b = freeTarget().b; }
+  layoutFallback(); kick();
+}
 addEventListener("resize", resize);
 
-boot().catch(err => { console.error(err); stage.insertAdjacentHTML("beforeend", `<div class="loading">Could not start the 3D scene: ${err.message}</div>`); });
+window.__poli = {
+  get state() { return state; }, get cam() { return cam; }, get camT() { return camT; }, get flight() { return flight; }, get uniforms() { return terrain && terrain.uniforms; },
+  get camera() { return camera; }, get data() { return D; }, get cur() { return cur; }, get prisms() { return prisms; },
+  go: i => goStep(i), select: id => selectDistrict(id), play: sid => playStorm(sid), setDim: t => setDim(t), clear: () => clearFocus(),
+  stepPose: i => stepPose(i), project: (lon, lat, y = 0) => { const p = toScene(lon, lat); p.y = y; p.project(camera); const r = renderer.domElement.getBoundingClientRect(); return [r.left + (p.x + 1) / 2 * r.width, r.top + (1 - p.y) / 2 * r.height]; }
+};
+
+boot().catch(err => { console.error(err); const l = $("loader"); l.classList.add("err"); l.querySelector(".lt").textContent = "Could not load the map: " + err.message; });

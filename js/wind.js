@@ -7,6 +7,8 @@
 // per fix (position, wind), not a reanalysis, and the page says so.
 import * as THREE from "three";
 import { toScene, GRID } from "./terrain.js";
+import { WIND, rgb01 } from "./palette.js";
+const CALM = rgb01(WIND.calm), GALE = rgb01(WIND.gale), HURR = rgb01(WIND.hurricane), MAJOR = rgb01(WIND.major);
 
 const BOX = { W: 84.5, E: 95.5, S: 15.5, N: 27.3 };
 const KMLAT = 111.32, KMLON = 111.32 * Math.cos(22 * Math.PI / 180);
@@ -53,14 +55,8 @@ export class WindField {
     out[0] = u; out[1] = v; out[2] = kt; return out;
   }
   colour(kt, out) {
-    // same ladder as the track ribbons: calm blue-grey, gale amber, hurricane orange, major red
-    // v5, light page: slate for calm air, Okabe-Ito blue for gales, orange for hurricane force, vermillion above 96 kt
-    if (kt < 20) { out[0] = 0.42; out[1] = 0.48; out[2] = 0.55; }
-    else if (kt < 34) { out[0] = 0.30; out[1] = 0.45; out[2] = 0.62; }
-    else if (kt < 64) { out[0] = 0.0; out[1] = 0.45; out[2] = 0.70; }
-    else if (kt < 96) { out[0] = 0.90; out[1] = 0.62; out[2] = 0.0; }
-    else { out[0] = 0.84; out[1] = 0.37; out[2] = 0.0; }
-    return out;
+    // palette.js: slate for calm air, then ColorBrewer YlOrRd for gale, hurricane force and 96 kt+
+    const c = kt < 34 ? CALM : kt < 64 ? GALE : kt < 96 ? HURR : MAJOR; out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; return out;
   }
   step() {
     if (this.mat.opacity <= 0.001) return;
@@ -81,8 +77,8 @@ export class WindField {
         const a = toScene(this.hist[hb + ia * 2], this.hist[hb + ia * 2 + 1]), b = toScene(this.hist[hb + ib * 2], this.hist[hb + ib * 2 + 1]);
         const o = (i * (K - 1) + k) * 6; pos[o] = a.x; pos[o + 1] = h; pos[o + 2] = a.z; pos[o + 3] = b.x; pos[o + 4] = h; pos[o + 5] = b.z;
         const ta = f * (k + 0.3) / K, tb = f * (k + 1.3) / K;
-        const q = (i * (K - 1) + k) * 8; const calm = w[2] < 20 ? 0.45 : 1;
-        const r = c[0] * c[0], g = c[1] * c[1], bb = c[2] * c[2];   // roughly linear, so the page shows the intended sRGB colour
+        const q = (i * (K - 1) + k) * 8; const calm = w[2] < 20 ? 0.4 : 1;
+        const r = Math.pow(c[0], 2.2), g = Math.pow(c[1], 2.2), bb = Math.pow(c[2], 2.2);   // linear, so the page shows the palette's sRGB colour
         col[q] = r; col[q + 1] = g; col[q + 2] = bb; col[q + 3] = ta * calm; col[q + 4] = r; col[q + 5] = g; col[q + 6] = bb; col[q + 7] = tb * calm;
       }
     }
