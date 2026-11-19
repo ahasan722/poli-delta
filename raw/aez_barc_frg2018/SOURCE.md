@@ -1,0 +1,7 @@
+# Agro-ecological zones by district
+
+- Source: Bangladesh Agricultural Research Council (BARC), *Fertilizer Recommendation Guide 2018*, section 3.1, table "AEZ number, name and area / Major districts and area coverage" (pages 21–27 of the guide's text).
+- Text pages: OCR of the guide as published in the open repository Deatrax/Anti-b2b-SaaS-Club_AgriSense (`data/raw/barc_frg_2018/`, commit 7b9d807). The OCR pages are kept here unchanged (`page_0021.txt` to `page_0027.txt`).
+- `aez_districts.csv` is a hand transcription of that table: AEZ number, name, AEZ area (ha, blank where the OCR is unreadable), district, and the district's area inside the zone in hundreds of hectares, exactly as the guide gives it ("00 ha").
+- Changes made in transcription: district spellings brought to the BBS 2022 names (Bogra → Bogura, Jessore → Jashore, Barisal → Barishal, Comilla → Cumilla, Chittagong → Chattogram, B. Baria → Brahmanbaria, Borguna → Barguna, Jhalakati → Jhalokati, Laxmipur → Lakshmipur, Narshingdi → Narsingdi, Chapai Nawabganj → Chapainawabganj, Panchagar → Panchagarh); obvious OCR misreads restored from context (Bosra → Bogra, Mcherpur → Meherpur, Rahat → Rajbari, Laman / Laan → Laxmipur, Miaiensuatel 44] → Mymensingh 441, COE Bazar → Cox's Bazar, St. Martin's Island → Cox's Bazar).
+- Entries dropped because the OCR cannot be read with confidence: AEZ 3 "NEsoHon 957" and "ia 948", AEZ 7 Gaibandha (area "ggg"), AEZ 15 "DIKE es cl 8", AEZ 19 "INSEE 627". The guide lists only each zone's major districts, so small shares are missing by design.

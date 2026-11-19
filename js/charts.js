@@ -1,5 +1,5 @@
 // charts.js  --  v5: the two small charts that sit in the story panel. Direct labels, no legends.
-import { BASE, sevHex } from "./palette.js?v=7";
+import { BASE, sevHex } from "./palette.js?v=8";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, text: BASE.text, dim: BASE.dim, line: BASE.line };
 function svgIn(id, h) { const el = document.getElementById(id); el.innerHTML = ""; const w = el.clientWidth || 310; return { s: d3.select(el).append("svg").attr("width", w).attr("height", h).attr("font-family", "IBM Plex Sans, sans-serif"), w }; }

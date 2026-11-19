@@ -1,17 +1,18 @@
-// main.js  --  v7: one scene, one camera, two views of it.
+// main.js  --  v8: one scene, one camera, two views of it.
 // 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
 // camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
 // runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
 // Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
 // Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=7";
-import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=7";
-import { CHAPTERS, SITE } from "./story.js?v=7";
-import { charts } from "./charts.js?v=7";
-import { cards } from "./cards.js?v=7";
-import { WindField, StormPlayer } from "./wind.js?v=7";
-import { BASE, SEV, sevHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, hex } from "./palette.js?v=7";
+import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=8";
+import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=8";
+import { CHAPTERS, SITE } from "./story.js?v=8";
+import { charts } from "./charts.js?v=8";
+import { cards } from "./cards.js?v=8";
+import { WindField, StormPlayer } from "./wind.js?v=8";
+import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, hex } from "./palette.js?v=8";
+import { icon, hydrate, STEP_ICON } from "./icons.js?v=8";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
@@ -41,7 +42,7 @@ let renderer, scene, camera, terrain, rivers, farRivers, labels, districts, pris
 const cur = {};                       // the values on screen, eased toward the step's targets
 
 // ---- loading, with real progress ------------------------------------------------------------------
-let loaded = 0; const TOTAL = 13;
+let loaded = 0; const TOTAL = 14;
 const tick = x => { loaded += 1; $("loadFill").style.width = Math.round(loaded / TOTAL * 100) + "%"; $("loadPct").textContent = Math.round(loaded / TOTAL * 100) + "%"; return x; };
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(tick(i)); i.onerror = () => rej(new Error("could not load " + src)); i.src = src; });
 const loadJson = src => fetch(src).then(r => r.ok ? r.json() : null).catch(() => null).then(tick);
@@ -115,19 +116,19 @@ const stepPose = i => { const v = CHAPTERS[i].view; return state.dimTarget ? fit
 // ---- boot ------------------------------------------------------------------------------------------
 async function boot() {
   state.gl = hasGL();
-  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact] = await Promise.all([
+  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri] = await Promise.all([
     loadImg("data/height.png"), loadImg("data/mask.png"), loadImg("data/cover.png"), loadImg("data/cover_rgb.png"), loadImg("data/district_id.png"),
     loadJson("data/rivers_far.geojson"), loadJson("data/storms.json"), loadJson("data/exposure.json"), loadJson("data/rivers.json"),
-    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json")
+    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json")
   ]);
   try { await Promise.all(['500 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '500 20px "Newsreader"'].map(f => document.fonts.load(f))); } catch (e) {}
   tick();
   const ds = distJson.districts;
   Object.assign(D, { storms: stormsJson, expo, districts: ds, byId: Object.fromEntries(ds.map(d => [d.id, d])), impact: impact || [],
-    le5Total: ds.reduce((s, d) => s + d.pop_le5, 0), geo: distGeo, slug: n => n.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "") });
+    le5Total: ds.reduce((s, d) => s + d.pop_le5, 0), agri, geo: distGeo, slug: n => n.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "") });
   D.ten = rankBy(DEFAULT_RULE).slice(0, 10);
   if (state.gl) buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }); else buildFallback();
-  charts.init(D); cards.init(D, { clear: () => clearFocus(true) });
+  hydrate(); charts.init(D); cards.init(D, { clear: () => clearFocus(true), play: sid => playStorm(sid) });
   buildSteps(); buildExplore(); buildSearch(); bindUI(); bindToc(); resize();
   Object.assign(cur, valuesAt(0, 0));
   const h = readHash(); state.dimTarget = h.dim; setDimUI();
@@ -183,20 +184,29 @@ function buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }) 
 }
 
 // ---- the rule: who is in the first ten, and how tall each column stands -----------------------------
-function rankBy(rule) { return D.districts.filter(d => d.severe >= rule.sevMin).sort((a, b) => b[rule.metric] - a[rule.metric] || b.pop_le5 - a.pop_le5); }
+const cropOf = (d, c) => (D.agri && D.agri.districts[d.id] && D.agri.districts[d.id].crops[c]) || 0;
+function rankBy(rule) {
+  if (rule.crop) return D.districts.slice().sort((a, b) => cropOf(b, rule.crop) - cropOf(a, rule.crop));
+  return D.districts.filter(d => d.severe >= rule.sevMin).sort((a, b) => b[rule.metric] - a[rule.metric] || b.pop_le5 - a.pop_le5);
+}
+// crop classes: quintiles of the 64 district values, so every class holds about 13 districts
+function cropBreaks(c) { const v = D.districts.map(d => cropOf(d, c)).sort(d3.ascending); return [0.2, 0.4, 0.6, 0.8].map(q => d3.quantileSorted(v, q)); }
+const cropHex = (v, br) => CROP[d3.bisectRight(br, v)];
 const OUTC = new THREE.Color(BASE.out);
 const HEIGHT = { pop_le5: v => v / 1e6 * 32, pop_le2: v => v / 1e6 * 48, severe: v => v * 7 };
 function applyRule() {
   const r = state.rule; const list = rankBy(r); D.list = list; const order = new Map(list.map((d, i) => [d.id, i]));
   if (prisms) {
-    prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = d.severe >= r.sevMin;
-      m.userData.q = q; m.userData.rank = order.has(d.id) ? order.get(d.id) : 99; m.userData.h = Math.max(0.3, HEIGHT[r.metric](d[r.metric]));
-      m.userData.col = new THREE.Color(q ? sevHex(d.severe) : BASE.out); });
+    const br = r.crop ? cropBreaks(r.crop) : null; const cmax = r.crop ? d3.max(D.districts, d => cropOf(d, r.crop)) : 1;
+    prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = r.crop ? true : d.severe >= r.sevMin;
+      m.userData.q = q; m.userData.rank = order.has(d.id) ? order.get(d.id) : 99;
+      m.userData.h = Math.max(0.3, r.crop ? cropOf(d, r.crop) / cmax * 45 : HEIGHT[r.metric](d[r.metric]));
+      m.userData.col = new THREE.Color(r.crop ? cropHex(cropOf(d, r.crop), br) : q ? sevHex(d.severe) : BASE.out); });
     ranks.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); ranks.clear();
-    list.slice(0, 10).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
+    list.slice(0, r.crop ? 5 : 10).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
   }
   if (D.svg) paintFallback();
-  renderList(); kick();
+  renderList(); if (CHAPTERS[state.step]?.explore) showKey("explore"); kick();
 }
 
 // ---- the values on screen ---------------------------------------------------------------------------
@@ -212,7 +222,7 @@ function goStep(i, { push = true, instant = false } = {}) {
   if (!ch.explore) state.lastStory = i;
   if (state.storm && !ch.explore) stopStorm();
   if (state.pick && !pickable()) clearFocus(false);
-  if (!ch.explore && (state.rule.metric !== DEFAULT_RULE.metric || state.rule.sevMin !== DEFAULT_RULE.sevMin)) { state.rule = { ...DEFAULT_RULE }; resetSegs(); applyRule(); }
+  if (!ch.explore && (state.rule.metric !== DEFAULT_RULE.metric || state.rule.sevMin !== DEFAULT_RULE.sevMin || state.rule.crop)) { state.rule = { ...DEFAULT_RULE }; resetSegs(); applyRule(); }
   // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
   setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
   if (ch.time && instant) cur[ch.time.key] = lerp(ch.time.from, ch.time.to, state.tl.t);
@@ -227,7 +237,7 @@ function stepUI(i) {
   const ch = CHAPTERS[i], ex = !!ch.explore;
   document.querySelectorAll("#steps li").forEach((li, n) => { li.classList.toggle("on", n === i); li.classList.toggle("done", n < i); li.querySelector("button").setAttribute("aria-current", n === i ? "step" : "false"); });
   document.querySelectorAll(".cap").forEach(c => c.classList.toggle("vis", c.dataset.ch === ch.id));
-  $("storyText").hidden = ex; $("explorePanel").hidden = !ex;
+  $("storyText").hidden = ex; $("explorePanel").hidden = !ex; document.body.classList.toggle("exploring", ex);
   $("modeStory").classList.toggle("on", !ex); $("modeExplore").classList.toggle("on", ex);
   $("modeStory").setAttribute("aria-selected", !ex); $("modeExplore").setAttribute("aria-selected", ex);
   $("stepLabel").textContent = `Step ${i + 1} of ${N}${ex ? " · Explore" : ""}`;
@@ -239,7 +249,7 @@ function stepUI(i) {
 }
 function buildSteps() {
   const ol = $("steps");
-  CHAPTERS.forEach((ch, i) => { const li = document.createElement("li"); li.innerHTML = `<button type="button"><span class="dot"></span><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="t">${ch.nav}</span></button>`;
+  CHAPTERS.forEach((ch, i) => { const li = document.createElement("li"); li.innerHTML = `<button type="button"><span class="tile">${icon(STEP_ICON[ch.id] || "question", 18)}</span><span class="t">${ch.nav}</span><span class="n">${String(i + 1).padStart(2, "0")}</span></button>`;
     li.querySelector("button").addEventListener("click", () => goStep(i)); ol.appendChild(li); });
 }
 const next = () => goStep(state.step === EXPLORE ? 0 : state.step + 1), prevStep = () => goStep(state.step - 1);
@@ -382,8 +392,10 @@ const KEYS = {
   raise: [[ACCENT, "tidal river management site"]],
   explore: sevKey("below the rule")
 };
+function cropKey(c) { const br = cropBreaks(c); const f = v => v >= 1e6 ? f1(v / 1e6) + " M" : d3.format(",")(Math.round(v / 1000)) + "k";
+  return [["", CROP_NAME[c] + ", tonnes (" + D.agri.crop_years[c] + ")"], ...CROP.map((col, i) => [col, i === 0 ? "under " + f(br[0]) : i === 4 ? f(br[3]) + " and more" : f(br[i - 1]) + "–" + f(br[i])]).reverse()]; }
 function showKey(id) {
-  const k = KEYS[id] || [];
+  const k = id === "explore" && state.rule.crop ? cropKey(state.rule.crop) : (KEYS[id] || []);
   $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
 }
 
@@ -392,18 +404,24 @@ function buildExplore() {
   const segs = (id, key, attr, parse) => $(id).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
     $(id).querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); }); state.rule[key] = parse(b.dataset[attr]); applyRule(); }));
   segs("metricSeg", "metric", "m", v => v); segs("sevSeg", "sevMin", "s", v => +v);
+  ["metricSeg", "sevSeg"].forEach(id => $(id).addEventListener("click", () => { if (state.rule.crop) { state.rule.crop = null; markCrops(); applyRule(); } }, true));
+  $("cropSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.rule.crop = state.rule.crop === b.dataset.c ? null : b.dataset.c; markCrops(); applyRule(); }));
   const box = $("stormChips");
   D.storms.filter(s => s.note).forEach(s => { const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.dataset.sid = s.sid; b.innerHTML = `${s.note.label}<small>${s.season}</small>`; b.addEventListener("click", () => playStorm(s.sid)); box.appendChild(b); });
 }
-function resetSegs() {
+function markCrops() { document.querySelectorAll("#cropSeg button").forEach(b => { const on = b.dataset.c === state.rule.crop; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+  document.querySelectorAll("#metricSeg button, #sevSeg button").forEach(b => b.style.opacity = state.rule.crop ? 0.55 : 1); }
+function resetSegs() { markCrops?.();
   document.querySelectorAll("#metricSeg button").forEach(b => { const on = b.dataset.m === DEFAULT_RULE.metric; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
   document.querySelectorAll("#sevSeg button").forEach(b => { const on = +b.dataset.s === DEFAULT_RULE.sevMin; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
 }
 function renderList() {
-  const ol = $("rankList"); if (!ol || !D.list) return; const r = state.rule; const list = D.list.slice(0, 15); const max = d3.max(list, d => d[r.metric]) || 1;
-  ol.innerHTML = list.map((d, i) => { const v = r.metric === "severe" ? d.severe + " hits" : f1(d[r.metric] / 1e6) + " M";
-    return `<li data-id="${d.id}" tabindex="0" class="${i === 10 ? "cut" : ""}${state.pick === d.id ? " on" : ""}"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(d[r.metric] / max * 100).toFixed(1)}%;background:${i < 10 ? sevHex(d.severe) : BASE.out}"></i></span></li>`; }).join("")
-    + (D.list.length > 15 ? `<li class="more"><span></span><span class="nm" style="font-weight:400;color:#6b7280">${D.list.length - 15} more meet the rule</span></li>` : "")
+  const ol = $("rankList"); if (!ol || !D.list) return; const r = state.rule; const list = D.list.slice(0, 15);
+  const val = d => r.crop ? cropOf(d, r.crop) : d[r.metric]; const max = d3.max(list, val) || 1; const br = r.crop ? cropBreaks(r.crop) : null;
+  ol.innerHTML = list.map((d, i) => { const v = r.crop ? (val(d) >= 1e6 ? f1(val(d) / 1e6) + " M t" : d3.format(",")(Math.round(val(d) / 1000)) + "k t") : r.metric === "severe" ? d.severe + " hits" : f1(d[r.metric] / 1e6) + " M";
+    const col = r.crop ? cropHex(val(d), br) : i < 10 ? sevHex(d.severe) : BASE.out;
+    return `<li data-id="${d.id}" tabindex="0" class="${i === 10 && !r.crop ? "cut" : ""}${state.pick === d.id ? " on" : ""}"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(val(d) / max * 100).toFixed(1)}%;background:${col}"></i></span></li>`; }).join("")
+    + (D.list.length > 15 ? `<li class="more"><span></span><span class="nm" style="font-weight:400;color:#6b7280">${D.list.length - 15} more ${r.crop ? "districts" : "meet the rule"}</span></li>` : "")
     + (D.list.length === 0 ? `<li class="more"><span></span><span class="nm">No district meets this rule</span></li>` : "");
   ol.querySelectorAll("li[data-id]").forEach(li => { const go = () => selectDistrict(+li.dataset.id); li.addEventListener("click", go); li.addEventListener("keydown", e => { if (e.key === "Enter") go(); }); });
 }
@@ -429,7 +447,7 @@ function clearFocus(fly = true) {
 }
 
 // ---- cyclones in Explore ------------------------------------------------------------------------------
-function markChips() { document.querySelectorAll("#stormChips .chip").forEach(b => b.classList.toggle("on", b.dataset.sid === state.storm)); }
+function markChips() { document.querySelectorAll("#stormChips .chip, #stormList button").forEach(b => b.classList.toggle("on", b.dataset.sid === state.storm)); }
 function stopStorm() { state.storm = null; if (player) player.stop(); markChips(); if (CHAPTERS[state.step].time) setTimeline(CHAPTERS[state.step].time, { autoplay: false, at: 1 }); else setTimeline(null); }
 function playStorm(sid, { push = true } = {}) {
   const s = D.storms.find(x => x.sid === sid); if (!s) return;
@@ -520,7 +538,10 @@ function hover(e) {
 }
 let tipXY = [0, 0];
 function showTip(id) {
-  const d = D.byId[id]; const r = D.list.findIndex(x => x.id === id); const inTen = r >= 0 && r < 10;
+  const d = D.byId[id]; const r = D.list.findIndex(x => x.id === id); const inTen = r >= 0 && r < 10 && !state.rule.crop;
+  if (state.rule.crop) { const c = state.rule.crop, v = cropOf(d, c), br = cropBreaks(c);
+    tip.innerHTML = `<div class="t"><i style="background:${cropHex(v, br)}"></i>${d.name}</div><div class="row">${CROP_NAME[c]} <b>${d3.format(",")(Math.round(v))} t</b></div><div class="row">rank among 64 <b>${r + 1}</b></div><div class="hintline">Click for details</div>`;
+    tip.classList.add("on"); placeTip(...tipXY); return; }
   tip.innerHTML = `<div class="t"><i style="background:${d.severe >= state.rule.sevMin ? sevHex(d.severe) : BASE.out}"></i>${d.name}${inTen ? `<span style="color:#6b7280;font-weight:500">· ${r + 1} of the ten</span>` : ""}</div>
     <div class="row">people under 5 m <b>${f1(d.pop_le5 / 1e6)} M</b></div><div class="row">hurricane-force passes <b>${d.severe}</b></div><div class="hintline">Click for details</div>`;
   tip.classList.add("on"); placeTip(...tipXY);
@@ -625,6 +646,7 @@ function bindUI() {
   }, { passive: false });
   addEventListener("keydown", e => {
     if (e.key === "Escape" && !$("layersPop").hidden) { toggleLayers(false); $("layersBtn").focus(); return; }
+    if (e.key === "Escape" && !$("stormPop").hidden) { toggleStorms(false); $("stormBtn").focus(); return; }
     if (e.target.closest && e.target.closest("input:not([type=checkbox]),textarea,[contenteditable]")) return;
     if (!$("help").hidden) { if (e.key === "Escape" || e.key === "?") closeHelp(); return; }
     if (state.about) { if (e.key === "Escape") showAbout(false); return; }
@@ -641,7 +663,7 @@ function bindUI() {
     else if (k === "Escape") { if (state.pick || state.storm) clearFocus(); }
     else if (k === "+" || k === "=") zoomAt(1 / 1.6); else if (k === "-" || k === "_") zoomAt(1.6);
     else if (k === "n" || k === "N") resetNorth(); else if (k === "r" || k === "R") { if (state.gl) flyTo(stepPose(state.step)); }
-    else if (k === "f" || k === "F") toggleFs(); else if (k === "l" || k === "L") toggleLayers(); else if (k === "[") setCollapsed(!document.body.classList.contains("collapsed"));
+    else if (k === "f" || k === "F") toggleFs(); else if (k === "l" || k === "L") toggleLayers(); else if (k === "c" || k === "C") toggleStorms(); else if (k === "[") setCollapsed(!document.body.classList.contains("collapsed"));
   });
   bindSheet();
 }
@@ -680,12 +702,23 @@ function paintFallback() { if (!D.paths) return; const r = state.rule; D.paths.a
 const ON = { rivers: 0.9, riverLabels: 0.9, labels: 0.9, borders: 0.8, storms: 0.9, uBathy: 1 };
 function applyOverrides(t) { for (const k in state.ov) { t[k] = state.ov[k] ? Math.max(t[k] || 0, ON[k]) : 0; if (k === "rivers") t.farRivers = state.ov[k] ? Math.max(t.farRivers, 0.8) : 0; if (k === "storms" && state.ov[k] && CHAPTERS[state.step].id !== "storms") t.year = 2025; } }
 function syncLayers() { const t = valuesAt(state.step, 1); applyOverrides(t); document.querySelectorAll("#layersPop input").forEach(i => { i.checked = (t[i.dataset.layer] || 0) > 0.05; }); }
-function toggleLayers(open) { const pop = $("layersPop"); const o = open ?? pop.hidden; pop.hidden = !o; $("layersBtn").setAttribute("aria-expanded", o); if (o) syncLayers(); }
+function togglePop(pop, btn, open) { const o = open ?? pop.hidden; document.querySelectorAll(".pop").forEach(p => { if (p !== pop) p.hidden = true; }); document.querySelectorAll("#layersBtn,#stormBtn").forEach(b => b.setAttribute("aria-expanded", b === btn && o)); pop.hidden = !o; }
+function toggleLayers(open) { togglePop($("layersPop"), $("layersBtn"), open); if (!$("layersPop").hidden) syncLayers(); }
+function toggleStorms(open) { togglePop($("stormPop"), $("stormBtn"), open); }
+function buildStormPicker() {
+  const named = D.storms.filter(s => s.note).sort((a, b) => a.season - b.season);
+  $("stormList").innerHTML = named.map(s => { const im = D.impact.find(r => r.year === s.season && r.name.toLowerCase().includes(s.note.label.toLowerCase().split(" ")[0])) || {};
+    const deaths = im.deaths != null ? d3.format(",")(im.deaths) + " deaths" : "";
+    return `<li><button type="button" data-sid="${s.sid}"><i class="sw" style="background:${windHex(s.peak_kt)}"></i><span>${s.note.label}</span><span class="yr">${s.season}</span><small>peak ${s.peak_kt} kt${deaths ? " · " + deaths : ""}</small></button></li>`; }).join("");
+  $("stormList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { toggleStorms(false); playStorm(b.dataset.sid); }));
+  $("stormBtn").addEventListener("click", e => { e.stopPropagation(); toggleStorms(); });
+}
 function buildLayers() {
   $("layersBtn").addEventListener("click", e => { e.stopPropagation(); toggleLayers(); });
   document.querySelectorAll("#layersPop input").forEach(i => i.addEventListener("change", () => { state.ov[i.dataset.layer] = i.checked; syncLayers(); kick(); }));
   $("layersReset").addEventListener("click", () => { state.ov = {}; syncLayers(); kick(); });
-  document.addEventListener("pointerdown", e => { if (!$("layersPop").hidden && !e.target.closest("#layersPop,#layersBtn")) toggleLayers(false); });
+  document.addEventListener("pointerdown", e => { if (!e.target.closest(".pop,#layersBtn,#stormBtn")) document.querySelectorAll(".pop").forEach(p => { if (!p.hidden) togglePop(p, null, false); }); });
+  buildStormPicker();
 }
 // ---- the About page ------------------------------------------------------------------------------------
 let aboutReturn = null;

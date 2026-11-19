@@ -1,0 +1,33 @@
+AEZ number, name and Major districts and Land type
+area area coverage and extent
+District Area Land Extent
+(00 ha) type (%)
+11. High Ganges River Jessore 2281
+Floodplain Jhenaidah 1970
+(1320549 ha) Rajshahi 1472
+Kushtia 1285
+MHL 32
+Mcherpur . 705 MLL D
+Chapai Nawabganj 669 LL >
+Satkhira 638 HS+WB i
+Chuadanga 551
+Pabna 543
+Khulna 232
+Naogaon 117
+Rajbari 54
+12. Low Ganges River Faridpur 1534
+Floodplain Pabna 1219
+CESIRMAE) Rahat 975
+Madariupur 818
+Narail 714
+Gopalganj 535 HL 13
+Manikganj 413 MHL 29
+Natore 381 MLL 31
+Shariatpur 370 LL 14
+Kushtia 176 VLL 2
+Bagerhat 146 | HS+WB 11
+Dhaka 126
+Munshiganj 97
+Sirajganj 79
+Khulna 68
+Barisal 60

@@ -1,0 +1,5 @@
+# Major crops by district
+
+- Source: Bangladesh Bureau of Statistics, *45 Years Agriculture Statistics of Major Crops (Aus, Amon, Boro, Jute, Potato and Wheat)*, published on the Bangladesh open data portal (data.gov.bd). District tables by year, 1969-70 to 2014-15.
+- Files: the portal's Excel extracts as collected in the open repository sajidahmed12/Agricultural-Crop-Yield-Prediction (`extracted datsets/Crop Area 1979-2015/`, commit 531d805, MIT licence for the repository), kept here unchanged.
+- Used: for each crop, the latest year whose 64 district values add up to the national total printed in the same table: Aman 2011-12, Boro 2012-13, Aus, Wheat and Potato 2014-15 (rice as husked rice, all in tonnes). Later tables in the extract have shifted or mistyped rows and fail that check (Boro 2014-15 adds up to 126% of its own national total). Jute is left out because its recent tables print no national total to check against. These are the latest district series on an open host that this project could read.

@@ -30,6 +30,10 @@ export const LOW = { high: "#c7e9b4", low: "#225ea8" };            // 5 m -> 0 m
 export const DEPTH = { shelf: "#deebf7", mid: "#9ecae1", deep: "#2171b5" };   // ColorBrewer Blues, the Bay by depth
 export const RIVER = { quiet: "#9ebcd4", strong: "#2171b5" };
 
+// crop production (Explore, the district sheet): ColorBrewer YlGn, five of its nine steps, spaced for colour-blind readers
+export const CROP = ["#d9f0a3", "#78c679", "#41ab5d", "#238443", "#005a32"];   // YlGn 9-class steps 3, 5, 6, 7, 8
+export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice", wheat: "Wheat", potato: "Potato" };
+
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";
 // selection is drawn in ink, not a hue, so it never reads as data

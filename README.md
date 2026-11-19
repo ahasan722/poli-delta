@@ -9,6 +9,9 @@ Live page: https://ahasan722.github.io/poli-delta/
 ## How it reads
 
 - **The Bay and its rivers.** The second step opens on the whole Bay of Bengal, shaded by depth (ETOPO5), with every river in the frame moving toward it: HydroRIVERS reaches inside Bangladesh, WDBII beyond the border. A shader moves the water down each line from its higher end, faster in rivers with more discharge (the Lower Meghna about 40,000 m³/s, the Padma 35,000, the Jamuna 21,000).
+- **District sheet.** Click a district (or search for one) for a sheet in four tabs, each drawing its charts as it opens. Overview: the verdict under the rule, the number of people under 5 m, and where the district sits among the 64 on five measures. Rivers: kilometres of mapped channel, channel density, the water share of the land and the named rivers by mean flow. Farming: its agro-ecological zones (BARC 2018), its land cover and its share of national output for Aman, Boro and Aus rice, wheat and potato, with the rank among the 64. Cyclones: every pass within 50 km since 1960, with a play button for each hurricane-force storm.
+- **Crops on the map.** In Explore, pick a crop to colour and raise the 64 districts by production (ColorBrewer YlGn, quintile classes) and rank them.
+- **Cyclone picker.** A button on the map lists the fourteen named cyclones since 1970 with peak wind and deaths; choosing one plays it.
 - **Map layers.** A layers menu on the map turns rivers and flow, river names, places, district borders, cyclone tracks and the depth of the Bay on or off; each step sets its own layers and changes last until the next step.
 - **About page.** Project, how to read it, the rule, data, how it is drawn, limits and credits, with its own link (`#page=about`).
 - **2D or 3D, any time.** The 2D | 3D switch (or keys 2 and 3) is one scene seen two ways. 2D is a flat, north-up map; 3D tilts the camera, then raises the relief, then grows the district columns tallest first, in 1.4 s. The switch reverses exactly, can be interrupted half way without a jump, and keeps the same centre and zoom. The mode is in the URL.
@@ -40,6 +43,8 @@ Live page: https://ahasan722.github.io/poli-delta/
 | Sea level | PSMSL annual RLR for the Bay of Bengal gauges (Holgate et al. 2013); CSIRO GMSL reconstruction (Church & White) | one row per gauge with an OLS trend; the global mean for context |
 | People | GPW v4 2015 population count (CIESIN), 30 arc-second | one light per texel with 700 or more people; people under 10 m per district |
 | Exposure table | SRTM + GPW | land area and people at or below each 0.25 m step to 10 m |
+| Agro-ecological zones | BARC, Fertilizer Recommendation Guide 2018, table of zones and their main districts (OCR pages kept in `raw/aez_barc_frg2018/`, transcribed in `aez_districts.csv`) | the Farming tab |
+| Major crops by district | BBS, 45 Years Agriculture Statistics of Major Crops, via data.gov.bd (`raw/agri_bbs_major_crops/`) | per crop, the latest year whose 64 district figures add up to the table's national total: Aman 2011-12, Boro 2012-13, Aus, wheat and potato 2014-15 |
 | The numbers in the text | 196 cited facts in `notes/facts.csv` | sediment, subsidence, sea level, exposure, floods, cyclone tolls and shelters, displacement, TRM and the Delta Plan |
 
 Numbers computed from the files in `raw/`, not quoted: 39.6 % of land at or below 10 m and 13.3 % at or below 5 m (SRTM); 64.4 M people on that land (GPW); 48 % cropland, 39 % tree cover, 2.7 % mangrove (WorldCover); 3,965 km² of Sundarbans mangrove; +0.23 °C a decade at the BMD stations since 1982; 72 % of a station's rain in June–September; every tide gauge with a usable record trending up. The notebook asserts each of them.
@@ -54,6 +59,7 @@ index.html, css/, js/, lib/, assets/   the page: vanilla JS, three.js 0.170, d3 
   js/story.js                          the steps: a ground box to frame, relief uniforms, layers, and an optional timeline
   js/main.js                           camera controller and flights, the 2D/3D choreography, steps, timeline, URL state, search, input, render-on-demand loop, SVG fallback
   js/palette.js                        every colour (ColorBrewer ramps, base greys, one accent)
+  js/icons.js                          the line icons used across the page
   js/charts.js, js/cards.js            the two panel charts (silt, the ten); the district and storm sheets
 data/                                  what the page reads (height, mask, cover, pop, district_id PNGs; rivers, storms,
                                        districts, climate, sealevel, cyclones_impact, exposure JSON; outlines GeoJSON)
@@ -63,6 +69,7 @@ pipeline/make_storms.py                raw -> data: storm tracks and notes
 pipeline/make_cover.py                 raw -> data: land cover, water, forest loss, rivers with names, haors
 pipeline/make_districts.py             raw -> data: district id raster, outlines, 64 profiles (people under 2/5/10 m, hurricane-force passes)
 pipeline/make_climate.py               raw -> data: climate series, tide gauges, EM-DAT impact rows
+pipeline/make_agri.py                  raw -> data: agro-ecological zones, major crops and rivers per district (agri.json)
 pipeline/pipeline.ipynb                runs all five and asserts the quoted numbers
 pipeline/verify.py                     functional walk in headless Chromium: 2D/3D switch and its interruption, rendered colour vs key, steps, keys, Back, deep links, wheel, drag, timeline, hover, click, search, a cyclone, frame times, reduced motion, no-WebGL fallback, phone; writes screenshots
 pipeline/colours.py                    palette checks: colour-blind simulation, class gaps, contrast

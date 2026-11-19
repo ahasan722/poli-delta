@@ -1,0 +1,47 @@
+AEZ number, name and area
+
+Major districts and
+area coverage
+
+Land type and
+
+extent
+
+District Area Land* Extent
+(00 ha) type (%)
+1. Old Himalayan Piedmont Thakurgaon 1903. | HL 58
+Plain Panchagar 1121 |MHL 34
+(398154 ha) Dinajpur 958 |MLL 1
+HS+WB 7
+2. Active Tista Floodplain Kurigram 329
+(83644 ha) Lalmonirhat 148 HL 2
+Nilphamari 142 MHL 72
+Rangpur 116 HS+WB 26
+Gaibandha 51
+3. Tista Meander Floodplain Rangpur 1719
+(946803 ha) Nilphamari 1489
+Gaibandha 1439 “IL 35
+Dinajpur 1127 MHL 51
+NEsoHon 957 MLL 4
+ia 948 LL 1
+Lalmonirhat 935 HS+WB 9
+Panchagar 300
+Bogra 290
+Joypurhat 254
+4. Karatoya-Bangali Floodplain | Sirajganj 1494 | HL 23
+(257158 ha) Bogra 998 | MHL 44
+Pabna 78 MLL 14
+LL 4
+VLL 1
+HS+WB 14
+5. Lower Atrai Basin Naogaon 374 HL 2
+(85105 ha) Natore 354 MHL 8
+Sirajganj 72 MLL 21
+LL 65
+HS+WB 4
+6. Lower Purnabhaba Naogaon 72 MLL 10
+Floodplain (12896 ha) Chapai Nawabganj 57 IE 60
+HS+WB 30
+
+* HL: Highland, MHL: Medium Highland, MLL: Medium Lowland, LL: Lowland, VLL: Very
+lowland, HS: Homestead, WB: Water body

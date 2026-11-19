@@ -1,7 +1,7 @@
 // layers.js  --  everything that sits on top of the relief: storm tracks, population lights, labels, rivers beyond the border.
 import * as THREE from "three";
-import { toScene, GRID } from "./terrain.js?v=7";
-import { windHex, rgb01, RIVER, BASE } from "./palette.js?v=7";
+import { toScene, GRID } from "./terrain.js?v=8";
+import { windHex, rgb01, RIVER, BASE } from "./palette.js?v=8";
 
 const km = (m, exag) => m * 0.001 * exag;
 

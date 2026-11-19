@@ -1,0 +1,42 @@
+AQ, rmitlbae, meme aml Major districts and Land type
+area area coverage and extent
+District Area Land Extent
+(00 ha) type (%)
+24. St. Martin’s Coral Island | St. Martin’s Coral 804 HL 33
+(804 ha) Island MHL 63
+MLL 2
+HS+WB 2
+25. Level Barind Tract Naogaon 1408
+(504851 ha) Bogra 1182
+Dinajpur 1040 | HL 30
+Joypurhat 729 MHL 55
+Sirajganj 193 MLL 4
+Natore 186 | LL 2
+Rajshahi 158 | HS+WB 9
+Gaibandha 94
+Chapai Nawabganj 50
+26. High Barind Tract Naogaon 623 HL 93
+(159964 ha) Chapai Nawabganj 502. | MHL 1
+Rajshahi 475 | HS+WB 6
+27. North Eastern Barind Rangpur 466 HL 36
+Tract Dinajpur 374 | MHL 56
+(107926 ha) Bogra 161 MLL 1
+Gaibandha 72 HS+WB 7
+28. Madhupur Tract Gazipur 1598
+(424359) Tangail 1033 | yy 56
+Mymensingh 795 MHL 18
+Dhaka 462 MLL 7
+Narshingdi 155 LL 9
+Narayanganj 133 HS+WB 10
+Jamalpur 65
+29. Northern and Eastern Rangamati 4565
+Hills | Bandarban 4423
+(eG Ne ey | Khagrachhari 3167
+| Chittagong 2328
+| Cox’s Bazar 1335 | HL 92
+-Moulvibazar 1292 NLL ;
+| Habiganj 495 | Hs+wB 5
+| Sylhet 270
+-Comilla 108
+| Sherpur 82
+| Feni 60

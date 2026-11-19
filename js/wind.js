@@ -6,8 +6,8 @@
 // field is a faint drift so the Bay does not look frozen. This is a reading aid built on two numbers
 // per fix (position, wind), not a reanalysis, and the page says so.
 import * as THREE from "three";
-import { toScene, GRID } from "./terrain.js?v=7";
-import { WIND, rgb01 } from "./palette.js?v=7";
+import { toScene, GRID } from "./terrain.js?v=8";
+import { WIND, rgb01 } from "./palette.js?v=8";
 const CALM = rgb01(WIND.calm), GALE = rgb01(WIND.gale), HURR = rgb01(WIND.hurricane), MAJOR = rgb01(WIND.major);
 
 const BOX = { W: 84.5, E: 95.5, S: 15.5, N: 27.3 };

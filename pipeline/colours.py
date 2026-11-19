@@ -13,6 +13,7 @@ def get(block):
     m = re.search(rf"export const {block} = \{{(.*?)\}};", txt, re.S)
     return dict(re.findall(r'"?(\w+)"?\s*:\s*"(#[0-9a-fA-F]{6})"', m.group(1)))
 BASE, SEV, WIND, FLOOD, LOW = get("BASE"), get("SEV"), get("WIND"), get("FLOOD"), get("LOW")
+CROP = re.findall(r'"(#[0-9a-fA-F]{6})"', re.search(r"export const CROP = \[(.*?)\];", txt).group(1))
 
 def srgb(h): return np.array([int(h[i:i + 2], 16) for i in (1, 3, 5)]) / 255
 def lin(c): return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
@@ -37,7 +38,8 @@ def check(ok, msg):
 ramps = {"severity (YlOrRd 4)": [BASE["out"], SEV["3"], SEV["4"], SEV["5"], SEV["6"]],
          "wind (YlOrRd 3)": [WIND["calm"], WIND["gale"], WIND["hurricane"], WIND["major"]],
          "flood (Blues)": [FLOOD["shallow"], FLOOD["deep"]],
-         "low ground (YlGnBu)": [LOW["high"], LOW["low"]]}
+         "low ground (YlGnBu)": [LOW["high"], LOW["low"]],
+         "crops (YlGn 5, every district has a value)": CROP}
 for name, r in ramps.items():
     for k in CVD:
         gaps = [dE(a, b, k) for a, b in zip(r, r[1:])]

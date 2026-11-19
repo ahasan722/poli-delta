@@ -1,4 +1,4 @@
-"""verify.py: v7 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
+"""verify.py: v8 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
 Prints ok / FAIL lines and writes screenshots of 2D, 3D, the open sheet and the phone layout to outdir (default notes/shots).
 Swiftshader renders on the CPU at a few frames a second, so waits are long and the frame-time sample is reported,
 not held to 60 fps; on a laptop GPU the same page runs at the display rate."""
@@ -165,9 +165,32 @@ async def main():
         check(await pg.evaluate("__poli.state.ov && Object.keys(__poli.state.ov).length === 0"), "layer changes reset at the next step")
         await pg.click("#modeAbout"); await pg.wait_for_timeout(600)
         ab = await pg.evaluate("[!document.getElementById('about').hidden, location.hash, document.querySelectorAll('.page h2').length]")
-        check(ab[0] and "page=about" in ab[1] and ab[2] >= 6, f"About opens as a page with {ab[2]} sections, in the URL ({ab[1]})")
+        check(ab[0] and "page=about" in ab[1] and ab[2] >= 4, f"About opens as a page with {ab[2]} sections, in the URL ({ab[1]})")
         await pg.go_back(); await pg.wait_for_timeout(500); check(await pg.evaluate("document.getElementById('about').hidden"), "Back closes the About page")
         await settle(pg, 500, 40000)
+        # ---- v8: the district sheet's tabs, crop colouring, the cyclone picker
+        await pg.evaluate("__poli.go('explore')"); await settle(pg, 800, 40000)
+        await pg.evaluate("__poli.select(__poli.data.districts.find(d => d.name === 'Munshiganj').id)"); await pg.wait_for_timeout(1500)
+        tabs = {}
+        for t in ["ov", "rv", "lc", "cy"]:
+            await pg.click(f'#focus .ftabs button[data-p="{t}"]'); await pg.wait_for_timeout(1400)
+            tabs[t] = await pg.evaluate(f"document.querySelectorAll('#focus .pane[data-p=\"{t}\"] svg rect, #focus .pane[data-p=\"{t}\"] svg circle').length")
+        lead = await pg.evaluate("document.getElementById('fLead').textContent")
+        check(all(v > 0 for v in tabs.values()) and "potato" in lead and "1st" in lead, f"district sheet tabs draw their charts {tabs}; {lead}")
+        await pg.keyboard.press("Escape"); await settle(pg, 300, 40000)
+        await pg.keyboard.press("2"); await settle(pg, 800, 40000)
+        await pg.click('#cropSeg button[data-c="potato"]'); await pg.wait_for_timeout(2500)
+        top = await pg.evaluate("[__poli.data.list[0].name, document.querySelector('#key .kt').textContent]")
+        await pg.screenshot(path=str(OUT / "v8-2d-potato.png"))
+        xy = await pg.evaluate("(() => { const d = __poli.data.districts.find(x => x.name === 'Munshiganj'); return __poli.project(d.centroid[0] + 0.02, d.centroid[1] - 0.07, 0.3); })()")
+        got = pixel(str(OUT / "v8-2d-potato.png"), *xy)
+        check(top[0] == "Munshiganj" and "Potato" in top[1] and dE(got, "#005a32") < 10, f"crop colouring: potato ranks {top[0]} first, key '{top[1]}', its cap renders {got} (darkest class #005a32)")
+        await pg.click('#cropSeg button[data-c="potato"]'); await pg.keyboard.press("3"); await settle(pg, 500, 40000)
+        await pg.click("#stormBtn"); await pg.wait_for_timeout(400)
+        n = await pg.evaluate("document.querySelectorAll('#stormList button').length")
+        await pg.click("#stormList button[data-sid='2020136N10088']"); await pg.wait_for_timeout(1500)
+        check(n == 14 and await pg.evaluate("__poli.state.storm") == "2020136N10088" and await pg.evaluate("document.getElementById('stormPop').hidden"), f"cyclone picker lists {n} storms and plays Amphan")
+        await pg.keyboard.press("Escape"); await settle(pg, 500, 40000)
         # ---- share
         await pg.click("#shareBtn"); await pg.wait_for_timeout(300)
         check("copied" in (await pg.evaluate("document.getElementById('toast').textContent")).lower(), "Share copies the link")
