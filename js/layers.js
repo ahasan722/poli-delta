@@ -1,7 +1,7 @@
 // layers.js  --  everything that sits on top of the relief: storm tracks, population lights, labels, rivers beyond the border.
 import * as THREE from "three";
-import { toScene, GRID } from "./terrain.js";
-import { windHex, rgb01, RIVER, BASE } from "./palette.js";
+import { toScene, GRID } from "./terrain.js?v=7";
+import { windHex, rgb01, RIVER, BASE } from "./palette.js?v=7";
 
 const km = (m, exag) => m * 0.001 * exag;
 
@@ -83,26 +83,58 @@ export function buildPopulation(img, sampleH, exag) {
 }
 
 // ---- rivers beyond Bangladesh (WDBII) -------------------------------------------------------
+// ---- flowing water: a line shader that moves dashes along each reach, faster for bigger rivers ----------------
+// aAlong is the distance (km) from the upstream end; aSpeed is 0..1 by discharge. uFlow scales the effect per step.
+export function flowMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uFlow: { value: 0.3 }, uDeep: { value: new THREE.Color("#08306b") } }, transparent: true, depthWrite: false, vertexColors: true,
+    vertexShader: `attribute float aAlong; attribute float aSpeed; varying vec3 vC; varying float vA; varying float vS;
+      void main(){ vC = color; vA = aAlong; vS = aSpeed; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform float uOpacity; uniform float uTime; uniform float uFlow; uniform vec3 uDeep; varying vec3 vC; varying float vA; varying float vS;
+      void main(){
+        float ph = fract(vA / 7.0 - uTime * (0.35 + 0.9 * vS));
+        float dash = smoothstep(0.0, 0.10, ph) * (1.0 - smoothstep(0.22, 0.34, ph));
+        float f = dash * uFlow;
+        gl_FragColor = vec4(mix(vC, uDeep, 0.8 * f), uOpacity * (0.65 + 0.35 * f));
+      }`
+  });
+}
+// water runs downhill: order each line from the higher end to the lower one (ties: from north to south)
+export function downstream(coords, sampleH) {
+  const a = coords[0], b = coords[coords.length - 1]; const ha = sampleH(a[0], a[1]), hb = sampleH(b[0], b[1]);
+  const rev = Math.abs(ha - hb) > 2 ? ha < hb : a[1] < b[1];
+  return rev ? coords.slice().reverse() : coords;
+}
+
+// ---- rivers beyond Bangladesh (WDBII), flowing like the rest ----------------------------------------
 export function buildFarRivers(geojson, sampleH, exag) {
   const group = new THREE.Group(); group.name = "farRivers";
+  const pos = [], col = [], along = [], speed = [];
+  const c = new THREE.Color("#a9bccb"); const cl = [Math.pow(c.r, 2.2), Math.pow(c.g, 2.2), Math.pow(c.b, 2.2)];
   for (const f of geojson.features) {
     const lines = f.geometry.type === "MultiLineString" ? f.geometry.coordinates : [f.geometry.coordinates];
-    for (const ln of lines) {
-      const pts = ln.map(([lon, lat]) => { const p = toScene(lon, lat); p.y = km(Math.max(sampleH(lon, lat), -60), exag) + 0.5; return p; });
-      if (pts.length < 2) continue;
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xa9bccb, transparent: true, opacity: 0.55 })));
+    for (const ln0 of lines) {
+      if (ln0.length < 2) continue; const ln = downstream(ln0, sampleH); let acc = 0;
+      for (let i = 1; i < ln.length; i++) {
+        const pa = toScene(ln[i - 1][0], ln[i - 1][1]), pb = toScene(ln[i][0], ln[i][1]); const d = Math.hypot(pb.x - pa.x, pb.z - pa.z);
+        pa.y = km(Math.max(sampleH(ln[i - 1][0], ln[i - 1][1]), -60), exag) + 0.5; pb.y = km(Math.max(sampleH(ln[i][0], ln[i][1]), -60), exag) + 0.5;
+        pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z); col.push(...cl, ...cl); along.push(acc, acc + d); speed.push(0.3, 0.3); acc += d;
+      }
     }
   }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  geo.setAttribute("aAlong", new THREE.Float32BufferAttribute(along, 1)); geo.setAttribute("aSpeed", new THREE.Float32BufferAttribute(speed, 1));
+  const m = new THREE.LineSegments(geo, flowMaterial()); m.name = "far"; group.add(m);
   return group;
 }
 
 // ---- place labels as sprites -----------------------------------------------------------------
-export function makeLabel(text, { size = 22, color = "#1f2933", weight = 600, halo = "#ffffff" } = {}) {
+export function makeLabel(text, { size = 22, color = "#1f2933", weight = 600, halo = "#ffffff", italic = false } = {}) {
   const pad = 8, c = document.createElement("canvas"), ctx = c.getContext("2d");
-  ctx.font = `${weight} ${size}px "IBM Plex Sans", sans-serif`;
+  ctx.font = `${italic ? "italic " : ""}${weight} ${size}px "IBM Plex Sans", sans-serif`;
   const w = Math.ceil(ctx.measureText(text).width) + pad * 2, h = size + pad * 2;
   c.width = w * 2; c.height = h * 2; ctx.scale(2, 2);
-  ctx.font = `${weight} ${size}px "IBM Plex Sans", sans-serif`; ctx.textBaseline = "middle";
+  ctx.font = `${italic ? "italic " : ""}${weight} ${size}px "IBM Plex Sans", sans-serif`; ctx.textBaseline = "middle";
   // a solid halo keeps the label legible on any ground colour
   ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = halo; ctx.strokeText(text, pad, h / 2); ctx.fillStyle = color; ctx.fillText(text, pad, h / 2);
   const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter;
@@ -123,27 +155,20 @@ const inside = (lon, lat) => lon > 88.0 && lon < 92.7 && lat > 20.7 && lat < 26.
 export function buildRivers(rivers, sampleH, exag) {
   const group = new THREE.Group(); group.name = "rivers";
   const lift = (lon, lat) => km(Math.max(sampleH(lon, lat), -60), exag) + 0.6;
-  // a line shader with a pulse that travels along each reach, so the network reads as flowing
-  const flowMat = () => new THREE.ShaderMaterial({
-    uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 }, uFlow: { value: 1 } }, transparent: true, depthWrite: false, vertexColors: true,
-    vertexShader: `attribute float aAlong; varying vec3 vC; varying float vA; void main(){ vC = color; vA = aAlong; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform float uOpacity; uniform float uTime; uniform float uFlow; varying vec3 vC; varying float vA;
-      void main(){ float w = 0.5 + 0.5 * sin(vA * 0.45 - uTime * 2.6); float pulse = pow(w, 4.0) * uFlow; gl_FragColor = vec4(mix(vC, vC * 0.45, pulse), uOpacity * (0.75 + 0.25 * pulse)); }`
-  });
   const seg = (lines, colorFn, opacity, name) => {
-    const pos = [], col = [], along = [];
+    const pos = [], col = [], along = [], speed = [];
     for (const l of lines) {
-      const c = colorFn(l); let acc = 0;
-      for (let i = 1; i < l.c.length; i++) {
-        const a = l.c[i - 1], b = l.c[i];
+      const c = colorFn(l); let acc = 0; const cs = downstream(l.c, sampleH); const sp = l.dis ? Math.min(1, Math.max(0, (Math.log10(l.dis) - 2.1) / 2.5)) : 0.1;
+      for (let i = 1; i < cs.length; i++) {
+        const a = cs[i - 1], b = cs[i];
         const pa = toScene(a[0], a[1]), pb = toScene(b[0], b[1]); const d = Math.hypot(pb.x - pa.x, pb.z - pa.z);
         if (a[0] < GRID.W || a[0] > GRID.E || a[1] < GRID.S || a[1] > GRID.N) { acc += d; continue; }
         pa.y = lift(a[0], a[1]); pb.y = lift(b[0], b[1]);
-        pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z); col.push(...c, ...c); along.push(acc, acc + d); acc += d;
+        pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z); col.push(...c, ...c); along.push(acc, acc + d); speed.push(sp, sp); acc += d;
       }
     }
-    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setAttribute("aAlong", new THREE.Float32BufferAttribute(along, 1));
-    const m = new THREE.LineSegments(geo, flowMat()); m.name = name; m.material.opacity = opacity; return m;
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); geo.setAttribute("aAlong", new THREE.Float32BufferAttribute(along, 1)); geo.setAttribute("aSpeed", new THREE.Float32BufferAttribute(speed, 1));
+    const m = new THREE.LineSegments(geo, flowMaterial()); m.name = name; m.material.opacity = opacity; return m;
   };
   // discharge: 150 m3/s is a thread, 40,000 is the Padma; log scale into brightness
   const q = rgb01(RIVER.quiet), st = rgb01(RIVER.strong); const L2 = c => c.map(x => Math.pow(x, 2.2));
@@ -157,7 +182,7 @@ export function buildRivers(rivers, sampleH, exag) {
   for (const [n, reaches] of Object.entries(byName)) {
     const cx = reaches.reduce((a, r) => a + r[0][0], 0) / reaches.length, cy = reaches.reduce((a, r) => a + r[0][1], 0) / reaches.length;
     const mid = reaches.reduce((b, r) => (Math.hypot(r[0][0] - cx, r[0][1] - cy) < Math.hypot(b[0] - cx, b[1] - cy) ? r[0] : b), reaches[0][0]);
-    const sp = makeLabel(n, { size: 16, color: "#1c5585", weight: 500 }); const p = toScene(mid[0], mid[1]); p.y = lift(mid[0], mid[1]) + 3; sp.position.copy(p); sp.userData.kind = "river"; sp.name = "rl-" + n; group.add(sp);
+    const sp = makeLabel(n, { size: 15, color: "#1c5585", weight: 500, italic: true }); const p = toScene(mid[0], mid[1]); p.y = lift(mid[0], mid[1]) + 3; sp.position.copy(p); sp.userData.kind = "river"; sp.name = "rl-" + n; group.add(sp);
   }
   return group;
 }

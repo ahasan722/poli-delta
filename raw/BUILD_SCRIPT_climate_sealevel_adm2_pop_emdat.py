@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 
-SC = "/tmp/claude-0/-home-claude/971b3f00-83af-58bc-94ac-cbb3dfb6b162/scratchpad/climate"
-RAW = "/home/claude/work/delta/repo/raw"
+SC = "scratch/climate"
+RAW = "./raw"
 
 
 def out(d):
@@ -152,7 +152,7 @@ print("geob", gb.shape, os.path.getsize(f"{d}/geoboundaries_BGD_ADM2_simplified.
 d = out("pop_bbs_census_districts")
 pop = g.drop(columns="geometry").copy()
 # merge the 2011 counts and Wikipedia area from the earlier work file
-wa = pd.read_csv("/home/claude/work/data/raw/population_admin.csv")
+wa = pd.read_csv("../data/raw/population_admin.csv")
 wa = wa[wa.level == "district"].copy()
 alias = {"Chittagong": "Chattogram", "Comilla": "Cumilla", "Barisal": "Barishal", "Jessore": "Jashore",
          "Bogra": "Bogura", "Maulvibazar": "Moulvibazar", "Netrakona": "Netrokona", "Chapai Nawabganj": "Chapainawabganj",

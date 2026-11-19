@@ -1,17 +1,17 @@
-// main.js  --  v6: one scene, one camera, two views of it.
+// main.js  --  v7: one scene, one camera, two views of it.
 // 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
 // camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
 // runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
 // Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
 // Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js";
-import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js";
-import { CHAPTERS, SITE } from "./story.js";
-import { charts } from "./charts.js";
-import { cards } from "./cards.js";
-import { WindField, StormPlayer } from "./wind.js";
-import { BASE, SEV, sevHex, WIND, FLOOD, LOW, RIVER, ACCENT, hex } from "./palette.js";
+import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=7";
+import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=7";
+import { CHAPTERS, SITE } from "./story.js?v=7";
+import { charts } from "./charts.js?v=7";
+import { cards } from "./cards.js?v=7";
+import { WindField, StormPlayer } from "./wind.js?v=7";
+import { BASE, SEV, sevHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, hex } from "./palette.js?v=7";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
@@ -34,7 +34,7 @@ const DEFAULT_RULE = { metric: "pop_le5", sevMin: 3 };
 const FOV = 26, DUR_DIM = 1.4;
 const state = {
   step: 0, lastStory: 0, dimTarget: 1, dimP: 0, pick: 0, hover: 0, storm: null, rule: { ...DEFAULT_RULE },
-  tl: { t: 0, playing: false, speed: 1, def: null }, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
+  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
 };
 const D = {};
 let renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
@@ -128,14 +128,20 @@ async function boot() {
   D.ten = rankBy(DEFAULT_RULE).slice(0, 10);
   if (state.gl) buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }); else buildFallback();
   charts.init(D); cards.init(D, { clear: () => clearFocus(true) });
-  buildSteps(); buildExplore(); buildSearch(); bindUI(); resize();
+  buildSteps(); buildExplore(); buildSearch(); bindUI(); bindToc(); resize();
   Object.assign(cur, valuesAt(0, 0));
   const h = readHash(); state.dimTarget = h.dim; setDimUI();
   goStep(h.step, { push: false, instant: true });
   if (h.district) selectDistrict(h.district, { push: false });
   if (h.storm) playStorm(h.storm, { push: false });
+  if (h.about) showAbout(true, false);
   copyPose(cam, camT);
   if (reduced || !state.gl) state.dimP = state.dimTarget;
+  else if (!h.district && !h.storm) {
+    // the opening: start high over the Bay and come in while the map lifts from flat to relief
+    const to = clonePose(camT); const from = clonePose(camT); from.d *= 2.3; from.az = to.az + 28; from.pitch = 12; from.look.z += 120;
+    copyPose(cam, from); copyPose(camT, from); flyTo(to, 2600);
+  }
   history.replaceState(null, "", hashFor());
   document.body.classList.add("ready"); state.ready = true;
   if (!store.get("poli-hint")) $("hint").hidden = false;
@@ -210,7 +216,7 @@ function goStep(i, { push = true, instant = false } = {}) {
   // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
   setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
   if (ch.time && instant) cur[ch.time.key] = lerp(ch.time.from, ch.time.to, state.tl.t);
-  stepUI(i);
+  state.ov = {}; stepUI(i); syncLayers(); charts.play?.(ch.id);
   if (state.gl) { const p = stepPose(i); if (instant) { copyPose(camT, p); copyPose(cam, p); flight = null; } else if (!state.pick) flyTo(p); }
   if (push && i !== prev) history.pushState(null, "", hashFor()); else history.replaceState(null, "", hashFor());
   $("live").textContent = `Step ${i + 1} of ${N}: ${ch.nav}`;
@@ -284,7 +290,7 @@ function frame(now) {
   if (state.dimP !== state.dimTarget) { const s = dt / DUR_DIM; state.dimP = state.dimTarget > state.dimP ? Math.min(state.dimTarget, state.dimP + s) : Math.max(state.dimTarget, state.dimP - s); moving = true; }
   const P = state.dimP; const eExag = ease(seg(P, 0.21, 0.79));
   // values: everything eases toward the step's targets; the timeline's own value follows quickly
-  const ch = CHAPTERS[state.step]; const tgt = valuesAt(state.step, tl.def && !state.storm ? tl.t : 1);
+  const ch = CHAPTERS[state.step]; const tgt = valuesAt(state.step, tl.def && !state.storm ? tl.t : 1); applyOverrides(tgt);
   const k = reduced ? 1 : 1 - Math.exp(-dt * 6), kf = reduced ? 1 : 1 - Math.exp(-dt * 22);
   for (const key in tgt) { const a = cur[key] ?? tgt[key], b = tgt[key]; const kk = ch.time && key === ch.time.key ? kf : k; const v = Math.abs(b - a) < 1e-4 ? b : a + (b - a) * kk; if (v !== a) moving = true; cur[key] = v; }
   const v = cur;
@@ -297,20 +303,20 @@ function frame(now) {
   applyOffset(camera, off); pose(camera, cam);
   const vw = view(cam); $("needle").style.transform = `rotate(${(180 - vw.az).toFixed(1)}deg)`;
   // continuous animations that need frames
-  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || (v.uRiverGlow > 0.8 && v.rivers > 0.5);
+  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
   if (!(moving || live || interacting || need > 0)) { lastFrame = now; return; }
   need = Math.max(0, need - 1);
   scene.fog.near = cam.d * 1.2; scene.fog.far = cam.d * 3.2;
   // relief
   const U = terrain.uniforms; const time = now / 1000;
-  for (const key of ["uSeaLevel", "uRiverGlow", "uFar", "uLowBand", "uSink", "uCoverMix", "uForest", "uWet", "uBuilt", "uLoss"]) U[key].value = v[key];
+  for (const key of ["uSeaLevel", "uRiverGlow", "uFar", "uLowBand", "uSink", "uCoverMix", "uForest", "uWet", "uBuilt", "uLoss", "uBathy"]) U[key].value = v[key];
   U.uExag.value = v.uExag * eExag; U.uCutOn.value = 0; U.uTime.value = time;
   // the overlays were built at 14x; they follow the relief as it rises and lies down
   const ys = Math.max(0.03, eExag * v.uExag / 14); [rivers, farRivers, districts, storms, wind.mesh, labels, site].forEach(g => g.scale.y = ys);
   // labels step back while the camera flies or the view changes dimension
   const lf = (1 - smoothstep(0, 0.12, P) * smoothstep(1, 0.88, P)) * (1 - 0.85 * fl);
-  rivers.children.forEach(o => { if (o.material.uniforms) { o.material.uniforms.uOpacity.value = (o.name === "major" ? 0.9 : 0.45) * v.rivers; o.material.uniforms.uTime.value = time; } else o.material.opacity = v.riverLabels * lf; });
-  farRivers.children.forEach(l => l.material.opacity = 0.5 * v.farRivers);
+  rivers.children.forEach(o => { if (o.material.uniforms) { o.material.uniforms.uOpacity.value = (o.name === "major" ? 0.9 : 0.45) * v.rivers; o.material.uniforms.uTime.value = time; o.material.uniforms.uFlow.value = v.flow; } else o.material.opacity = v.riverLabels * lf; });
+  farRivers.children.forEach(o => { const u = o.material.uniforms; u.uOpacity.value = 0.6 * v.farRivers; u.uTime.value = time; u.uFlow.value = v.flow; });
   labels.children.forEach(s => s.material.opacity = v.labels * lf);
   districts.children.forEach(l => { const sel = l.userData.id === state.pick; l.material.color.setHex(sel ? hex(BASE.ink) : hex(BASE.outline)); l.material.opacity = sel ? 0.95 : 0.55 * v.borders; });
   stormLayer(v, lf); prismLayer(v, P, lf);
@@ -366,6 +372,7 @@ function readouts(v) {
 const ramp = (a, b) => `<i class="ramp" style="background:linear-gradient(to right,${a},${b})"></i>`;
 const sevKey = below => [["", "Hurricane-force passes since 1960"], ...[6, 5, 4, 3].map(n => [SEV[n], n === 6 ? "6" : String(n)]), [BASE.out, below]];
 const KEYS = {
+  bay: [["", "Depth of the Bay"], ["r:" + DEPTH.shelf + "," + DEPTH.deep, "shelf → 1,600 m"], ["l:" + RIVER.strong, "rivers, moving with their flow"]],
   low: [["", "Land under the cutoff"], ["r:" + LOW.low + "," + LOW.high, "lower → higher"]],
   silt: [["l:" + RIVER.strong, "rivers, darker = more water"]],
   sink: [["", "Land below the sea"], ["r:" + FLOOD.shallow + "," + FLOOD.deep, "shallow → deep"]],
@@ -556,10 +563,11 @@ function hashFor() {
   const p = new URLSearchParams(); p.set("step", state.step + 1); p.set("mode", state.dimTarget ? "3d" : "2d");
   if (state.pick) p.set("id", D.slug(D.byId[state.pick].name));
   if (state.storm) { const s = D.storms.find(x => x.sid === state.storm); p.set("storm", s.note ? D.slug(s.note.label) + "-" + s.season : s.sid); }
+  if (state.about) p.set("page", "about");
   return "#" + p.toString();
 }
 function readHash() {
-  const p = new URLSearchParams(location.hash.slice(1)); const out = { step: 0, dim: 1, district: 0, storm: null };
+  const p = new URLSearchParams(location.hash.slice(1)); const out = { step: 0, dim: 1, district: 0, storm: null, about: p.get("page") === "about" };
   const st = p.get("step"); if (st) { const n = parseInt(st, 10); out.step = Number.isFinite(n) ? clamp(n - 1, 0, N - 1) : Math.max(0, CHAPTERS.findIndex(c => c.id === st)); }
   if (p.get("mode") === "2d" || !hasGL()) out.dim = 0;
   const id = p.get("id"); if (id) { const d = D.districts.find(x => D.slug(x.name) === id || String(x.id) === id); if (d) out.district = d.id; }
@@ -567,7 +575,7 @@ function readHash() {
   return out;
 }
 addEventListener("popstate", () => {
-  const h = readHash(); if (h.dim !== state.dimTarget) setDim(!!h.dim, { user: false });
+  const h = readHash(); if (h.about !== state.about) showAbout(h.about, false); if (h.dim !== state.dimTarget) setDim(!!h.dim, { user: false });
   if (h.step !== state.step) goStep(h.step, { push: false });
   if (h.district && h.district !== state.pick) selectDistrict(h.district, { push: false });
   else if (h.storm && h.storm !== state.storm) playStorm(h.storm, { push: false });
@@ -587,7 +595,11 @@ function resetNorth() { if (!state.gl) return; const p = clonePose(camT); p.az =
 function bindUI() {
   $("prevBtn").addEventListener("click", prevStep); $("nextBtn").addEventListener("click", next);
   $("modeStory").addEventListener("click", () => { if (state.step === EXPLORE) goStep(state.lastStory); });
-  $("modeExplore").addEventListener("click", () => goStep(EXPLORE));
+  $("modeExplore").addEventListener("click", () => { showAbout(false); goStep(EXPLORE); });
+  $("modeStory").addEventListener("click", () => showAbout(false));
+  $("modeAbout").addEventListener("click", () => showAbout(true));
+  $("aboutClose").addEventListener("click", () => showAbout(false));
+  buildLayers();
   $("brand").addEventListener("click", e => { e.preventDefault(); goStep(0); });
   document.querySelectorAll("#dimSeg button").forEach(b => b.addEventListener("click", () => setDim(b.dataset.dim === "3")));
   $("zoomIn").addEventListener("click", () => zoomAt(1 / 1.6)); $("zoomOut").addEventListener("click", () => zoomAt(1.6));
@@ -612,8 +624,11 @@ function bindUI() {
     acc = 0; lock = now + 700;
   }, { passive: false });
   addEventListener("keydown", e => {
-    if (e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return;
+    if (e.key === "Escape" && !$("layersPop").hidden) { toggleLayers(false); $("layersBtn").focus(); return; }
+    if (e.target.closest && e.target.closest("input:not([type=checkbox]),textarea,[contenteditable]")) return;
     if (!$("help").hidden) { if (e.key === "Escape" || e.key === "?") closeHelp(); return; }
+    if (state.about) { if (e.key === "Escape") showAbout(false); return; }
+    if (!$("layersPop").hidden && e.key === "Escape") { toggleLayers(false); return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
     if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown") { e.preventDefault(); if (state.step < EXPLORE) next(); }
@@ -626,7 +641,7 @@ function bindUI() {
     else if (k === "Escape") { if (state.pick || state.storm) clearFocus(); }
     else if (k === "+" || k === "=") zoomAt(1 / 1.6); else if (k === "-" || k === "_") zoomAt(1.6);
     else if (k === "n" || k === "N") resetNorth(); else if (k === "r" || k === "R") { if (state.gl) flyTo(stepPose(state.step)); }
-    else if (k === "f" || k === "F") toggleFs(); else if (k === "[") setCollapsed(!document.body.classList.contains("collapsed"));
+    else if (k === "f" || k === "F") toggleFs(); else if (k === "l" || k === "L") toggleLayers(); else if (k === "[") setCollapsed(!document.body.classList.contains("collapsed"));
   });
   bindSheet();
 }
@@ -661,6 +676,33 @@ function buildFallback() {
 function layoutFallback() { if (!D.svg) return; const w = stage.clientWidth, h = stage.clientHeight; const proj = d3.geoMercator().fitExtent([[24, 24], [w - 24 - freeTarget().r, h - 24 - freeTarget().b]], D.geo); D.paths.attr("d", d3.geoPath(proj)); }
 function paintFallback() { if (!D.paths) return; const r = state.rule; D.paths.attr("fill", f => { const d = D.byId[f.properties.id]; return d && d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }).attr("opacity", f => state.pick && state.pick !== f.properties.id ? 0.45 : 1); }
 
+// ---- the layers menu: per-step overrides --------------------------------------------------------------
+const ON = { rivers: 0.9, riverLabels: 0.9, labels: 0.9, borders: 0.8, storms: 0.9, uBathy: 1 };
+function applyOverrides(t) { for (const k in state.ov) { t[k] = state.ov[k] ? Math.max(t[k] || 0, ON[k]) : 0; if (k === "rivers") t.farRivers = state.ov[k] ? Math.max(t.farRivers, 0.8) : 0; if (k === "storms" && state.ov[k] && CHAPTERS[state.step].id !== "storms") t.year = 2025; } }
+function syncLayers() { const t = valuesAt(state.step, 1); applyOverrides(t); document.querySelectorAll("#layersPop input").forEach(i => { i.checked = (t[i.dataset.layer] || 0) > 0.05; }); }
+function toggleLayers(open) { const pop = $("layersPop"); const o = open ?? pop.hidden; pop.hidden = !o; $("layersBtn").setAttribute("aria-expanded", o); if (o) syncLayers(); }
+function buildLayers() {
+  $("layersBtn").addEventListener("click", e => { e.stopPropagation(); toggleLayers(); });
+  document.querySelectorAll("#layersPop input").forEach(i => i.addEventListener("change", () => { state.ov[i.dataset.layer] = i.checked; syncLayers(); kick(); }));
+  $("layersReset").addEventListener("click", () => { state.ov = {}; syncLayers(); kick(); });
+  document.addEventListener("pointerdown", e => { if (!$("layersPop").hidden && !e.target.closest("#layersPop,#layersBtn")) toggleLayers(false); });
+}
+// ---- the About page ------------------------------------------------------------------------------------
+let aboutReturn = null;
+function showAbout(open, push = true) {
+  if (open === state.about) return; state.about = open; $("about").hidden = !open;
+  ["modeStory", "modeExplore", "modeAbout"].forEach(id => $(id).classList.remove("on"));
+  if (open) { aboutReturn = document.activeElement; $("modeAbout").classList.add("on"); $("about").scrollTop = 0; $("aboutClose").focus(); }
+  else { stepUI(state.step); aboutReturn?.focus?.(); }
+  $("modeAbout").setAttribute("aria-selected", open);
+  if (push) history.pushState(null, "", hashFor()); kick();
+}
+function bindToc() {
+  const links = [...document.querySelectorAll(".toc a")]; const page = $("about");
+  links.forEach(a => a.addEventListener("click", e => { e.preventDefault(); const t = document.getElementById(a.getAttribute("href").slice(1)); page.scrollTo({ top: t.offsetTop - 80, behavior: reduced ? "auto" : "smooth" }); }));
+  page.addEventListener("scroll", () => { let cur = links[0]; for (const a of links) { const t = document.getElementById(a.getAttribute("href").slice(1)); if (t.getBoundingClientRect().top < 160) cur = a; } links.forEach(a => a.classList.toggle("on", a === cur)); }, { passive: true });
+}
+
 function resize() {
   if (phone() && !state.sheetH) setSheet(STOPS()[1], false); else if (!phone()) setSheet(0, false);
   if (renderer) { renderer.setSize(stage.clientWidth, stage.clientHeight, false); off.r = freeTarget().r; off.b = freeTarget().b; }
@@ -671,7 +713,7 @@ addEventListener("resize", resize);
 window.__poli = {
   get state() { return state; }, get cam() { return cam; }, get camT() { return camT; }, get flight() { return flight; }, get uniforms() { return terrain && terrain.uniforms; },
   get camera() { return camera; }, get data() { return D; }, get cur() { return cur; }, get prisms() { return prisms; },
-  go: i => goStep(i), select: id => selectDistrict(id), play: sid => playStorm(sid), setDim: t => setDim(t), clear: () => clearFocus(),
+  go: i => goStep(typeof i === "string" ? CHAPTERS.findIndex(c => c.id === i) : i), idx: id => CHAPTERS.findIndex(c => c.id === id), about: o => showAbout(o), select: id => selectDistrict(id), play: sid => playStorm(sid), setDim: t => setDim(t), clear: () => clearFocus(),
   stepPose: i => stepPose(i), project: (lon, lat, y = 0) => { const p = toScene(lon, lat); p.y = y; p.project(camera); const r = renderer.domElement.getBoundingClientRect(); return [r.left + (p.x + 1) / 2 * r.width, r.top + (1 - p.y) / 2 * r.height]; }
 };
 

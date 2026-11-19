@@ -1,6 +1,6 @@
 # Poli (পলি): where should Bangladesh defend first?
 
-An interactive map of the Ganges-Brahmaputra-Meghna delta, in 2D and 3D, that ends in a decision. Eight short steps stack five things on the same map: low ground, a shrinking silt supply, a sinking coast, a rising sea and the cyclone track. They land in the same ten districts, which together hold 45% of everyone living under 5 metres. Then the story turns into a tool: rank the 64 districts yourself.
+An interactive map of the Ganges-Brahmaputra-Meghna delta and the Bay of Bengal, in 2D and 3D, that ends in a decision. Nine short steps stack five things on the same map: low ground, a shrinking silt supply, a sinking coast, a rising sea and the cyclone track. They land in the same ten districts, which together hold 45% of everyone living under 5 metres. Then the story turns into a tool: rank the 64 districts yourself.
 
 Live page: https://ahasan722.github.io/poli-delta/
 
@@ -8,6 +8,9 @@ Live page: https://ahasan722.github.io/poli-delta/
 
 ## How it reads
 
+- **The Bay and its rivers.** The second step opens on the whole Bay of Bengal, shaded by depth (ETOPO5), with every river in the frame moving toward it: HydroRIVERS reaches inside Bangladesh, WDBII beyond the border. A shader moves the water down each line from its higher end, faster in rivers with more discharge (the Lower Meghna about 40,000 m³/s, the Padma 35,000, the Jamuna 21,000).
+- **Map layers.** A layers menu on the map turns rivers and flow, river names, places, district borders, cyclone tracks and the depth of the Bay on or off; each step sets its own layers and changes last until the next step.
+- **About page.** Project, how to read it, the rule, data, how it is drawn, limits and credits, with its own link (`#page=about`).
 - **2D or 3D, any time.** The 2D | 3D switch (or keys 2 and 3) is one scene seen two ways. 2D is a flat, north-up map; 3D tilts the camera, then raises the relief, then grows the district columns tallest first, in 1.4 s. The switch reverses exactly, can be interrupted half way without a jump, and keeps the same centre and zoom. The mode is in the URL.
 - **A stepper, not scroll-jacking.** Previous / Next, a numbered step list with a progress line, arrow keys, and the wheel over the story panel move between steps. The wheel over the map zooms it. Each step flies the camera to its own framing (1.2 to 1.8 s, eased, arcing over long moves).
 - **Timelines you control.** Steps that change over time (ground under a cutoff, ground lost, sea level rise, cyclone years 1960 to 2025) play once on arrival and can be paused, scrubbed or run at 2×. A cyclone picked in Explore gets its own timeline in days, with the wind at each fix.

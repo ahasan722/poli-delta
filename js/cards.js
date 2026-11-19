@@ -1,7 +1,7 @@
 // cards.js  --  v5: the sheet that docks on the right when you pick a district or a storm.
 // A district sheet opens with its verdict under the story's rule (in the first ten or not, and why),
 // then one big number and a short table where every value carries its rank among the 64 districts.
-import { BASE, windHex, sevHex, WIND } from "./palette.js";
+import { BASE, windHex, sevHex, WIND } from "./palette.js?v=7";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map

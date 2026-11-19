@@ -2,7 +2,7 @@
 
 Scouted 2026-10-25. Sandbox could only reach raw.githubusercontent.com, media.githubusercontent.com, GitHub release assets (github.com/<o>/<r>/releases/download/... redirecting to release-assets.githubusercontent.com), `git clone` of public GitHub repos, registry.npmjs.org and pypi.org/files.pythonhosted.org. NOAA, NASA, USGS, HDX, Zenodo, Copernicus, GEBCO, OSM/Overpass, Google Storage, jsDelivr/unpkg, GitHub Pages and the GitHub API were all blocked.
 
-All files are under `/home/claude/work/delta/raw/<dataset>/`. Conversion scripts are in `/home/claude/work/delta/scripts/`.
+All files are under `../raw/<dataset>/`. Conversion scripts are in `../scripts/`.
 
 ---
 
@@ -131,22 +131,22 @@ Nothing obtained.
 - Source: CRAN package `bangladesh` (GitHub mirror `cran/bangladesh`, MIT), data from BBS 2011 census via HDX. Converted with Python `rdata`.
 
 ### 6c. Already in hand
-- `/home/claude/work/data/raw/population_admin.csv`: division and district populations 2011 and 2022 (BBS census via Wikipedia) with area_km2.
-- `/home/claude/work/data/raw/roads/bd-upazilas.json`: 494 upazilas (id, district_id, name, bn_name), no population.
+- `../data/raw/population_admin.csv`: division and district populations 2011 and 2022 (BBS census via Wikipedia) with area_km2.
+- `../data/raw/roads/bd-upazilas.json`: 494 upazilas (id, district_id, name, bn_name), no population.
 - WorldPop 100 m / GHSL: blocked (worldpop.org, JRC); no GitHub/npm mirror found (npm `worldpop` is a web tool, `@pipeworx/mcp-worldpop` an API client).
 
 ---
 
 ## 7. ADMIN (already present, not re-downloaded)
-- `/home/claude/work/data/raw/roads/admin/bangladesh.geojson`: 544 upazila polygons (ifahimreza, properties upazila_id, district_id, division_id, names EN/BN), ODbL.
-- `/home/claude/work/data/raw/roads/admin/upazilas.json`, `districts.json`, `unions.json` (nuhil/bangladesh-geocode style tables), `LICENSE-DATA` (ODbL).
+- `../data/raw/roads/admin/bangladesh.geojson`: 544 upazila polygons (ifahimreza, properties upazila_id, district_id, division_id, names EN/BN), ODbL.
+- `../data/raw/roads/admin/upazilas.json`, `districts.json`, `unions.json` (nuhil/bangladesh-geocode style tables), `LICENSE-DATA` (ODbL).
 - geoBoundaries ADM1/ADM2 and BBS upazilas as noted by the main session.
 - Extra admin sources seen but not copied: `cran/bangladesh` (map_country/division/district/upazila/union .rda, sf objects), `mkim2019/bangladesh_inland_water_transport/data/shapefiles/bgd_{nation,divisions,districts,upazilas}` (HDX admin boundaries as of 2015).
 
 ---
 
 ## Scratch clones (not deliverables)
-All cloned repos are under `/tmp/claude-0/-home-claude/971b3f00-83af-58bc-94ac-cbb3dfb6b162/scratchpad/` (DataScienceData, geocat-datafiles ~2 GB, bangladesh_inland_water_transport, tropical-cyclone-patterns, IndiaFloodBench-GEE, ocha/*, etc.). `pipdl/` holds the downloaded wheels (huracanpy, basemap-data, basemap-data-hires).
+All cloned repos are under `scratch/` (DataScienceData, geocat-datafiles ~2 GB, bangladesh_inland_water_transport, tropical-cyclone-patterns, IndiaFloodBench-GEE, ocha/*, etc.). `pipdl/` holds the downloaded wheels (huracanpy, basemap-data, basemap-data-hires).
 
 ---
 ---
@@ -248,7 +248,7 @@ Reachability re-tested this session: everything in the first pass still holds. N
 - FABDEM, Copernicus GLO-30/90 tiles (`Copernicus_DSM_COG_10_N23_00_E090_00_DEM` etc.), MERIT DEM/Hydro tiles (`n20e090_dem`), NASADEM: no GitHub mirror, no package. `jantomec/fabdem`, `bopen/elevation`, `mheberger/delineator` (ships only a 27-deg test flow-accumulation tile for another region), `engineeringvisuallab/bangladesh` (GLO-90 pipeline, data not bundled), `mdkhademali/bangladesh-topography` (PNG only). Kalopathor's `dem90m_bgd_full.tif` and `hand30m_bgd_full.tif` are referenced in its docs but hosted on a blocked GCS bucket. SRTM 90 (1a) stays the DEM.
 
 ## Scratch clones added this session (not deliverables)
-Under `/tmp/claude-0/-home-claude/971b3f00-83af-58bc-94ac-cbb3dfb6b162/scratchpad/`: `lc/` (mark15-bangladesh-lulc-ec3, BDlulcModel, KHULNA_LULC, rangamati, northwest-bangladesh, bangladesh-topography, bangladesh-water-ml, poli-delta, Shaildhara, Mangrove_forest_resilience, MCD12C1-2019-v006, geo-vault 248 MB, safewindow, climatechain-bd, uhi-dhaka, mangrove-atlas, Awesome-Bangladesh, bangladesh-lst-random-forest, bd-air-pollution-2025 319 MB, suhi-chittagong-karachi, BD-Interactive_map, ecovision), `rv/` (BDmaps, Bangladesh-Map, Waterline-Jamuna, India-Shapefiles-Bundle, ooh-earth, bangladesh-sand-watch, GBM-Hydro-morpho, river_sentinel_prototype 352 MB, River-Bankline-Prediction, water_resources_india, delineator 254 MB, basinkit, india-flood-atlas-data, Kalopathor-public, Nasa_Hackathon, HydroSense-SWOT, northern-fringe-extraction-atlas, sentinel-agent, bangatour.com), `pa/` (wss-protected-areas, sunderban, sundarban_sentinel_astroforge 562 MB, engineeringvisuallab/bangladesh, flood_risk_in_buffer, CHT-Forest-Change, khagrachhari, chengmi, ParkWise, SUNDARBAN-SENTINEL, groundwater-potential, climate-risk-urban-flood), `own/` (ahasan722 forest-change, road-crashes, mics dashboard: nothing new beyond WDBII rivers), `npmdl/` (geo-maps tarballs + full global GeoJSONs), `geonames/` (postal-code dump, useless), `salem-sample-data`, `ne/`, `conda/` (conda-forge noarch repodata).
+Under `scratch/`: `lc/` (mark15-bangladesh-lulc-ec3, BDlulcModel, KHULNA_LULC, rangamati, northwest-bangladesh, bangladesh-topography, bangladesh-water-ml, poli-delta, Shaildhara, Mangrove_forest_resilience, MCD12C1-2019-v006, geo-vault 248 MB, safewindow, climatechain-bd, uhi-dhaka, mangrove-atlas, Awesome-Bangladesh, bangladesh-lst-random-forest, bd-air-pollution-2025 319 MB, suhi-chittagong-karachi, BD-Interactive_map, ecovision), `rv/` (BDmaps, Bangladesh-Map, Waterline-Jamuna, India-Shapefiles-Bundle, ooh-earth, bangladesh-sand-watch, GBM-Hydro-morpho, river_sentinel_prototype 352 MB, River-Bankline-Prediction, water_resources_india, delineator 254 MB, basinkit, india-flood-atlas-data, Kalopathor-public, Nasa_Hackathon, HydroSense-SWOT, northern-fringe-extraction-atlas, sentinel-agent, bangatour.com), `pa/` (wss-protected-areas, sunderban, sundarban_sentinel_astroforge 562 MB, engineeringvisuallab/bangladesh, flood_risk_in_buffer, CHT-Forest-Change, khagrachhari, chengmi, ParkWise, SUNDARBAN-SENTINEL, groundwater-potential, climate-risk-urban-flood), `own/` (ahasan722 forest-change, road-crashes, mics dashboard: nothing new beyond WDBII rivers), `npmdl/` (geo-maps tarballs + full global GeoJSONs), `geonames/` (postal-code dump, useless), `salem-sample-data`, `ne/`, `conda/` (conda-forge noarch repodata).
 
 ## What `raw/` in the published repository keeps
 Only the files `pipeline/` reads: SRTM, ETOPO5, IBTrACS, GPW, GSHHS/WDBII, WFP rivers, adm1, WorldCover 90 m and 270 m majority rasters, the WorldCover-derived mangrove and haor-basin polygons, the two haor polygons, HydroRIVERS (dis ≥ 150) and the border-crossing points, the Global Map river lines, the OSM 2017 water polygons, the Hansen CHT loss-year raster and district table, and the FFWC gauge points. The 10 m WorldCover GeoTIFF (99 MB), the MODIS MCD12C1 global raster, the Natural Earth label polygons, the Sylhet tea-garden polygons, the Sunamganj Sentinel-1 flood extents, the Himalaya 30 arc-sec DEM, the MERIT hillshade and the Kalopathor river centrelines (6.7 MB, unnamed, duplicating HydroRIVERS and the Global Map lines) are documented above but not shipped, to keep the repository under GitHub's browser-upload limits. `pipeline/worldcover_downsample.py` is how the 90 m and 270 m rasters were made from the 10 m file.

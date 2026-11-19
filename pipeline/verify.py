@@ -1,4 +1,4 @@
-"""verify.py: v6 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
+"""verify.py: v7 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
 Prints ok / FAIL lines and writes screenshots of 2D, 3D, the open sheet and the phone layout to outdir (default notes/shots).
 Swiftshader renders on the CPU at a few frames a second, so waits are long and the frame-time sample is reported,
 not held to 60 fps; on a laptop GPU the same page runs at the display rate."""
@@ -46,7 +46,7 @@ async def main():
         check(not await pg.evaluate("[...document.querySelectorAll('*')].some(e => getComputedStyle(e).fontFamily.includes('Open Sans'))"), "no element uses Open Sans")
         check(await pg.evaluate("!/[\\u2014]/.test(document.body.innerText)"), "no em dashes in the page text")
         check(await pg.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(255, 255, 255)", "page background is plain white")
-        await pg.screenshot(path=str(OUT / "v6-3d-cover.png"))
+        await pg.screenshot(path=str(OUT / "v7-3d-cover.png"))
 
         # ---- render on demand: idle means no renders
         r0 = await pg.evaluate("__poli.state.renders"); await pg.wait_for_timeout(2500); r1 = await pg.evaluate("__poli.state.renders")
@@ -56,18 +56,18 @@ async def main():
         await pg.click("#hintClose"); check(await pg.evaluate("document.getElementById('hint').hidden && localStorage.getItem('poli-hint') === '1'"), "first-visit hint dismisses and is remembered")
 
         # ---- 2D <-> 3D
-        await pg.evaluate("__poli.go(6)"); await settle(pg, 2500)
+        await pg.evaluate("__poli.go('priority')"); await settle(pg, 2500)
         c0 = await pg.evaluate("[__poli.cam.look.x, __poli.cam.look.z, __poli.cam.d]")
-        await pg.screenshot(path=str(OUT / "v6-3d-the-ten.png"))
+        await pg.screenshot(path=str(OUT / "v7-3d-the-ten.png"))
         await pg.keyboard.press("2"); await settle(pg, 2000)
         s2 = json.loads(await pg.evaluate("(() => { const P = __poli, v = P.camera.getWorldDirection(new P.camera.position.constructor()); return JSON.stringify({dim: P.state.dimP, exag: P.uniforms.uExag.value, down: v.y, look: [P.cam.look.x, P.cam.look.z, P.cam.d], hash: location.hash}); })()"))
         check(s2["dim"] == 0 and s2["exag"] < 1e-6 and s2["down"] < -0.9999, f"2D: straight down (dir.y {s2['down']:.5f}), relief flat (uExag {s2['exag']}), mode in URL {s2['hash']}")
         check(all(abs(a - b) < 0.5 for a, b in zip(c0[:2], s2["look"][:2])) and abs(c0[2] / s2["look"][2] - 1) < 0.01, "switch keeps the same centre and zoom")
-        await pg.screenshot(path=str(OUT / "v6-2d-the-ten.png"))
+        await pg.screenshot(path=str(OUT / "v7-2d-the-ten.png"))
         # the rendered cap colour of a district matches its key swatch (unlit caps)
         for name, want in [("Satkhira", "#fd8d3c"), ("Chattogram", "#bd0026")]:
             xy = await pg.evaluate(f"(() => {{ const d = __poli.data.districts.find(x => x.name === '{name}'); return __poli.project(d.centroid[0] + 0.05, d.centroid[1] - 0.12, 0.3); }})()")
-            got = pixel(str(OUT / "v6-2d-the-ten.png"), *xy); check(dE(got, want) < 10, f"2D {name} renders {got}, key {want}: delta E {dE(got, want):.1f}")
+            got = pixel(str(OUT / "v7-2d-the-ten.png"), *xy); check(dE(got, want) < 10, f"2D {name} renders {got}, key {want}: delta E {dE(got, want):.1f}")
         await pg.keyboard.press("3"); await settle(pg, 1500)
         s3 = await pg.evaluate("[__poli.state.dimP, __poli.uniforms.uExag.value]"); check(s3[0] == 1 and s3[1] > 10, f"3D again: dimP {s3[0]}, uExag {s3[1]:.1f}")
         # interrupt half way: no jump
@@ -80,13 +80,13 @@ async def main():
         # ---- steps: buttons, keys, wheel over the panel, back button
         await pg.evaluate("__poli.go(0)"); await settle(pg, 800)
         seen = []
-        for i in range(8):
+        for i in range(9):
             await pg.click("#nextBtn"); await pg.wait_for_timeout(400)
             seen.append(await pg.evaluate("[__poli.state.step, document.querySelector('#steps li.on .t').textContent, (document.querySelector('.cap.vis') || {}).dataset?.ch || 'explore', location.hash]"))
-        check([s[0] for s in seen] == list(range(1, 9)) and seen[-1][2] == "explore", "Next walks every step: " + ", ".join(s[1] for s in seen))
+        check([s[0] for s in seen] == list(range(1, 10)) and seen[-1][2] == "explore", "Next walks every step: " + ", ".join(s[1] for s in seen))
         check(await pg.evaluate("!document.getElementById('explorePanel').hidden && document.getElementById('modeExplore').classList.contains('on')"), "last step opens the Explore tools and the Explore tab")
-        await pg.go_back(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 7, "browser Back returns to the previous step")
-        await pg.go_forward(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 8, "browser Forward goes to the next step again")
+        await pg.go_back(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 8, "browser Back returns to the previous step")
+        await pg.go_forward(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 9, "browser Forward goes to the next step again")
         await pg.evaluate("__poli.go(2)"); await settle(pg, 500)
         await pg.keyboard.press("ArrowRight"); await pg.wait_for_timeout(300); a = await pg.evaluate("__poli.state.step")
         await pg.keyboard.press("ArrowLeft"); await pg.wait_for_timeout(300); bb = await pg.evaluate("__poli.state.step")
@@ -99,7 +99,7 @@ async def main():
         await pg.keyboard.press("r"); await settle(pg, 300)
         await pg.keyboard.press("?"); check(await pg.evaluate("!document.getElementById('help').hidden"), "? opens the shortcuts box")
         await pg.keyboard.press("Escape"); check(await pg.evaluate("document.getElementById('help').hidden"), "Esc closes it")
-        await pg.keyboard.press("["); await pg.wait_for_timeout(600)
+        await pg.keyboard.press("["); await pg.wait_for_timeout(600); await pg.wait_for_function("document.getElementById('stage').getBoundingClientRect().left < 2", timeout=20000)
         check(await pg.evaluate("document.body.classList.contains('collapsed') && document.getElementById('stage').getBoundingClientRect().left < 2"), "[ hides the panel and the map takes the width")
         await pg.keyboard.press("["); await pg.wait_for_timeout(600)
 
@@ -112,17 +112,17 @@ async def main():
         await pg.click("#compass"); await settle(pg, 300); check(abs(await pg.evaluate("__poli.cam.az") - 180) < 0.5, "compass resets north")
 
         # ---- timeline on the cyclone step
-        await pg.evaluate("__poli.go(5)"); await pg.wait_for_timeout(1500)
+        await pg.evaluate("__poli.go('storms')"); await pg.wait_for_timeout(1500)
         check(await pg.evaluate("!document.getElementById('timeline').hidden && __poli.state.tl.playing"), "cyclone step shows its timeline and plays it")
         await pg.keyboard.press(" "); check(not await pg.evaluate("__poli.state.tl.playing"), "Space pauses the timeline")
         await pg.evaluate("(() => { const s = document.getElementById('scrub'); s.value = 720; s.dispatchEvent(new Event('input')); })()"); await pg.wait_for_timeout(2500)
         y = await pg.evaluate("+document.getElementById('stormY').textContent"); check(2001 <= y <= 2009, f"scrubbing to 72% sets the clock to {y}")
-        await settle(pg, 800); await pg.screenshot(path=str(OUT / "v6-3d-cyclones.png"))
-        await pg.evaluate("__poli.go(4)"); await settle(pg, 1500, 40000)
+        await settle(pg, 800); await pg.screenshot(path=str(OUT / "v7-3d-cyclones.png"))
+        await pg.evaluate("__poli.go('sea')"); await settle(pg, 1500, 40000)
         sea = await pg.evaluate("[__poli.cur.uSeaLevel, document.getElementById('seaM').textContent]"); check(sea[0] > 1.3, f"sea step plays to the end: {sea[1]}")
 
         # ---- Explore: hover, click, sheet, search, a cyclone
-        await pg.evaluate("__poli.go(8)"); await settle(pg, 1500)
+        await pg.evaluate("__poli.go('explore')"); await settle(pg, 1500)
         xy = await pg.evaluate("(() => { const d = __poli.data.districts.find(x => x.name === 'Khulna'); const m = __poli.prisms.getObjectByName('p-' + d.id); return __poli.project(d.centroid[0], d.centroid[1], m.scale.y + 0.3); })()")
         await pg.mouse.move(xy[0] - 4, xy[1] - 4); await pg.mouse.move(*xy, steps=3); await pg.wait_for_timeout(1200)
         tipt = await pg.evaluate("document.getElementById('tip').classList.contains('on') ? document.querySelector('#tip .t').textContent : ''")
@@ -130,7 +130,7 @@ async def main():
         await pg.mouse.click(*xy); await pg.wait_for_timeout(1200)
         sh = await pg.evaluate("document.getElementById('focus').classList.contains('on') ? document.querySelector('#focus h3').textContent : ''")
         check(sh.startswith("Khulna"), f"click opens the district sheet: {sh[:30]} / {await pg.evaluate('location.hash')}")
-        await settle(pg, 1200); await pg.screenshot(path=str(OUT / "v6-sheet.png"))
+        await settle(pg, 1200); await pg.screenshot(path=str(OUT / "v7-sheet.png"))
         await pg.keyboard.press("Escape"); await pg.wait_for_timeout(500); check(not await pg.evaluate("document.getElementById('focus').classList.contains('on')"), "Esc closes the sheet")
         await pg.click("#search"); await pg.keyboard.type("bhol"); await pg.wait_for_timeout(300)
         opts = await pg.evaluate("[...document.querySelectorAll('#searchList li')].map(l => l.textContent)")
@@ -146,6 +146,28 @@ async def main():
         med = statistics.median(ft) if ft else 0
         check(len(ft) > 3, f"frame time during a flight, swiftshader: median {med:.0f} ms over {len(ft)} frames (GPU browsers run at the display rate)")
         await settle(pg, 300)
+        # ---- v7: the Bay, flowing rivers, the layers menu, the About page
+        await pg.evaluate("__poli.go('bay')"); await settle(pg, 1500, 40000)
+        bay = await pg.evaluate("[__poli.uniforms.uBathy.value, __poli.cur.flow, __poli.cur.farRivers]")
+        t0 = await pg.evaluate("__poli.camera.parent ? 0 : 0") or 0
+        check(bay[0] > 0.95 and bay[1] > 0.95 and bay[2] > 0.95, f"Bay step: depth shading {bay[0]:.2f}, river flow {bay[1]:.2f}, rivers beyond the border {bay[2]:.2f}")
+        r0 = await pg.evaluate("__poli.state.renders"); await pg.wait_for_timeout(1500); r1 = await pg.evaluate("__poli.state.renders")
+        check(r1 > r0, f"the rivers keep moving on the Bay step ({r1 - r0} frames in 1.5 s)")
+        await pg.click("#layersBtn"); await pg.wait_for_timeout(300)
+        lay = await pg.evaluate("[...document.querySelectorAll('#layersPop input')].map(i => i.dataset.layer + ':' + i.checked)")
+        await pg.click("#layersPop label:has([data-layer=rivers])"); await pg.wait_for_timeout(1500)
+        off = await pg.evaluate("__poli.cur.rivers")
+        await pg.click("#layersPop label:has([data-layer=storms])"); await pg.wait_for_timeout(1500)
+        on = await pg.evaluate("__poli.cur.storms")
+        check("rivers:true" in lay and off < 0.05 and on > 0.8, f"layers menu shows {len(lay)} layers; rivers off ({off:.2f}), cyclone tracks on ({on:.2f})")
+        await pg.keyboard.press("Escape"); check(await pg.evaluate("document.getElementById('layersPop').hidden"), "Esc closes the layers menu")
+        await pg.evaluate("__poli.go('low')"); await pg.wait_for_timeout(500)
+        check(await pg.evaluate("__poli.state.ov && Object.keys(__poli.state.ov).length === 0"), "layer changes reset at the next step")
+        await pg.click("#modeAbout"); await pg.wait_for_timeout(600)
+        ab = await pg.evaluate("[!document.getElementById('about').hidden, location.hash, document.querySelectorAll('.page h2').length]")
+        check(ab[0] and "page=about" in ab[1] and ab[2] >= 6, f"About opens as a page with {ab[2]} sections, in the URL ({ab[1]})")
+        await pg.go_back(); await pg.wait_for_timeout(500); check(await pg.evaluate("document.getElementById('about').hidden"), "Back closes the About page")
+        await settle(pg, 500, 40000)
         # ---- share
         await pg.click("#shareBtn"); await pg.wait_for_timeout(300)
         check("copied" in (await pg.evaluate("document.getElementById('toast').textContent")).lower(), "Share copies the link")
@@ -154,15 +176,15 @@ async def main():
 
         # ---- deep link
         ctx = await b.new_context(viewport={"width": 1440, "height": 860}); pg = await ctx.new_page(); e2 = []; pg.on("pageerror", lambda e: e2.append(str(e)))
-        await pg.goto(URL + "#step=9&mode=2d&id=khulna"); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await settle(pg, 1500, 60000)
+        await pg.goto(URL + "#step=10&mode=2d&id=khulna"); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await settle(pg, 1500, 60000)
         dl = json.loads(await pg.evaluate("JSON.stringify({step: __poli.state.step, dim: __poli.state.dimTarget, pick: __poli.state.pick && __poli.data.byId[__poli.state.pick].name, sheet: document.getElementById('focus').classList.contains('on')})"))
-        check(dl == {"step": 8, "dim": 0, "pick": "Khulna", "sheet": True}, f"deep link restores step, mode and selection: {dl}")
-        await pg.screenshot(path=str(OUT / "v6-2d-sheet.png")); check(not e2, f"deep link errors: {e2[:2]}"); await ctx.close()
+        check(dl == {"step": 9, "dim": 0, "pick": "Khulna", "sheet": True}, f"deep link restores step, mode and selection: {dl}")
+        await pg.screenshot(path=str(OUT / "v7-2d-sheet.png")); check(not e2, f"deep link errors: {e2[:2]}"); await ctx.close()
 
         # ---- reduced motion
         ctx = await b.new_context(viewport={"width": 1440, "height": 860}, reduced_motion="reduce"); pg = await ctx.new_page()
         await pg.goto(URL); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await pg.wait_for_timeout(1500)
-        await pg.keyboard.press("2"); r = await pg.evaluate("[__poli.state.dimP]"); await pg.evaluate("__poli.go(4)"); r2 = await pg.evaluate("[!!__poli.flight, __poli.state.tl.t, __poli.state.tl.playing]")
+        await pg.keyboard.press("2"); r = await pg.evaluate("[__poli.state.dimP]"); await pg.evaluate("__poli.go('sea')"); r2 = await pg.evaluate("[!!__poli.flight, __poli.state.tl.t, __poli.state.tl.playing]")
         check(r[0] == 0 and r2 == [False, 1, False], f"reduced motion: instant switch and jumps, no flights, timelines shown complete ({r}, {r2})"); await ctx.close()
 
         # ---- no WebGL
@@ -171,18 +193,18 @@ async def main():
         n = await pg.evaluate("document.querySelectorAll('svg.fallback path').length"); await pg.click("#modeExplore"); await pg.wait_for_timeout(300)
         await pg.evaluate("document.querySelectorAll('svg.fallback path')[5].dispatchEvent(new MouseEvent('click', {bubbles: true}))"); await pg.wait_for_timeout(400)
         check(n == 64 and await pg.evaluate("document.getElementById('focus').classList.contains('on')") and not e3, f"without WebGL: flat SVG map of {n} districts, clickable, no errors {e3[:1]}")
-        await pg.screenshot(path=str(OUT / "v6-fallback.png")); await ctx.close()
+        await pg.screenshot(path=str(OUT / "v7-fallback.png")); await ctx.close()
 
         # ---- phone
         ctx = await b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True); pg = await ctx.new_page(); e4 = []; pg.on("pageerror", lambda e: e4.append(str(e)))
-        await pg.goto(URL + "#step=7"); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await settle(pg, 2000, 60000)
+        await pg.goto(URL + "#step=8"); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await settle(pg, 2000, 60000)
         check(await pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), "phone: no sideways scroll")
         sh = await pg.evaluate("[document.getElementById('panel').getBoundingClientRect().height, getComputedStyle(document.documentElement).getPropertyValue('--sheet')]")
         check(sh[0] > 200, f"phone: the panel is a bottom sheet ({sh[0]:.0f} px, --sheet {sh[1]})")
-        await pg.screenshot(path=str(OUT / "v6-phone.png"))
+        await pg.screenshot(path=str(OUT / "v7-phone.png"))
         await pg.tap("#grip"); await pg.wait_for_timeout(600); h2 = await pg.evaluate("document.getElementById('panel').getBoundingClientRect().height")
         check(h2 != sh[0], f"phone: tapping the grip moves the sheet to the next stop ({sh[0]:.0f} -> {h2:.0f} px)")
-        await pg.tap("#nextBtn"); await pg.wait_for_timeout(500); check(await pg.evaluate("__poli.state.step") == 7, "phone: Next works by touch")
+        await pg.tap("#nextBtn"); await pg.wait_for_timeout(500); check(await pg.evaluate("__poli.state.step") == 8, "phone: Next works by touch")
         tgt = await pg.evaluate("[...document.querySelectorAll('.controls button, .pnav button')].filter(b => b.offsetParent).map(b => Math.min(b.offsetWidth, b.offsetHeight))")
         check(min(tgt) >= 44, f"phone: map and step buttons are at least 44 px ({min(tgt)} px smallest)")
         check(not e4, f"phone errors: {e4[:2]}"); await ctx.close()

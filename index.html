@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css">
+<link rel="stylesheet" href="css/poli.css?v=7">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -20,6 +20,7 @@
   <div class="tabs" role="tablist" aria-label="Mode">
     <button type="button" id="modeStory" role="tab" aria-selected="true" class="on">Story</button>
     <button type="button" id="modeExplore" role="tab" aria-selected="false">Explore</button>
+    <button type="button" id="modeAbout" role="tab" aria-selected="false">About</button>
   </div>
   <div class="search" role="combobox" aria-expanded="false" aria-owns="searchList" aria-haspopup="listbox" id="searchBox">
     <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
@@ -30,7 +31,6 @@
   <div class="actions">
     <button type="button" class="btn icon" id="searchToggle" aria-label="Search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg></button>
     <button type="button" class="btn" id="shareBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 12 12 8M7 9.5 5.5 11a2.5 2.5 0 0 0 3.5 3.5l1.5-1.5M13 10.5l1.5-1.5A2.5 2.5 0 0 0 11 5.5L9.5 7"/></svg><span>Share</span></button>
-    <a class="btn" href="https://github.com/ahasan722/poli-delta" target="_blank" rel="noopener">Data &amp; sources</a>
     <button type="button" class="btn icon" id="helpBtn" aria-label="Keyboard shortcuts">?</button>
   </div>
 </header>
@@ -48,6 +48,11 @@
     <section class="cap" data-ch="cover">
       <h1>Ten districts hold almost half of the people living under five metres. All ten sit on the cyclone coast.</h1>
       <p>Low ground, less silt, a sinking coast and a rising sea land in the same places.</p>
+    </section>
+    <section class="cap" data-ch="bay">
+      <h2>Every river of the delta runs to the <b>Bay of Bengal</b></h2>
+      <p>The Lower Meghna carries about <b>40,000 m³</b> of water a second, the Padma <b>35,000</b>, the Jamuna <b>21,000</b>.</p>
+      <p class="src">HydroRIVERS v1.0, long-term mean discharge. Rivers beyond the border: WDBII. Depth of the Bay: ETOPO5, to 1,600 m inside this frame.</p>
     </section>
     <section class="cap" data-ch="low">
       <h2><b>13%</b> of the land is under 5 metres</h2>
@@ -129,6 +134,9 @@
       <button type="button" data-dim="2" role="radio" aria-checked="false" title="Flat map  [2]">2D</button>
       <button type="button" data-dim="3" role="radio" aria-checked="true" class="on" title="Relief  [3]">3D</button>
     </div>
+    <div class="grp layers-wrap">
+      <button type="button" id="layersBtn" aria-label="Map layers" aria-expanded="false" aria-controls="layersPop" title="Map layers  [L]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 7 10 11l7.5-4z"/><path d="m2.5 10.5 7.5 4 7.5-4"/><path d="m2.5 14 7.5 4 7.5-4"/></svg></button>
+    </div>
     <div class="grp">
       <button type="button" id="zoomIn" aria-label="Zoom in" title="Zoom in  [+]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 5v10M5 10h10"/></svg></button>
       <button type="button" id="zoomOut" aria-label="Zoom out" title="Zoom out  [−]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10"/></svg></button>
@@ -138,6 +146,17 @@
       <button type="button" id="resetBtn" aria-label="Reset view" title="Reset view  [R]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 9A5.5 5.5 0 1 1 6 14"/><path d="M4 5v4h4"/></svg></button>
       <button type="button" id="fsBtn" aria-label="Full screen" title="Full screen  [F]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 8V4h4M16 8V4h-4M4 12v4h4M16 12v4h-4"/></svg></button>
     </div>
+  </div>
+
+  <div class="layers" id="layersPop" role="dialog" aria-label="Map layers" hidden>
+    <div class="lhead"><b>Map layers</b><button type="button" class="linkbtn" id="layersReset">Reset</button></div>
+    <label><input type="checkbox" data-layer="rivers"><span>Rivers and flow</span></label>
+    <label><input type="checkbox" data-layer="riverLabels"><span>River names</span></label>
+    <label><input type="checkbox" data-layer="labels"><span>Places</span></label>
+    <label><input type="checkbox" data-layer="borders"><span>District borders</span></label>
+    <label><input type="checkbox" data-layer="storms"><span>Cyclone tracks</span></label>
+    <label><input type="checkbox" data-layer="uBathy"><span>Depth of the Bay</span></label>
+    <p>Each step sets its own layers; changes here last until the next step.</p>
   </div>
 
   <div class="timeline" id="timeline" hidden>
@@ -175,15 +194,60 @@
       <dt><kbd>N</kbd></dt><dd>Reset north and tilt</dd>
       <dt><kbd>R</kbd></dt><dd>Reset view</dd>
       <dt><kbd>[</kbd></dt><dd>Hide or show the panel</dd>
+      <dt><kbd>L</kbd></dt><dd>Map layers</dd>
       <dt><kbd>F</kbd></dt><dd>Full screen</dd>
       <dt><kbd>Esc</kbd></dt><dd>Close the sheet or this box</dd>
     </dl>
     <p>Mouse: drag to pan, scroll over the map to zoom, right-drag or Ctrl-drag to turn and tilt (3D). Scroll over the story panel to move between steps. Touch: one finger pans, two fingers zoom, turn and tilt.</p>
   </div>
 </div>
+<div class="page" id="about" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
+  <div class="pbar"><span class="mark" aria-hidden="true">পলি</span><b>About Poli</b><button type="button" class="btn" id="aboutClose">Back to the map</button></div>
+  <div class="pwrap">
+    <nav class="toc" aria-label="On this page">
+      <a href="#a-what">The project</a><a href="#a-read">How to read it</a><a href="#a-rule">The rule</a><a href="#a-data">Data</a><a href="#a-drawn">How it is drawn</a><a href="#a-limits">Limits</a><a href="#a-credits">Credits</a>
+    </nav>
+    <article>
+      <h1 id="aboutTitle">Where should Bangladesh defend first?</h1>
+      <p class="lede">An interactive map of the Ganges-Brahmaputra-Meghna delta, in 2D and 3D. Nine steps stack five things on the same map: low ground, a shrinking silt supply, a sinking coast, a rising sea and the cyclone track. They land in the same ten districts, which together hold 45% of everyone living under 5 metres. The last step turns the story into a tool: rank the 64 districts yourself.</p>
+      <h2 id="a-what">The project</h2>
+      <p>Poli (পলি) is the Bangla word for silt, the material the delta is built from. The map covers the whole of Bangladesh and the head of the Bay of Bengal, with every river that runs into it.</p>
+      <h2 id="a-read">How to read it</h2>
+      <ul>
+        <li><b>Steps.</b> Use Previous and Next, the step list, the arrow keys, or scroll over the story panel. Each step moves the camera to its own view.</li>
+        <li><b>2D and 3D.</b> The switch on the map (keys 2 and 3) shows the same map flat and north up, or tilted with the relief raised and the districts as columns.</li>
+        <li><b>Timelines.</b> Steps that change over time play once and can be paused, dragged or run at double speed.</li>
+        <li><b>The map.</b> Drag to pan, scroll to zoom, right-drag or Ctrl-drag to turn and tilt in 3D. The compass resets north. The layers button turns rivers, names, borders, cyclone tracks and the depth of the Bay on and off.</li>
+        <li><b>Explore.</b> Change the rule, search a district or a named cyclone, hover for a summary, click for the full sheet. Every view has its own link.</li>
+      </ul>
+      <h2 id="a-rule">The rule</h2>
+      <p>A district is in the first group when a hurricane-force cyclone (64 knots or more) passed within 50 km of it at least three times since 1960. Those districts are ranked by the number of people living on land under 5 metres. In 3D a column's height is that number; its colour is the number of hurricane-force passes. The rule is a transparent screen, not a cost-benefit model; Explore lets you change it.</p>
+      <h2 id="a-data">Data</h2>
+      <table>
+        <tr><th>Layer</th><th>Source</th></tr>
+        <tr><td>Relief</td><td>SRTM 90 m v4.1 (CGIAR-CSI); ETOPO5 (NOAA) for the far field and the Bay</td></tr>
+        <tr><td>Rivers</td><td>HydroRIVERS v1.0 (Lehner &amp; Grill 2013) with long-term discharge; WDBII beyond the border</td></tr>
+        <tr><td>Water and land cover</td><td>ESA WorldCover 2021; WFP / LGED river polygons; OpenStreetMap water</td></tr>
+        <tr><td>Districts and census</td><td>Bangladesh Bureau of Statistics, Population and Housing Census 2022</td></tr>
+        <tr><td>People</td><td>GPW v4 2015 population count (CIESIN)</td></tr>
+        <tr><td>Cyclones</td><td>IBTrACS v04r01 (NOAA NCEI); impacts from EM-DAT (CRED / UCLouvain)</td></tr>
+        <tr><td>Silt, sinking, sea level</td><td>Rahman et al. 2018; Auerbach et al. 2015; Steckler et al. 2022; Becker et al. 2020</td></tr>
+        <tr><td>What works</td><td>Tidal river management at Beel Bhaina; Bangladesh Delta Plan 2100</td></tr>
+      </table>
+      <p>Every number with its source is listed in the <a href="https://github.com/ahasan722/poli-delta" target="_blank" rel="noopener">repository</a>, along with the scripts that build the map files from the raw data.</p>
+      <h2 id="a-drawn">How it is drawn</h2>
+      <p>One relief mesh is lifted from an elevation texture in a shader, so the relief, the sea level, the sinking coast and the depth of the Bay are all values that can change smoothly. 2D is the same scene seen straight down with the relief flattened. Districts are extruded from their census outlines. Rivers carry their distance from the source and their discharge, and a shader moves the water along them, faster in the big rivers. Cyclone wind is a vortex placed on each recorded position and speed. Colours are ColorBrewer ramps checked for colour-blind readers; the base map is neutral grey so that only the data carries colour.</p>
+      <h2 id="a-limits">Limits</h2>
+      <p>SRTM is a surface model, so the low-lying shares are floors and the mangroves look higher than the ground under them. District figures are computed on a 0.7 km grid. The wind field is a textbook vortex on two numbers per fix, not a reanalysis. EM-DAT tolls differ from government tolls. Vertical exaggeration is a reading aid.</p>
+      <h2 id="a-credits">Credits</h2>
+      <p>Design, data and code: Abid Hasan, Dhaka, 2026. Text, code and derived data: CC BY 4.0. Source data under their own licences, listed in the repository. Typefaces: Newsreader and IBM Plex (SIL OFL). Libraries: three.js and d3.</p>
+      <p><a class="btn" href="https://github.com/ahasan722/poli-delta" target="_blank" rel="noopener">Data and code on GitHub</a></p>
+    </article>
+  </div>
+</div>
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=7"></script>
 </body>
 </html>

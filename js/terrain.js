@@ -26,6 +26,7 @@ const vert = /* glsl */`
   varying vec3 vN;
   varying vec3 vMask;
   varying float vFade;
+  varying float vDepth;       // metres below sea level in the Bay, before the floor is held flat
   varying vec3 vWorld;
   float decode(vec2 uv){ vec3 c = texture2D(uHeight, uv).rgb * 255.0; return -10000.0 + (c.r*65536.0 + c.g*256.0 + c.b) * 0.1; }
   void main(){
@@ -35,6 +36,7 @@ const vert = /* glsl */`
     float inside = vMask.r;
     // I hold the sea floor flat so the Bay reads as a surface and not ETOPO5's 9 km staircase
     float sea = step(0.5, vMask.b);
+    vDepth = max(0.0, -h) * sea;
     h = mix(h, -60.0, sea);
     // the far field (India, Myanmar) is only a frame: cap it and let it sink into the dark at the grid edge
     float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
@@ -60,6 +62,8 @@ const frag = /* glsl */`
   uniform float uSeaLevel;    // metres above present datum; land at or below is drowned
   uniform float uRiverGlow;   // 0..1 brightness of the river surfaces
   uniform float uFar;         // 0..1 how much of the far field (outside Bangladesh) to show
+  uniform float uBathy;       // 0..1 tint the Bay by depth (ETOPO5)
+  varying float vDepth;
   uniform float uLowBand;     // metres: tint land below this height (0 = off)
   uniform float uCoverMix;    // 0 = bare silt relief, 1 = ESA WorldCover colours
   uniform float uForest;      // 0..1 lift the tree cover and mangroves
@@ -146,6 +150,12 @@ const frag = /* glsl */`
     float shimmer = 0.5 + 0.5 * sin(uTime * 0.6 + vUv.x * 90.0 + vUv.y * 60.0);
     vec3 seaCol = mix(uBg, vec3(0.859, 0.894, 0.918), 0.85 + 0.05 * shimmer);   // the Bay: #dbe4ea, fading into the canvas at the grid edge
     col = mix(col, mix(uBg, seaCol, vFade), sea);
+    // the Bay by depth: ColorBrewer Blues from the shelf (#deebf7) to 1,600 m (#2171b5), on a square-root scale
+    if (uBathy > 0.0 && sea > 0.5) {
+      float dz = sqrt(clamp(vDepth / 1600.0, 0.0, 1.0));
+      vec3 bc = dz < 0.5 ? mix(vec3(0.871, 0.922, 0.969), vec3(0.620, 0.792, 0.882), dz * 2.0) : mix(vec3(0.620, 0.792, 0.882), vec3(0.129, 0.443, 0.710), (dz - 0.5) * 2.0);
+      col = mix(col, mix(uBg, bc, vFade), uBathy);
+    }
     col = mix(col, vec3(0.80, 0.85, 0.89), water * (1.0 - inside) * (1.0 - sea));
     // sea-level rise: drown land at or below the level, with a thin bright shoreline
     if (uSeaLevel > 0.0 && inside > 0.5 && vH <= uSeaLevel && water < 0.5) {
@@ -170,7 +180,7 @@ export function buildTerrain(textures, segX = 639) {
     uTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1148) },
     uCover: { value: textures.cover }, uCoverRGB: { value: textures.coverRGB }, uDistrict: { value: textures.district }, uPick: { value: 0 }, uHover: { value: 0 },
     uExag: { value: 12.0 }, uSink: { value: 0.0 }, uSeaLevel: { value: 0.0 }, uRiverGlow: { value: 0.35 },
-    uFar: { value: 0.6 }, uLowBand: { value: 0.0 }, uCoverMix: { value: 1.0 }, uForest: { value: 0.0 }, uWet: { value: 0.0 }, uBuilt: { value: 0.0 }, uLoss: { value: 0.0 },
+    uFar: { value: 0.6 }, uBathy: { value: 0 }, uLowBand: { value: 0.0 }, uCoverMix: { value: 1.0 }, uForest: { value: 0.0 }, uWet: { value: 0.0 }, uBuilt: { value: 0.0 }, uLoss: { value: 0.0 },
     uSun: { value: new THREE.Vector3(-0.6, 0.8, 0.5) }, uTime: { value: 0 }, uCutOn: { value: 0 }, uCut: { value: 0 }, uBg: { value: new THREE.Vector3(0.945, 0.953, 0.961) }   // BASE.map #f1f3f5
   };
   const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: vert, fragmentShader: frag });

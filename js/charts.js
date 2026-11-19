@@ -1,5 +1,5 @@
 // charts.js  --  v5: the two small charts that sit in the story panel. Direct labels, no legends.
-import { BASE, sevHex } from "./palette.js";
+import { BASE, sevHex } from "./palette.js?v=7";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, text: BASE.text, dim: BASE.dim, line: BASE.line };
 function svgIn(id, h) { const el = document.getElementById(id); el.innerHTML = ""; const w = el.clientWidth || 310; return { s: d3.select(el).append("svg").attr("width", w).attr("height", h).attr("font-family", "IBM Plex Sans, sans-serif"), w }; }
@@ -25,4 +25,13 @@ function ten(D) {
   });
   const share = d3.sum(rows, d => d.pop_le5) / D.le5Total; const el = document.getElementById("tenShare"); if (el) el.textContent = Math.round(share * 100) + "%";
 }
-export const charts = { init(D) { silt(); ten(D); addEventListener("resize", () => { silt(); ten(D); }); } };
+// when a step opens, its chart draws in: bars grow from zero in order, the values follow
+function play(id) {
+  const el = document.getElementById(id === "silt" ? "chSilt" : id === "priority" ? "chTen" : ""); if (!el) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const svg = d3.select(el).select("svg");
+  svg.selectAll("rect").each(function (_, i) { const r = d3.select(this); const w = +r.attr("data-w") || +r.attr("width"); r.attr("data-w", w).attr("width", 0).transition().delay(260 + i * 55).duration(700).ease(d3.easeCubicOut).attr("width", w); });
+  svg.selectAll("text").filter(function () { return /\d/.test(this.textContent) && +d3.select(this).attr("x") > 100; })
+    .attr("opacity", 0).transition().delay((_, i) => 600 + i * 55).duration(300).attr("opacity", 1);
+}
+export const charts = { init(D) { silt(); ten(D); addEventListener("resize", () => { silt(); ten(D); }); }, play };

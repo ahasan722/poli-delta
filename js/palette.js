@@ -27,6 +27,7 @@ export const windHex = kt => kt >= 96 ? WIND.major : kt >= 64 ? WIND.hurricane :
 // water and height: ColorBrewer Blues for the sea taking the land, YlGnBu for ground under the cutoff
 export const FLOOD = { shallow: "#6baed6", deep: "#08519c" };
 export const LOW = { high: "#c7e9b4", low: "#225ea8" };            // 5 m -> 0 m
+export const DEPTH = { shelf: "#deebf7", mid: "#9ecae1", deep: "#2171b5" };   // ColorBrewer Blues, the Bay by depth
 export const RIVER = { quiet: "#9ebcd4", strong: "#2171b5" };
 
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
