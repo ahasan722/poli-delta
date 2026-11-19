@@ -2,71 +2,83 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Poli: where should Bangladesh defend first?</title>
-<meta name="description" content="A 3D scroll story on the Bengal delta. Low ground, less silt, a sinking coast, a rising sea and the cyclone track stack up in ten districts. Then rank the 64 districts yourself.">
+<meta name="description" content="An interactive 2D and 3D map of the Bengal delta. Low ground, less silt, a sinking coast, a rising sea and the cyclone track stack up in ten districts. Then rank the 64 districts yourself.">
 <meta property="og:title" content="Poli: where should Bangladesh defend first?">
-<meta property="og:description" content="Scroll through the delta in 3D. Ten districts carry almost half of the people living under 5 metres, all on the cyclone coast.">
+<meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
+<meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
 <link rel="stylesheet" href="css/poli.css">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
+<a class="skip" href="#panel">Skip to the story</a>
 
 <header class="top">
-  <a class="brand" href="#" id="brand"><span class="mark">পলি</span><span class="title">Poli<small>Where should Bangladesh defend first?</small></span></a>
-  <div class="seg" role="tablist" aria-label="Mode">
-    <button type="button" id="modeStory" class="on" role="tab">Story</button>
-    <button type="button" id="modeExplore" role="tab">Explore the 64 districts</button>
+  <a class="brand" href="#" id="brand" aria-label="Poli, back to the first step"><span class="mark" aria-hidden="true">পলি</span><span class="title">Poli<small>Where should Bangladesh defend first?</small></span></a>
+  <div class="tabs" role="tablist" aria-label="Mode">
+    <button type="button" id="modeStory" role="tab" aria-selected="true" class="on">Story</button>
+    <button type="button" id="modeExplore" role="tab" aria-selected="false">Explore</button>
   </div>
-  <a class="gh" href="https://github.com/ahasan722/poli-delta" target="_blank" rel="noopener">Data &amp; code</a>
+  <div class="search" role="combobox" aria-expanded="false" aria-owns="searchList" aria-haspopup="listbox" id="searchBox">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+    <input id="search" type="search" placeholder="Find a district or cyclone" autocomplete="off" aria-autocomplete="list" aria-controls="searchList" aria-label="Find a district or cyclone">
+    <kbd>/</kbd>
+    <ul id="searchList" role="listbox" hidden></ul>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn icon" id="searchToggle" aria-label="Search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg></button>
+    <button type="button" class="btn" id="shareBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 12 12 8M7 9.5 5.5 11a2.5 2.5 0 0 0 3.5 3.5l1.5-1.5M13 10.5l1.5-1.5A2.5 2.5 0 0 0 11 5.5L9.5 7"/></svg><span>Share</span></button>
+    <a class="btn" href="https://github.com/ahasan722/poli-delta" target="_blank" rel="noopener">Data &amp; sources</a>
+    <button type="button" class="btn icon" id="helpBtn" aria-label="Keyboard shortcuts">?</button>
+  </div>
 </header>
 
-<aside id="side">
-  <nav id="spine" aria-label="Chapters"></nav>
+<aside id="panel" aria-label="Story">
+  <div class="grip" id="grip" aria-hidden="true"><i></i></div>
+  <div class="phead">
+    <span class="eyebrow" id="stepLabel">Step 1 of 9</span>
+    <button type="button" class="btn icon ghost" id="collapseBtn" aria-label="Hide the panel" title="Hide the panel  [">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 5 7 10l5 5"/></svg></button>
+  </div>
+  <ol id="steps" aria-label="Steps"></ol>
 
-  <div id="storyText">
+  <div id="storyText" aria-live="polite">
     <section class="cap" data-ch="cover">
       <h1>Ten districts hold almost half of the people living under five metres. All ten sit on the cyclone coast.</h1>
-      <p>Low ground, less silt, a sinking coast and a rising sea land in the same places. Scroll to see them stack up.</p>
+      <p>Low ground, less silt, a sinking coast and a rising sea land in the same places.</p>
     </section>
-
     <section class="cap" data-ch="low">
       <h2><b>13%</b> of the land is under 5 metres</h2>
       <p>Nearly all of it faces the Bay.</p>
-      <p class="src">SRTM 90 m. A surface model, so the true ground is lower still. Relief ×14.</p>
+      <p class="src">SRTM 90 m. A surface model, so the true ground is lower still.</p>
     </section>
-
     <section class="cap" data-ch="silt">
       <h2>The rivers built it. They are bringing <b>less</b>.</h2>
       <div class="fig" id="chSilt"></div>
       <p class="src">Ganges + Brahmaputra sediment, million tonnes a year. Rahman et al. 2018.</p>
     </section>
-
     <section class="cap" data-ch="sink">
       <h2>The coast is going <b>down</b></h2>
       <p>Polders near Khulna lost <b>1 to 1.5 m</b> since the 1960s. The walls keep the river out, and its silt with it.</p>
-      <p class="src">Auerbach et al. 2015; Steckler et al. 2022. Shown: 1.5 m of loss on the coast.</p>
+      <p class="src">Auerbach et al. 2015; Steckler et al. 2022. Shown: up to 1.5 m of loss on the coast.</p>
     </section>
-
     <section class="cap" data-ch="sea">
       <h2>The sea comes up to <b>meet it</b></h2>
       <div class="readout"><b id="seaM">0.00 m</b><span><b id="seaP">0</b> people on land below that line</span></div>
       <p class="src">85–140 cm expected by 2100 (Becker et al. 2020). GPW 2015 on SRTM, a floor: bare-earth models find 5–10× more.</p>
     </section>
-
     <section class="cap" data-ch="storms">
       <h2>And the cyclones land on the <b>same coast</b></h2>
       <div class="readout"><b id="stormY">1960</b><span><b id="stormN">0</b> storms so far</span></div>
       <p class="src">IBTrACS: every storm of 34 kt or more near the delta. Wind field modelled from each track.</p>
     </section>
-
     <section class="cap" data-ch="priority">
       <h2><b>Ten districts</b>, <span id="tenShare">45%</span> of everyone under 5 m</h2>
       <div class="fig" id="chTen"></div>
-      <p class="src">Rule: a hurricane-force cyclone (64 kt+) passed within 50 km at least 3 times since 1960; ranked by people living under 5 m. Column height = those people.</p>
+      <p class="src">Rule: a hurricane-force cyclone (64 kt+) passed within 50 km at least 3 times since 1960; ranked by people living under 5 m. In 3D, column height = those people.</p>
     </section>
-
     <section class="cap" data-ch="raise">
       <h2>Where the silt got back in, the land <b>rose</b></h2>
       <p>At Beel Bhaina the tide was let into a sunken polder. In four years the ground came up <b>0.8 to 1.2 m</b>.</p>
@@ -78,39 +90,98 @@
   <div id="explorePanel" hidden>
     <h2>Rank the districts yourself</h2>
     <div class="ctl">
-      <div class="lbl">Rank by</div>
-      <div class="seg small" id="metricSeg">
-        <button type="button" data-m="pop_le5" class="on">People under 5 m</button>
-        <button type="button" data-m="pop_le2">under 2 m</button>
-        <button type="button" data-m="severe">Cyclone hits</button>
+      <div class="lbl" id="lblMetric">Rank by</div>
+      <div class="seg" id="metricSeg" role="radiogroup" aria-labelledby="lblMetric">
+        <button type="button" data-m="pop_le5" class="on" role="radio" aria-checked="true">People &lt; 5 m</button>
+        <button type="button" data-m="pop_le2" role="radio" aria-checked="false">&lt; 2 m</button>
+        <button type="button" data-m="severe" role="radio" aria-checked="false">Cyclone hits</button>
       </div>
     </div>
     <div class="ctl">
-      <div class="lbl">Hurricane-force passes since 1960</div>
-      <div class="seg small" id="sevSeg">
-        <button type="button" data-s="0">Any</button>
-        <button type="button" data-s="3" class="on">3 or more</button>
-        <button type="button" data-s="5">5 or more</button>
+      <div class="lbl" id="lblSev">Hurricane-force passes since 1960</div>
+      <div class="seg" id="sevSeg" role="radiogroup" aria-labelledby="lblSev">
+        <button type="button" data-s="0" role="radio" aria-checked="false">Any</button>
+        <button type="button" data-s="3" class="on" role="radio" aria-checked="true">3 or more</button>
+        <button type="button" data-s="5" role="radio" aria-checked="false">5 or more</button>
       </div>
     </div>
-    <input id="search" type="search" list="dlist" placeholder="Find a district" autocomplete="off">
-    <datalist id="dlist"></datalist>
-    <ol id="rankList"></ol>
+    <ol id="rankList" aria-label="Ranked districts"></ol>
     <div class="lbl">Play a cyclone</div>
     <div class="chips" id="stormChips"></div>
-    <p class="src">GPW 2015 people on SRTM land; IBTrACS tracks within 50 km; BBS 2022 boundaries. Click a column or a name for the district sheet. Drag to turn the ground.</p>
+    <p class="src">GPW 2015 people on SRTM land; IBTrACS tracks within 50 km; BBS 2022 boundaries.</p>
   </div>
-</aside>
 
-<div id="stage" aria-label="3D relief of the Bengal delta">
-  <div class="loading">loading the delta</div>
-  <div class="key" id="key"></div>
-  <button class="next" id="nextBtn" type="button"><span id="nextTxt">scroll</span><i>↓</i></button>
+  <nav class="pnav" aria-label="Step navigation">
+    <button type="button" class="btn" id="prevBtn" aria-label="Previous step"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 5 7 10l5 5"/></svg></button>
+    <div class="progress" aria-hidden="true"><i id="progFill"></i></div>
+    <button type="button" class="btn primary" id="nextBtn"><span id="nextTxt">Start</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></button>
+  </nav>
+</aside>
+<button type="button" class="btn float" id="expandBtn" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>Story</button>
+
+<div id="stage" aria-label="Map of the Bengal delta. Drag to pan, scroll to zoom, right-drag to rotate in 3D.">
+  <div class="loader" id="loader" role="status"><div class="lt">Loading the delta</div><div class="lbar"><i id="loadFill"></i></div><div class="lp" id="loadPct">0%</div></div>
+
+  <div class="key" id="key" aria-label="Key"></div>
+
+  <div class="controls" role="toolbar" aria-label="Map controls">
+    <div class="seg dim" id="dimSeg" role="radiogroup" aria-label="Map view">
+      <button type="button" data-dim="2" role="radio" aria-checked="false" title="Flat map  [2]">2D</button>
+      <button type="button" data-dim="3" role="radio" aria-checked="true" class="on" title="Relief  [3]">3D</button>
+    </div>
+    <div class="grp">
+      <button type="button" id="zoomIn" aria-label="Zoom in" title="Zoom in  [+]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 5v10M5 10h10"/></svg></button>
+      <button type="button" id="zoomOut" aria-label="Zoom out" title="Zoom out  [−]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10"/></svg></button>
+    </div>
+    <div class="grp"><button type="button" id="compass" aria-label="Reset north and tilt" title="Reset north and tilt  [N]"><svg viewBox="0 0 20 20" aria-hidden="true" id="needle"><path class="n" d="M10 3 13 10H7z"/><path class="s" d="M10 17 7 10h6z"/></svg></button></div>
+    <div class="grp">
+      <button type="button" id="resetBtn" aria-label="Reset view" title="Reset view  [R]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 9A5.5 5.5 0 1 1 6 14"/><path d="M4 5v4h4"/></svg></button>
+      <button type="button" id="fsBtn" aria-label="Full screen" title="Full screen  [F]"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 8V4h4M16 8V4h-4M4 12v4h4M16 12v4h-4"/></svg></button>
+    </div>
+  </div>
+
+  <div class="timeline" id="timeline" hidden>
+    <button type="button" class="play" id="playBtn" aria-label="Play"><svg viewBox="0 0 20 20" aria-hidden="true" class="i-play"><path d="M6 4v12l10-6z"/></svg><svg viewBox="0 0 20 20" aria-hidden="true" class="i-pause"><path d="M6 4h3v12H6zM11 4h3v12h-3z"/></svg></button>
+    <div class="tl-main">
+      <div class="tl-head"><span id="tlLabel">Year</span><b id="tlValue">1960</b></div>
+      <div class="tl-track">
+        <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Timeline">
+        <div class="ticks" id="ticks" aria-hidden="true"></div>
+      </div>
+    </div>
+    <button type="button" class="speed" id="speedBtn" aria-label="Playback speed">1×</button>
+  </div>
+
+  <div class="hint" id="hint" hidden role="note">
+    <span>Drag to pan · Scroll to zoom · Right-drag to turn in 3D · <kbd>?</kbd> for shortcuts</span>
+    <button type="button" aria-label="Dismiss" id="hintClose">×</button>
+  </div>
 </div>
 
-<aside id="focus" aria-live="polite"></aside>
-<div class="tip" id="tip"></div>
-<div id="track"></div>
+<aside id="focus" aria-live="polite" aria-label="Details"></aside>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+  <div class="mbox">
+    <div class="mhead"><h2 id="helpTitle">Keyboard shortcuts</h2><button type="button" class="btn icon ghost" id="helpClose" aria-label="Close">×</button></div>
+    <dl>
+      <dt><kbd>→</kbd> <kbd>↓</kbd></dt><dd>Next step</dd>
+      <dt><kbd>←</kbd> <kbd>↑</kbd></dt><dd>Previous step</dd>
+      <dt><kbd>2</kbd> <kbd>3</kbd></dt><dd>Flat map or relief</dd>
+      <dt><kbd>Space</kbd></dt><dd>Play or pause the timeline</dd>
+      <dt><kbd>/</kbd></dt><dd>Find a district or cyclone</dd>
+      <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Zoom</dd>
+      <dt><kbd>N</kbd></dt><dd>Reset north and tilt</dd>
+      <dt><kbd>R</kbd></dt><dd>Reset view</dd>
+      <dt><kbd>[</kbd></dt><dd>Hide or show the panel</dd>
+      <dt><kbd>F</kbd></dt><dd>Full screen</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close the sheet or this box</dd>
+    </dl>
+    <p>Mouse: drag to pan, scroll over the map to zoom, right-drag or Ctrl-drag to turn and tilt (3D). Scroll over the story panel to move between steps. Touch: one finger pans, two fingers zoom, turn and tilt.</p>
+  </div>
+</div>
+<div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
 <script type="module" src="js/main.js"></script>
