@@ -1,6 +1,6 @@
 # Poli (পলি): where should Bangladesh defend first?
 
-An interactive map of the Ganges-Brahmaputra-Meghna delta and the Bay of Bengal, in 2D and 3D, that ends in a decision. Nine short steps stack five things on the same map: low ground, a shrinking silt supply, a sinking coast, a rising sea and the cyclone track. They land in the same ten districts, which together hold 45% of everyone living under 5 metres. Then the story turns into a tool: rank the 64 districts yourself.
+An interactive map of the Ganges-Brahmaputra-Meghna delta and the Bay of Bengal, in 2D and 3D, that ends in a decision. Ten short steps stack five things on the same map: low ground, a shrinking silt supply, a sinking coast, a rising sea and the cyclone track. They land in the same ten districts, which together hold 45% of everyone living under 5 metres. Then the story turns into a tool: rank the 64 districts yourself.
 
 Live page: https://ahasan722.github.io/poli-delta/
 
@@ -9,6 +9,9 @@ Live page: https://ahasan722.github.io/poli-delta/
 ## How it reads
 
 - **The Bay and its rivers.** The second step opens on the whole Bay of Bengal, shaded by depth (ETOPO5), with every river in the frame moving toward it: HydroRIVERS reaches inside Bangladesh, WDBII beyond the border. A shader moves the water down each line from its higher end, faster in rivers with more discharge (the Lower Meghna about 40,000 m³/s, the Padma 35,000, the Jamuna 21,000).
+- **What it grows.** A step on the land itself: BARC's 30 agro-ecological zones grouped into five landscapes (coast, river floodplains, haor and bil basins, Barind and Madhupur terraces, hills), coloured on the map, with the share of the land and of each crop in each landscape. The coast is 23% of the land and grows about 30% of the Aus rice and 20% of the Aman, but little wheat or potato. Crops are split across a district's zones by area, which assumes a crop is spread evenly over the district.
+- **Explore as a layer tree.** The Explore panel works like a GIS layer list: choose what colours the districts (cyclone exposure and people, landscape, or a crop), with its controls and key opening under the choice; switch overlays on and off; read the ranking for the theme in force.
+- **Status bar.** Along the foot of the map: a live scale bar, the position under the pointer and the district there, what the mouse can do in this step, and the view's bearing and tilt. It replaces the one-time hint, so the map explains itself.
 - **District sheet.** Click a district (or search for one) for a sheet in four tabs, each drawing its charts as it opens. Overview: the verdict under the rule, the number of people under 5 m, and where the district sits among the 64 on five measures. Rivers: kilometres of mapped channel, channel density, the water share of the land and the named rivers by mean flow. Farming: its agro-ecological zones (BARC 2018), its land cover and its share of national output for Aman, Boro and Aus rice, wheat and potato, with the rank among the 64. Cyclones: every pass within 50 km since 1960, with a play button for each hurricane-force storm.
 - **Crops on the map.** In Explore, pick a crop to colour and raise the 64 districts by production (ColorBrewer YlGn, quintile classes) and rank them.
 - **Cyclone picker.** A button on the map lists the fourteen named cyclones since 1970 with peak wind and deaths; choosing one plays it.

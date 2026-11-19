@@ -24,13 +24,17 @@ const P = {
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
   chevL: '<path d="m15 5-7 7 7 7"/>', chevR: '<path d="m9 5 7 7-7 7"/>',
   people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14c3 0 5 2 5 5"/>',
-  wheat: '<path d="M12 21V9"/><path d="M12 9c-2.5 0-4-1.5-4-4 2.5 0 4 1.5 4 4Zm0 0c2.5 0 4-1.5 4-4-2.5 0-4 1.5-4 4Z"/><path d="M12 14c-2.5 0-4-1.5-4-4 2.5 0 4 1.5 4 4Zm0 0c2.5 0 4-1.5 4-4-2.5 0-4 1.5-4 4Z"/>',
+  wheat: '<path d="M12 22V9"/><path d="M12 9c-3 0-4.5-2-4.5-5 3 0 4.5 2 4.5 5Zm0 0c3 0 4.5-2 4.5-5-3 0-4.5 2-4.5 5Z"/><path d="M12 15c-3 0-4.5-2-4.5-4.5 3 0 4.5 2 4.5 4.5Zm0 0c3 0 4.5-2 4.5-4.5-3 0-4.5 2-4.5 4.5Z"/>',
+  mountain: '<path d="m2.5 19 6.5-11 4 6.5 2.5-4 6 8.5z"/>',
+  coast: '<path d="M3 4c4 2 2 6 6 8s5 6 12 7"/><path d="M3 15c2 0 2-1.2 4-1.2s2 1.2 4 1.2" opacity=".6"/>',
+  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.2"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.5"/>',
   droplet: '<path d="M12 3s6.5 7 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 10 12 3 12 3Z"/>',
   overview: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
   play: '<path d="M7 4.5v15l12-7.5z"/>',
   map: '<path d="m3 6 6-2.5 6 2.5 6-2.5v14.5L15 20.5 9 18l-6 2.5z"/><path d="M9 3.5V18M15 6v14.5"/>'
 };
 export const icon = (name, size = 20, cls = "") => `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ""}</svg>`;
-export const STEP_ICON = { cover: "question", bay: "waves", low: "lowland", silt: "river", sink: "sink", sea: "sea", storms: "cyclone", priority: "columns", raise: "sprout", explore: "sliders" };
+export const STEP_ICON = { cover: "question", bay: "waves", low: "lowland", silt: "river", sink: "sink", sea: "sea", storms: "cyclone", priority: "columns", grow: "wheat", raise: "sprout", explore: "sliders" };
 // put an icon into every element that asks for one: <span data-icon="search"></span>
 export function hydrate(root = document) { root.querySelectorAll("[data-icon]").forEach(el => { el.innerHTML = icon(el.dataset.icon, +(el.dataset.size || 20)); }); }

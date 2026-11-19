@@ -13,6 +13,7 @@ def get(block):
     m = re.search(rf"export const {block} = \{{(.*?)\}};", txt, re.S)
     return dict(re.findall(r'"?(\w+)"?\s*:\s*"(#[0-9a-fA-F]{6})"', m.group(1)))
 BASE, SEV, WIND, FLOOD, LOW = get("BASE"), get("SEV"), get("WIND"), get("FLOOD"), get("LOW")
+REGION = get("REGION")
 CROP = re.findall(r'"(#[0-9a-fA-F]{6})"', re.search(r"export const CROP = \[(.*?)\];", txt).group(1))
 
 def srgb(h): return np.array([int(h[i:i + 2], 16) for i in (1, 3, 5)]) / 255
@@ -44,6 +45,10 @@ for name, r in ramps.items():
     for k in CVD:
         gaps = [dE(a, b, k) for a, b in zip(r, r[1:])]
         check(min(gaps) > 10, f"{name}, {k}: smallest gap between neighbours {min(gaps):.1f}")
+import itertools
+for k in CVD:
+    g = min(dE(a, b, k) for a, b in itertools.combinations(REGION.values(), 2))
+    check(g > 10, f"landscapes (Tableau 10, 5 categories), {k}: smallest gap between any two {g:.1f}")
 for name, r in ramps.items():
     m = min(dE(c, BASE["map"]) for c in r[1:] if c != BASE["out"])
     check(m > 10, f"{name}: smallest gap to the map background {m:.1f}")

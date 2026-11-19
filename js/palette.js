@@ -34,6 +34,11 @@ export const RIVER = { quiet: "#9ebcd4", strong: "#2171b5" };
 export const CROP = ["#d9f0a3", "#78c679", "#41ab5d", "#238443", "#005a32"];   // YlGn 9-class steps 3, 5, 6, 7, 8
 export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice", wheat: "Wheat", potato: "Potato" };
 
+// landscapes (the 30 agro-ecological zones in five groups): Tableau 10, chosen for meaning (water blue for the coast,
+// grain yellow for the floodplains, violet for the haor basins, earth brown for the terraces, forest green for the hills)
+export const REGION = { coast: "#4e79a7", floodplains: "#edc948", basins: "#b07aa1", terraces: "#9c755f", hills: "#59a14f" };
+export const REGION_ORDER = ["coast", "floodplains", "basins", "terraces", "hills"];
+
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";
 // selection is drawn in ink, not a hue, so it never reads as data

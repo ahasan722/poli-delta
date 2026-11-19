@@ -1,18 +1,18 @@
-// main.js  --  v8: one scene, one camera, two views of it.
+// main.js  --  v9: one scene, one camera, two views of it.
 // 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
 // camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
 // runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
 // Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
 // Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=8";
-import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=8";
-import { CHAPTERS, SITE } from "./story.js?v=8";
-import { charts } from "./charts.js?v=8";
-import { cards } from "./cards.js?v=8";
-import { WindField, StormPlayer } from "./wind.js?v=8";
-import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, hex } from "./palette.js?v=8";
-import { icon, hydrate, STEP_ICON } from "./icons.js?v=8";
+import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=9";
+import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=9";
+import { CHAPTERS, SITE } from "./story.js?v=9";
+import { charts } from "./charts.js?v=9";
+import { cards } from "./cards.js?v=9";
+import { WindField, StormPlayer } from "./wind.js?v=9";
+import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex } from "./palette.js?v=9";
+import { icon, hydrate, STEP_ICON } from "./icons.js?v=9";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
@@ -31,7 +31,7 @@ mq.addEventListener?.("change", e => { reduced = e.matches; });
 const phone = () => innerWidth <= 820;
 
 const N = CHAPTERS.length, EXPLORE = N - 1;
-const DEFAULT_RULE = { metric: "pop_le5", sevMin: 3 };
+const DEFAULT_RULE = { theme: "rule", metric: "pop_le5", sevMin: 3, crop: "aman" };
 const FOV = 26, DUR_DIM = 1.4;
 const state = {
   step: 0, lastStory: 0, dimTarget: 1, dimP: 0, pick: 0, hover: 0, storm: null, rule: { ...DEFAULT_RULE },
@@ -129,7 +129,7 @@ async function boot() {
   D.ten = rankBy(DEFAULT_RULE).slice(0, 10);
   if (state.gl) buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }); else buildFallback();
   hydrate(); charts.init(D); cards.init(D, { clear: () => clearFocus(true), play: sid => playStorm(sid) });
-  buildSteps(); buildExplore(); buildSearch(); bindUI(); bindToc(); resize();
+  buildSteps(); buildExplore(); syncTree(); renderLegends(); buildSearch(); bindUI(); bindToc(); resize();
   Object.assign(cur, valuesAt(0, 0));
   const h = readHash(); state.dimTarget = h.dim; setDimUI();
   goStep(h.step, { push: false, instant: true });
@@ -145,7 +145,6 @@ async function boot() {
   }
   history.replaceState(null, "", hashFor());
   document.body.classList.add("ready"); state.ready = true;
-  if (!store.get("poli-hint")) $("hint").hidden = false;
   if (!state.gl) toast("3D is not available in this browser, so this is the flat map.", 5000);
   requestAnimationFrame(frame);
 }
@@ -183,10 +182,17 @@ function buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }) 
   new ResizeObserver(resize).observe(stage);
 }
 
-// ---- the rule: who is in the first ten, and how tall each column stands -----------------------------
-const cropOf = (d, c) => (D.agri && D.agri.districts[d.id] && D.agri.districts[d.id].crops[c]) || 0;
+// ---- themes: what colours and raises the districts ------------------------------------------------------
+// rule: the story's cyclone rule (colour = hurricane-force passes, height = people under 5 m);
+// landscape: the district's main landscape (colour), rice grown (height); crop: one crop's production (both).
+const A = id => (D.agri && D.agri.districts[id]) || null;
+const cropOf = (d, c) => (A(d.id) && A(d.id).crops[c]) || 0;
+const riceOf = d => cropOf(d, "aman") + cropOf(d, "boro") + cropOf(d, "aus");
+const regionOf = d => (A(d.id) && A(d.id).region) || "floodplains";
+const isCrop = r => r.theme === "crop";
 function rankBy(rule) {
-  if (rule.crop) return D.districts.slice().sort((a, b) => cropOf(b, rule.crop) - cropOf(a, rule.crop));
+  if (isCrop(rule)) return D.districts.slice().sort((a, b) => cropOf(b, rule.crop) - cropOf(a, rule.crop));
+  if (rule.theme === "landscape") return D.districts.slice().sort((a, b) => riceOf(b) - riceOf(a));
   return D.districts.filter(d => d.severe >= rule.sevMin).sort((a, b) => b[rule.metric] - a[rule.metric] || b.pop_le5 - a.pop_le5);
 }
 // crop classes: quintiles of the 64 district values, so every class holds about 13 districts
@@ -194,20 +200,22 @@ function cropBreaks(c) { const v = D.districts.map(d => cropOf(d, c)).sort(d3.as
 const cropHex = (v, br) => CROP[d3.bisectRight(br, v)];
 const OUTC = new THREE.Color(BASE.out);
 const HEIGHT = { pop_le5: v => v / 1e6 * 32, pop_le2: v => v / 1e6 * 48, severe: v => v * 7 };
+function colourOf(d, r, br) { return isCrop(r) ? cropHex(cropOf(d, r.crop), br) : r.theme === "landscape" ? REGION[regionOf(d)] : d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }
 function applyRule() {
   const r = state.rule; const list = rankBy(r); D.list = list; const order = new Map(list.map((d, i) => [d.id, i]));
+  const br = isCrop(r) ? cropBreaks(r.crop) : null; const cmax = isCrop(r) ? d3.max(D.districts, d => cropOf(d, r.crop)) : d3.max(D.districts, riceOf);
   if (prisms) {
-    const br = r.crop ? cropBreaks(r.crop) : null; const cmax = r.crop ? d3.max(D.districts, d => cropOf(d, r.crop)) : 1;
-    prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = r.crop ? true : d.severe >= r.sevMin;
+    prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = r.theme !== "rule" || d.severe >= r.sevMin;
       m.userData.q = q; m.userData.rank = order.has(d.id) ? order.get(d.id) : 99;
-      m.userData.h = Math.max(0.3, r.crop ? cropOf(d, r.crop) / cmax * 45 : HEIGHT[r.metric](d[r.metric]));
-      m.userData.col = new THREE.Color(r.crop ? cropHex(cropOf(d, r.crop), br) : q ? sevHex(d.severe) : BASE.out); });
+      m.userData.h = Math.max(0.3, isCrop(r) ? cropOf(d, r.crop) / cmax * 45 : r.theme === "landscape" ? riceOf(d) / cmax * 40 : HEIGHT[r.metric](d[r.metric]));
+      m.userData.col = new THREE.Color(colourOf(d, r, br)); });
     ranks.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); ranks.clear();
-    list.slice(0, r.crop ? 5 : 10).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
+    list.slice(0, r.theme === "rule" ? 10 : 5).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
   }
   if (D.svg) paintFallback();
-  renderList(); if (CHAPTERS[state.step]?.explore) showKey("explore"); kick();
+  renderList(); renderLegends(); showKey(CHAPTERS[state.step]?.id); kick();
 }
+function setRule(next) { state.rule = { ...state.rule, ...next }; syncTree(); applyRule(); }
 
 // ---- the values on screen ---------------------------------------------------------------------------
 function valuesAt(i, t) {
@@ -222,7 +230,8 @@ function goStep(i, { push = true, instant = false } = {}) {
   if (!ch.explore) state.lastStory = i;
   if (state.storm && !ch.explore) stopStorm();
   if (state.pick && !pickable()) clearFocus(false);
-  if (!ch.explore && (state.rule.metric !== DEFAULT_RULE.metric || state.rule.sevMin !== DEFAULT_RULE.sevMin || state.rule.crop)) { state.rule = { ...DEFAULT_RULE }; resetSegs(); applyRule(); }
+  if (!ch.explore) { const want = { ...DEFAULT_RULE, theme: ch.theme || "rule" };
+    if (["theme", "metric", "sevMin", "crop"].some(k => state.rule[k] !== want[k])) { state.rule = want; syncTree(); applyRule(); } }
   // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
   setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
   if (ch.time && instant) cur[ch.time.key] = lerp(ch.time.from, ch.time.to, state.tl.t);
@@ -232,7 +241,7 @@ function goStep(i, { push = true, instant = false } = {}) {
   $("live").textContent = `Step ${i + 1} of ${N}: ${ch.nav}`;
   kick();
 }
-const pickable = () => ["priority", "explore"].includes(CHAPTERS[state.step].id);
+const pickable = () => ["priority", "grow", "explore"].includes(CHAPTERS[state.step].id);
 function stepUI(i) {
   const ch = CHAPTERS[i], ex = !!ch.explore;
   document.querySelectorAll("#steps li").forEach((li, n) => { li.classList.toggle("on", n === i); li.classList.toggle("done", n < i); li.querySelector("button").setAttribute("aria-current", n === i ? "step" : "false"); });
@@ -339,11 +348,29 @@ function frame(now) {
   labels.children.forEach(fit); rivers.children.forEach(fit); ranks.children.forEach(fit); site.children.forEach(fit); storms.children.forEach(s => { if (s.userData.isStormLabel) fit(s); });
   if (state.storm && state.tl.def) { const s = player.storm; const n = s.pts.length; player.t = player.t0 + state.tl.t * (n - 1 - player.t0); syncTimeline(); }
   player.step(); wind.step();
-  renderer.render(scene, camera); state.renders += 1;
+  renderer.render(scene, camera); state.renders += 1; status(vw);
   if (state.frameTimes.length > 400) state.frameTimes.shift(); state.frameTimes.push(now - lastFrame); lastFrame = now;
 }
 
 // cyclones: the storm step is a clock run by the timeline; Explore plays the storm the reader picks
+// ---- the status bar: scale, where the pointer is, how to move, which way the map faces ------------------------------
+let sbLast = "";
+function status(vw) {
+  const h = stage.clientHeight || 700; const dist = camera.position.distanceTo(cam.look); const kmpx = 2 * dist * Math.tan(FOV / 2 * Math.PI / 180) / h;
+  const nice = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]; const km = nice.filter(n => n / kmpx <= 110).pop() || 1;
+  const bear = Math.round(((180 - vw.az) % 360 + 360) % 360), tilt = Math.round(vw.pitch);
+  const hint = ["Drag to move", "scroll to zoom", state.dimTarget ? "right-drag to turn and tilt" : "", pickable() ? "click a district for its details" : "", !CHAPTERS[state.step].explore ? "→ for the next step" : ""].filter(Boolean).join(" · ");
+  const key = km + "|" + Math.round(km / kmpx) + "|" + bear + "|" + tilt + "|" + hint + "|" + state.dimTarget;
+  if (key === sbLast) return; sbLast = key;
+  $("sbBar").style.width = Math.round(km / kmpx) + "px"; $("sbKm").textContent = km + " km";
+  $("sbView").textContent = `${state.dimTarget ? "3D" : "2D"} · bearing ${bear}° · tilt ${tilt}°`; $("sbHint").textContent = hint[0].toUpperCase() + hint.slice(1);
+}
+function statusPointer(x, y, id) {
+  const g = groundAt(camera, x, y); if (!g) return;
+  const lon = g.x / KM_PER_DEG_LON + (GRID.W + GRID.E) / 2, lat = -g.z / KM_PER_DEG_LAT + (GRID.S + GRID.N) / 2;
+  $("sbPos").textContent = `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? "N" : "S"}, ${lon.toFixed(2)}° E`;
+  $("sbDist").textContent = id && D.byId[id] ? D.byId[id].name : "";
+}
 function stormLayer(v, lf) {
   const yr = v.year, playing = !!state.storm;
   storms.children.forEach(o => {
@@ -389,39 +416,54 @@ const KEYS = {
   sea: [["", "Land below the sea"], ["r:" + FLOOD.shallow + "," + FLOOD.deep, "shallow → deep"]],
   storms: [["", "Cyclone wind"], ["l:" + WIND.major, "96 kt and more"], ["l:" + WIND.hurricane, "64–95 kt"], ["l:" + WIND.gale, "34–63 kt"]],
   priority: sevKey("fewer than 3"),
+  grow: [["", "Main landscape of the district"], ...REGION_ORDER.map(k => [REGION[k], ""])],
   raise: [[ACCENT, "tidal river management site"]],
   explore: sevKey("below the rule")
 };
 function cropKey(c) { const br = cropBreaks(c); const f = v => v >= 1e6 ? f1(v / 1e6) + " M" : d3.format(",")(Math.round(v / 1000)) + "k";
   return [["", CROP_NAME[c] + ", tonnes (" + D.agri.crop_years[c] + ")"], ...CROP.map((col, i) => [col, i === 0 ? "under " + f(br[0]) : i === 4 ? f(br[3]) + " and more" : f(br[i - 1]) + "–" + f(br[i])]).reverse()]; }
+const landKey = () => [["", "Main landscape of the district"], ...REGION_ORDER.map(k => [REGION[k], D.agri ? D.agri.regions[k] : k])];
 function showKey(id) {
-  const k = id === "explore" && state.rule.crop ? cropKey(state.rule.crop) : (KEYS[id] || []);
+  const r = state.rule; const k = id === "explore" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
   $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
+}
+// the same keys, drawn inside the layer tree under the active theme
+function renderLegends() {
+  if (!D.agri) return; const area = D.agri.area_by_region_ha, tot = d3.sum(Object.values(area));
+  const item = (c, t, v = "") => `<div class="li"><i style="background:${c}"></i><span>${t}</span><b>${v}</b></div>`;
+  $("lgRule").innerHTML = `<div class="lh">Colour: hurricane-force passes. Height in 3D: ${state.rule.metric === "severe" ? "passes" : "people"}.</div>` + [6, 5, 4, 3].map(n => item(SEV[n], n === 6 ? "6 passes" : n + " passes")).join("") + item(BASE.out, "below the rule");
+  $("lgLand").innerHTML = `<div class="lh">Colour: the district's main landscape. Height in 3D: rice grown.</div>` + REGION_ORDER.map(k => item(REGION[k], D.agri.regions[k], Math.round(area[k] / tot * 100) + "% of land")).join("");
+  const c = state.rule.crop, br = cropBreaks(c), f = v => v >= 1e6 ? f1(v / 1e6) + " M t" : d3.format(",")(Math.round(v / 1000)) + "k t";
+  $("lgCrop").innerHTML = `<div class="lh">${CROP_NAME[c]}, ${D.agri.crop_years[c]}, tonnes. Five classes of about 13 districts.</div>` + CROP.map((col, i) => item(col, i === 0 ? "under " + f(br[0]) : i === 4 ? f(br[3]) + " and more" : f(br[i - 1]) + " to " + f(br[i]))).reverse().join("");
 }
 
 // ---- explore: the rule becomes a tool ---------------------------------------------------------------
 function buildExplore() {
-  const segs = (id, key, attr, parse) => $(id).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-    $(id).querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); }); state.rule[key] = parse(b.dataset[attr]); applyRule(); }));
+  const segs = (id, key, attr, parse) => $(id).querySelectorAll("button").forEach(b => b.addEventListener("click", () => setRule({ theme: "rule", [key]: parse(b.dataset[attr]) })));
   segs("metricSeg", "metric", "m", v => v); segs("sevSeg", "sevMin", "s", v => +v);
-  ["metricSeg", "sevSeg"].forEach(id => $(id).addEventListener("click", () => { if (state.rule.crop) { state.rule.crop = null; markCrops(); applyRule(); } }, true));
-  $("cropSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.rule.crop = state.rule.crop === b.dataset.c ? null : b.dataset.c; markCrops(); applyRule(); }));
+  $("cropSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setRule({ theme: "crop", crop: b.dataset.c })));
+  document.querySelectorAll('input[name="theme"]').forEach(i => i.addEventListener("change", () => setRule({ theme: i.value })));
   const box = $("stormChips");
   D.storms.filter(s => s.note).forEach(s => { const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.dataset.sid = s.sid; b.innerHTML = `${s.note.label}<small>${s.season}</small>`; b.addEventListener("click", () => playStorm(s.sid)); box.appendChild(b); });
 }
-function markCrops() { document.querySelectorAll("#cropSeg button").forEach(b => { const on = b.dataset.c === state.rule.crop; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
-  document.querySelectorAll("#metricSeg button, #sevSeg button").forEach(b => b.style.opacity = state.rule.crop ? 0.55 : 1); }
-function resetSegs() { markCrops?.();
-  document.querySelectorAll("#metricSeg button").forEach(b => { const on = b.dataset.m === DEFAULT_RULE.metric; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
-  document.querySelectorAll("#sevSeg button").forEach(b => { const on = +b.dataset.s === DEFAULT_RULE.sevMin; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+// the tree shows the rule in force: the checked theme opens to show its controls and its key
+function syncTree() {
+  const r = state.rule;
+  document.querySelectorAll('input[name="theme"]').forEach(i => { i.checked = i.value === r.theme; i.closest(".theme").classList.toggle("open", i.checked); });
+  document.querySelectorAll("#metricSeg button").forEach(b => { const on = b.dataset.m === r.metric; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+  document.querySelectorAll("#sevSeg button").forEach(b => { const on = +b.dataset.s === r.sevMin; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+  document.querySelectorAll("#cropSeg button").forEach(b => { const on = b.dataset.c === r.crop; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+  $("rankHead").textContent = isCrop(r) ? `Top districts for ${CROP_NAME[r.crop].toLowerCase()}` : r.theme === "landscape" ? "Top districts for rice (Aman, Boro, Aus)" : "Districts under the rule";
 }
+const resetSegs = () => syncTree();
 function renderList() {
   const ol = $("rankList"); if (!ol || !D.list) return; const r = state.rule; const list = D.list.slice(0, 15);
-  const val = d => r.crop ? cropOf(d, r.crop) : d[r.metric]; const max = d3.max(list, val) || 1; const br = r.crop ? cropBreaks(r.crop) : null;
-  ol.innerHTML = list.map((d, i) => { const v = r.crop ? (val(d) >= 1e6 ? f1(val(d) / 1e6) + " M t" : d3.format(",")(Math.round(val(d) / 1000)) + "k t") : r.metric === "severe" ? d.severe + " hits" : f1(d[r.metric] / 1e6) + " M";
-    const col = r.crop ? cropHex(val(d), br) : i < 10 ? sevHex(d.severe) : BASE.out;
-    return `<li data-id="${d.id}" tabindex="0" class="${i === 10 && !r.crop ? "cut" : ""}${state.pick === d.id ? " on" : ""}"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(val(d) / max * 100).toFixed(1)}%;background:${col}"></i></span></li>`; }).join("")
-    + (D.list.length > 15 ? `<li class="more"><span></span><span class="nm" style="font-weight:400;color:#6b7280">${D.list.length - 15} more ${r.crop ? "districts" : "meet the rule"}</span></li>` : "")
+  const val = d => isCrop(r) ? cropOf(d, r.crop) : r.theme === "landscape" ? riceOf(d) : d[r.metric]; const max = d3.max(list, val) || 1; const br = isCrop(r) ? cropBreaks(r.crop) : null;
+  const t = v => v >= 1e6 ? f1(v / 1e6) + " M t" : d3.format(",")(Math.round(v / 1000)) + "k t";
+  ol.innerHTML = list.map((d, i) => { const v = r.theme !== "rule" ? t(val(d)) : r.metric === "severe" ? d.severe + " hits" : f1(d[r.metric] / 1e6) + " M";
+    const col = r.theme === "rule" ? (i < 10 ? sevHex(d.severe) : BASE.out) : colourOf(d, r, br);
+    return `<li data-id="${d.id}" tabindex="0" class="${i === 10 && r.theme === "rule" ? "cut" : ""}${state.pick === d.id ? " on" : ""}"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(val(d) / max * 100).toFixed(1)}%;background:${col}"></i></span></li>`; }).join("")
+    + (D.list.length > 15 ? `<li class="more"><span></span><span class="nm" style="font-weight:400;color:#6b7280">${D.list.length - 15} more ${r.theme === "rule" ? "meet the rule" : "districts"}</span></li>` : "")
     + (D.list.length === 0 ? `<li class="more"><span></span><span class="nm">No district meets this rule</span></li>` : "");
   ol.querySelectorAll("li[data-id]").forEach(li => { const go = () => selectDistrict(+li.dataset.id); li.addEventListener("click", go); li.addEventListener("keydown", e => { if (e.key === "Enter") go(); }); });
 }
@@ -531,15 +573,19 @@ let tipTimer = null;
 const tip = $("tip");
 function hideTip() { clearTimeout(tipTimer); tip.classList.remove("on"); }
 function hover(e) {
-  if (!terrain || !pickable() || interacting) { hideTip(); return; }
-  const id = districtAt(e.clientX, e.clientY);
+  if (!terrain) return;
+  if (!pickable() || interacting) { hideTip(); if (!interacting) statusPointer(e.clientX, e.clientY, districtAt(e.clientX, e.clientY)); return; }
+  const id = districtAt(e.clientX, e.clientY); statusPointer(e.clientX, e.clientY, id);
   if (id !== state.hover) { state.hover = id; terrain.uniforms.uHover.value = id; kick(); hideTip(); if (id) tipTimer = setTimeout(() => showTip(id), 120); }
   if (id) { placeTip(e.clientX, e.clientY); renderer.domElement.style.cursor = "pointer"; } else renderer.domElement.style.cursor = "grab";
 }
 let tipXY = [0, 0];
 function showTip(id) {
-  const d = D.byId[id]; const r = D.list.findIndex(x => x.id === id); const inTen = r >= 0 && r < 10 && !state.rule.crop;
-  if (state.rule.crop) { const c = state.rule.crop, v = cropOf(d, c), br = cropBreaks(c);
+  const d = D.byId[id]; const r = D.list.findIndex(x => x.id === id); const inTen = r >= 0 && r < 10 && state.rule.theme === "rule";
+  if (state.rule.theme === "landscape") { const sh = A(d.id) ? A(d.id).regions : {};
+    tip.innerHTML = `<div class="t"><i style="background:${REGION[regionOf(d)]}"></i>${d.name}</div>` + Object.entries(sh).slice(0, 3).map(([k, v]) => `<div class="row">${D.agri.regions[k]} <b>${Math.round(v * 100)}%</b></div>`).join("") + `<div class="row">rice grown <b>${d3.format(",")(Math.round(riceOf(d) / 1000))}k t</b></div><div class="hintline">Click for details</div>`;
+    tip.classList.add("on"); placeTip(...tipXY); return; }
+  if (isCrop(state.rule)) { const c = state.rule.crop, v = cropOf(d, c), br = cropBreaks(c);
     tip.innerHTML = `<div class="t"><i style="background:${cropHex(v, br)}"></i>${d.name}</div><div class="row">${CROP_NAME[c]} <b>${d3.format(",")(Math.round(v))} t</b></div><div class="row">rank among 64 <b>${r + 1}</b></div><div class="hintline">Click for details</div>`;
     tip.classList.add("on"); placeTip(...tipXY); return; }
   tip.innerHTML = `<div class="t"><i style="background:${d.severe >= state.rule.sevMin ? sevHex(d.severe) : BASE.out}"></i>${d.name}${inTen ? `<span style="color:#6b7280;font-weight:500">· ${r + 1} of the ten</span>` : ""}</div>
@@ -606,7 +652,7 @@ addEventListener("popstate", () => {
 
 // ---- the rest of the interface ---------------------------------------------------------------------------
 function toast(msg, ms = 2200) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), ms); }
-function dismissHint() { if (!$("hint").hidden) { $("hint").hidden = true; store.set("poli-hint", "1"); } }
+function dismissHint() {}
 let helpReturn = null;
 function openHelp() { helpReturn = document.activeElement; $("help").hidden = false; $("helpClose").focus(); }
 function closeHelp() { $("help").hidden = true; helpReturn?.focus?.(); }
@@ -630,7 +676,6 @@ function bindUI() {
   $("playBtn").addEventListener("click", togglePlay);
   $("speedBtn").addEventListener("click", () => { state.tl.speed = state.tl.speed === 1 ? 2 : 1; $("speedBtn").textContent = state.tl.speed + "×"; });
   $("scrub").addEventListener("input", e => { state.tl.t = +e.target.value / 1000; state.tl.playing = false; syncTimeline(); kick(); });
-  $("hintClose").addEventListener("click", dismissHint);
   $("helpBtn").addEventListener("click", openHelp); $("helpClose").addEventListener("click", closeHelp);
   $("help").addEventListener("click", e => { if (e.target.id === "help") closeHelp(); });
   $("collapseBtn").addEventListener("click", () => setCollapsed(true)); $("expandBtn").addEventListener("click", () => setCollapsed(false));
@@ -647,7 +692,7 @@ function bindUI() {
   addEventListener("keydown", e => {
     if (e.key === "Escape" && !$("layersPop").hidden) { toggleLayers(false); $("layersBtn").focus(); return; }
     if (e.key === "Escape" && !$("stormPop").hidden) { toggleStorms(false); $("stormBtn").focus(); return; }
-    if (e.target.closest && e.target.closest("input:not([type=checkbox]),textarea,[contenteditable]")) return;
+    if (e.target.closest && e.target.closest("input:not([type=checkbox]):not([type=radio]),textarea,[contenteditable]")) return;
     if (!$("help").hidden) { if (e.key === "Escape" || e.key === "?") closeHelp(); return; }
     if (state.about) { if (e.key === "Escape") showAbout(false); return; }
     if (!$("layersPop").hidden && e.key === "Escape") { toggleLayers(false); return; }
@@ -701,7 +746,7 @@ function paintFallback() { if (!D.paths) return; const r = state.rule; D.paths.a
 // ---- the layers menu: per-step overrides --------------------------------------------------------------
 const ON = { rivers: 0.9, riverLabels: 0.9, labels: 0.9, borders: 0.8, storms: 0.9, uBathy: 1 };
 function applyOverrides(t) { for (const k in state.ov) { t[k] = state.ov[k] ? Math.max(t[k] || 0, ON[k]) : 0; if (k === "rivers") t.farRivers = state.ov[k] ? Math.max(t.farRivers, 0.8) : 0; if (k === "storms" && state.ov[k] && CHAPTERS[state.step].id !== "storms") t.year = 2025; } }
-function syncLayers() { const t = valuesAt(state.step, 1); applyOverrides(t); document.querySelectorAll("#layersPop input").forEach(i => { i.checked = (t[i.dataset.layer] || 0) > 0.05; }); }
+function syncLayers() { const t = valuesAt(state.step, 1); applyOverrides(t); document.querySelectorAll("input[data-layer]").forEach(i => { i.checked = (t[i.dataset.layer] || 0) > 0.05; }); }
 function togglePop(pop, btn, open) { const o = open ?? pop.hidden; document.querySelectorAll(".pop").forEach(p => { if (p !== pop) p.hidden = true; }); document.querySelectorAll("#layersBtn,#stormBtn").forEach(b => b.setAttribute("aria-expanded", b === btn && o)); pop.hidden = !o; }
 function toggleLayers(open) { togglePop($("layersPop"), $("layersBtn"), open); if (!$("layersPop").hidden) syncLayers(); }
 function toggleStorms(open) { togglePop($("stormPop"), $("stormBtn"), open); }
@@ -715,7 +760,7 @@ function buildStormPicker() {
 }
 function buildLayers() {
   $("layersBtn").addEventListener("click", e => { e.stopPropagation(); toggleLayers(); });
-  document.querySelectorAll("#layersPop input").forEach(i => i.addEventListener("change", () => { state.ov[i.dataset.layer] = i.checked; syncLayers(); kick(); }));
+  document.querySelectorAll("input[data-layer]").forEach(i => i.addEventListener("change", () => { state.ov[i.dataset.layer] = i.checked; syncLayers(); kick(); }));
   $("layersReset").addEventListener("click", () => { state.ov = {}; syncLayers(); kick(); });
   document.addEventListener("pointerdown", e => { if (!e.target.closest(".pop,#layersBtn,#stormBtn")) document.querySelectorAll(".pop").forEach(p => { if (!p.hidden) togglePop(p, null, false); }); });
   buildStormPicker();

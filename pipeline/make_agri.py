@@ -79,6 +79,15 @@ for kind in ("major", "minor"):
             if kind == "major" and l.get("name"):
                 n = per[i]["named"].setdefault(l["name"], [0.0, 0.0]); n[0] += L; n[1] = max(n[1], l["dis"])
 
+# ---- landscapes: the 30 zones grouped into five kinds of country ------------------------------------------------
+# Coast: the tidal and estuarine floodplains and the Chittagong coastal plain (AEZ 13, 17, 18, 23, 24).
+# Hills: the northern and eastern hills and the Akhaura terrace (29, 30). Terraces: Barind and Madhupur (25-28).
+# Basins: the haors and bils (5, 14, 15, 21). Floodplains: every other zone.
+REGION = {13: "coast", 17: "coast", 18: "coast", 23: "coast", 24: "coast", 29: "hills", 30: "hills", 25: "terraces", 26: "terraces",
+          27: "terraces", 28: "terraces", 5: "basins", 14: "basins", 15: "basins", 21: "basins"}
+reg = lambda z: REGION.get(int(z), "floodplains")
+REGIONS = {"coast": "Coast", "floodplains": "River floodplains", "basins": "Haor and bil basins", "terraces": "Barind and Madhupur terraces", "hills": "Hills"}
+
 # ---- assemble ------------------------------------------------------------------------------------------------
 out = {"crop_years": years,
        "national": {c: round(sum(v.values())) for c, v in crops.items()}, "zones": zones, "districts": {}}
@@ -92,6 +101,22 @@ for d in dist:
         "crops": {c: (round(v[n]) if n in v else None) for c, v in crops.items()},
         "rivers": {"major_km": round(r["major_km"]), "minor_km": round(r["minor_km"]), "density": round((r["major_km"] + r["minor_km"]) / d["area_km2"] * 100, 1), "named": named[:8]}}
 # ranks among the 64 for each crop
+# each district's land split by landscape (share of its area listed in the BARC table); crops follow the same split,
+# an approximation that assumes a crop is grown evenly across a district's zones
+area_by_region, crop_by_region = {k: 0 for k in REGIONS}, {c: {k: 0.0 for k in REGIONS} for c in crops}
+for d in dist:
+    x = out["districts"][d["id"]]; T = sum(h for _, h in x["aez"])
+    sh = {}
+    for z, h in x["aez"]: sh[reg(z)] = sh.get(reg(z), 0) + h / T
+    if not sh: sh = {"floodplains": 1.0}
+    x["regions"] = {k: round(v, 3) for k, v in sorted(sh.items(), key=lambda kv: -kv[1])}; x["region"] = max(sh, key=sh.get)
+    for z, h in x["aez"]: area_by_region[reg(z)] += h
+    for c in crops:
+        for k, v in sh.items(): crop_by_region[c][k] += (x["crops"][c] or 0) * v
+out["regions"] = REGIONS; out["region_of_zone"] = {z: reg(z) for z in zones}
+out["area_by_region_ha"] = area_by_region; out["crop_by_region"] = {c: {k: round(v) for k, v in r.items()} for c, r in crop_by_region.items()}
+for c, r in crop_by_region.items(): print(f"{c:7s}", {k: f"{v / sum(r.values()) * 100:.1f}%" for k, v in r.items()})
+print("land:", {k: f"{v / sum(area_by_region.values()) * 100:.1f}%" for k, v in area_by_region.items()})
 for c in crops:
     vals = sorted(((v["crops"][c] or 0), k) for k, v in out["districts"].items()); vals.reverse()
     for rank, (_, k) in enumerate(vals, 1): out["districts"][k].setdefault("crop_rank", {})[c] = rank

@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css?v=8">
+<link rel="stylesheet" href="css/poli.css?v=9">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -84,6 +84,11 @@
       <div class="fig" id="chTen"></div>
       <p class="src">Rule: a hurricane-force cyclone (64 kt+) passed within 50 km at least 3 times since 1960; ranked by people living under 5 m. In 3D, column height = those people.</p>
     </section>
+    <section class="cap" data-ch="grow">
+      <h2>The coast: <b id="growLand">23%</b> of the land, <b id="growAus">30%</b> of the Aus rice</h2>
+      <div class="fig" id="chGrow"></div>
+      <p class="src">Landscapes: BARC's 30 agro-ecological zones in five groups. Crops: BBS district production (Aman 2011-12, Boro 2012-13, others 2014-15), split by each district's area in each zone, so a district's crop is assumed to be spread evenly over its land. In 3D, column height = rice grown (Aman, Boro and Aus).</p>
+    </section>
     <section class="cap" data-ch="raise">
       <h2>Where the silt got back in, the land <b>rose</b></h2>
       <p>At Beel Bhaina the tide was let into a sunken polder. In four years the ground came up <b>0.8 to 1.2 m</b>.</p>
@@ -93,37 +98,56 @@
   </div>
 
   <div id="explorePanel" hidden>
-    <h2>Rank the districts yourself</h2>
-    <div class="ctl">
-      <div class="lbl" id="lblMetric">Rank by</div>
-      <div class="seg" id="metricSeg" role="radiogroup" aria-labelledby="lblMetric">
-        <button type="button" data-m="pop_le5" class="on" role="radio" aria-checked="true">People &lt; 5 m</button>
-        <button type="button" data-m="pop_le2" role="radio" aria-checked="false">&lt; 2 m</button>
-        <button type="button" data-m="severe" role="radio" aria-checked="false">Cyclone hits</button>
+    <div class="tree" role="group" aria-label="Map layers">
+      <div class="tsec">Colour the districts by</div>
+      <div class="theme" data-t="rule">
+        <label class="trow"><input type="radio" name="theme" value="rule" checked><span data-icon="columns" data-size="18"></span><span>Cyclone exposure and people</span></label>
+        <div class="tbody">
+          <div class="lbl" id="lblMetric">Rank by</div>
+          <div class="seg" id="metricSeg" role="radiogroup" aria-labelledby="lblMetric">
+            <button type="button" data-m="pop_le5" class="on" role="radio" aria-checked="true">People &lt; 5 m</button>
+            <button type="button" data-m="pop_le2" role="radio" aria-checked="false">&lt; 2 m</button>
+            <button type="button" data-m="severe" role="radio" aria-checked="false">Cyclone hits</button>
+          </div>
+          <div class="lbl" id="lblSev">Hurricane-force passes since 1960</div>
+          <div class="seg" id="sevSeg" role="radiogroup" aria-labelledby="lblSev">
+            <button type="button" data-s="0" role="radio" aria-checked="false">Any</button>
+            <button type="button" data-s="3" class="on" role="radio" aria-checked="true">3 or more</button>
+            <button type="button" data-s="5" role="radio" aria-checked="false">5 or more</button>
+          </div>
+          <div class="legend" id="lgRule"></div>
+        </div>
       </div>
-    </div>
-    <div class="ctl">
-      <div class="lbl" id="lblSev">Hurricane-force passes since 1960</div>
-      <div class="seg" id="sevSeg" role="radiogroup" aria-labelledby="lblSev">
-        <button type="button" data-s="0" role="radio" aria-checked="false">Any</button>
-        <button type="button" data-s="3" class="on" role="radio" aria-checked="true">3 or more</button>
-        <button type="button" data-s="5" role="radio" aria-checked="false">5 or more</button>
+      <div class="theme" data-t="landscape">
+        <label class="trow"><input type="radio" name="theme" value="landscape"><span data-icon="mountain" data-size="18"></span><span>Landscape: coast, floodplain, hills</span></label>
+        <div class="tbody"><div class="legend" id="lgLand"></div></div>
       </div>
-    </div>
-    <div class="ctl">
-      <div class="lbl" id="lblCrop">Or colour the map by a crop</div>
-      <div class="chips crops" id="cropSeg" role="radiogroup" aria-labelledby="lblCrop">
-        <button type="button" class="chip" data-c="aman">Aman rice</button>
-        <button type="button" class="chip" data-c="boro">Boro rice</button>
-        <button type="button" class="chip" data-c="aus">Aus rice</button>
-        <button type="button" class="chip" data-c="wheat">Wheat</button>
-        <button type="button" class="chip" data-c="potato">Potato</button>
+      <div class="theme" data-t="crop">
+        <label class="trow"><input type="radio" name="theme" value="crop"><span data-icon="wheat" data-size="18"></span><span>A crop</span></label>
+        <div class="tbody">
+          <div class="chips crops" id="cropSeg" role="radiogroup" aria-label="Crop">
+            <button type="button" class="chip on" data-c="aman">Aman rice</button>
+            <button type="button" class="chip" data-c="boro">Boro rice</button>
+            <button type="button" class="chip" data-c="aus">Aus rice</button>
+            <button type="button" class="chip" data-c="wheat">Wheat</button>
+            <button type="button" class="chip" data-c="potato">Potato</button>
+          </div>
+          <div class="legend" id="lgCrop"></div>
+        </div>
       </div>
+      <div class="tsec">Show on the map</div>
+      <label class="trow ov"><input type="checkbox" data-layer="rivers"><i class="sw line" style="background:#2171b5"></i><span>Rivers and flow</span></label>
+      <label class="trow ov"><input type="checkbox" data-layer="riverLabels"><i class="sw txt">Aa</i><span>River names</span></label>
+      <label class="trow ov"><input type="checkbox" data-layer="labels"><i class="sw txt">Aa</i><span>Towns</span></label>
+      <label class="trow ov"><input type="checkbox" data-layer="borders"><i class="sw box"></i><span>District borders</span></label>
+      <label class="trow ov"><input type="checkbox" data-layer="storms"><i class="sw line" style="background:#e31a1c"></i><span>Cyclone tracks</span></label>
+      <label class="trow ov"><input type="checkbox" data-layer="uBathy"><i class="sw ramp" style="background:linear-gradient(90deg,#deebf7,#2171b5)"></i><span>Depth of the Bay</span></label>
+      <div class="tsec" id="rankHead">Ranking</div>
+      <ol id="rankList" aria-label="Ranked districts"></ol>
+      <div class="tsec">Play a cyclone</div>
+      <div class="chips" id="stormChips"></div>
+      <p class="src">GPW 2015 people on SRTM land; IBTrACS tracks within 50 km; BARC 2018 zones; BBS crops; BBS 2022 boundaries.</p>
     </div>
-    <ol id="rankList" aria-label="Ranked districts"></ol>
-    <div class="lbl">Play a cyclone</div>
-    <div class="chips" id="stormChips"></div>
-    <p class="src">GPW 2015 people on SRTM land; IBTrACS tracks within 50 km; BBS 2022 boundaries.</p>
   </div>
 
   <nav class="pnav" aria-label="Step navigation">
@@ -187,9 +211,11 @@
     <button type="button" class="speed" id="speedBtn" aria-label="Playback speed">1×</button>
   </div>
 
-  <div class="hint" id="hint" hidden role="note">
-    <span>Drag to pan · Scroll to zoom · Right-drag to turn in 3D · <kbd>?</kbd> for shortcuts</span>
-    <button type="button" aria-label="Dismiss" id="hintClose">×</button>
+  <div class="status" id="status" aria-live="off">
+    <div class="sb-scale"><i id="sbBar"></i><span id="sbKm">100 km</span></div>
+    <div class="sb-where"><span data-icon="pin" data-size="14"></span><span id="sbPos">23.70° N, 90.40° E</span><b id="sbDist"></b></div>
+    <div class="sb-hint" id="sbHint">Drag to move · Scroll to zoom</div>
+    <div class="sb-view" id="sbView">3D · bearing 0° · tilt 38°</div>
   </div>
 </div>
 
@@ -254,6 +280,6 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js?v=8"></script>
+<script type="module" src="js/main.js?v=9"></script>
 </body>
 </html>

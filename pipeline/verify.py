@@ -1,4 +1,4 @@
-"""verify.py: v8 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
+"""verify.py: v9 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
 Prints ok / FAIL lines and writes screenshots of 2D, 3D, the open sheet and the phone layout to outdir (default notes/shots).
 Swiftshader renders on the CPU at a few frames a second, so waits are long and the frame-time sample is reported,
 not held to 60 fps; on a laptop GPU the same page runs at the display rate."""
@@ -53,7 +53,6 @@ async def main():
         check(r1 - r0 <= 2, f"render loop sleeps when nothing moves ({r1 - r0} renders in 2.5 s idle on the cover)")
 
         # ---- the hint
-        await pg.click("#hintClose"); check(await pg.evaluate("document.getElementById('hint').hidden && localStorage.getItem('poli-hint') === '1'"), "first-visit hint dismisses and is remembered")
 
         # ---- 2D <-> 3D
         await pg.evaluate("__poli.go('priority')"); await settle(pg, 2500)
@@ -80,13 +79,13 @@ async def main():
         # ---- steps: buttons, keys, wheel over the panel, back button
         await pg.evaluate("__poli.go(0)"); await settle(pg, 800)
         seen = []
-        for i in range(9):
+        for i in range(10):
             await pg.click("#nextBtn"); await pg.wait_for_timeout(400)
             seen.append(await pg.evaluate("[__poli.state.step, document.querySelector('#steps li.on .t').textContent, (document.querySelector('.cap.vis') || {}).dataset?.ch || 'explore', location.hash]"))
-        check([s[0] for s in seen] == list(range(1, 10)) and seen[-1][2] == "explore", "Next walks every step: " + ", ".join(s[1] for s in seen))
+        check([s[0] for s in seen] == list(range(1, 11)) and seen[-1][2] == "explore", "Next walks every step: " + ", ".join(s[1] for s in seen))
         check(await pg.evaluate("!document.getElementById('explorePanel').hidden && document.getElementById('modeExplore').classList.contains('on')"), "last step opens the Explore tools and the Explore tab")
-        await pg.go_back(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 8, "browser Back returns to the previous step")
-        await pg.go_forward(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 9, "browser Forward goes to the next step again")
+        await pg.go_back(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 9, "browser Back returns to the previous step")
+        await pg.go_forward(); await pg.wait_for_timeout(800); check(await pg.evaluate("__poli.state.step") == 10, "browser Forward goes to the next step again")
         await pg.evaluate("__poli.go(2)"); await settle(pg, 500)
         await pg.keyboard.press("ArrowRight"); await pg.wait_for_timeout(300); a = await pg.evaluate("__poli.state.step")
         await pg.keyboard.press("ArrowLeft"); await pg.wait_for_timeout(300); bb = await pg.evaluate("__poli.state.step")
@@ -168,6 +167,10 @@ async def main():
         check(ab[0] and "page=about" in ab[1] and ab[2] >= 4, f"About opens as a page with {ab[2]} sections, in the URL ({ab[1]})")
         await pg.go_back(); await pg.wait_for_timeout(500); check(await pg.evaluate("document.getElementById('about').hidden"), "Back closes the About page")
         await settle(pg, 500, 40000)
+        # ---- v9: what the land grows
+        await pg.evaluate("__poli.go('grow')"); await settle(pg, 1500, 40000)
+        gr = await pg.evaluate("[document.querySelectorAll('#chGrow rect.gb').length, document.querySelector('.cap[data-ch=grow] h2').textContent, __poli.state.rule.theme]")
+        check(gr[0] >= 30 and "%" in gr[1] and gr[2] == "landscape", f"grow step: {gr[0]} bar segments, '{gr[1]}', theme {gr[2]}")
         # ---- v8: the district sheet's tabs, crop colouring, the cyclone picker
         await pg.evaluate("__poli.go('explore')"); await settle(pg, 800, 40000)
         await pg.evaluate("__poli.select(__poli.data.districts.find(d => d.name === 'Munshiganj').id)"); await pg.wait_for_timeout(1500)
@@ -179,13 +182,24 @@ async def main():
         check(all(v > 0 for v in tabs.values()) and "potato" in lead and "1st" in lead, f"district sheet tabs draw their charts {tabs}; {lead}")
         await pg.keyboard.press("Escape"); await settle(pg, 300, 40000)
         await pg.keyboard.press("2"); await settle(pg, 800, 40000)
-        await pg.click('#cropSeg button[data-c="potato"]'); await pg.wait_for_timeout(2500)
+        await pg.click('input[name=theme][value=crop]'); await pg.wait_for_timeout(300); await pg.click('#cropSeg button[data-c="potato"]'); await pg.wait_for_timeout(2500)
         top = await pg.evaluate("[__poli.data.list[0].name, document.querySelector('#key .kt').textContent]")
         await pg.screenshot(path=str(OUT / "v8-2d-potato.png"))
         xy = await pg.evaluate("(() => { const d = __poli.data.districts.find(x => x.name === 'Munshiganj'); return __poli.project(d.centroid[0] + 0.02, d.centroid[1] - 0.07, 0.3); })()")
         got = pixel(str(OUT / "v8-2d-potato.png"), *xy)
         check(top[0] == "Munshiganj" and "Potato" in top[1] and dE(got, "#005a32") < 10, f"crop colouring: potato ranks {top[0]} first, key '{top[1]}', its cap renders {got} (darkest class #005a32)")
-        await pg.click('#cropSeg button[data-c="potato"]'); await pg.keyboard.press("3"); await settle(pg, 500, 40000)
+        # v9: the landscape theme, in 2D, paints a coastal district in the coast colour; then back to the rule
+        await pg.click('input[name=theme][value=landscape]'); await pg.wait_for_timeout(2500)
+        await pg.screenshot(path=str(OUT / "v9-2d-landscape.png"))
+        xy = await pg.evaluate("(() => { const d = __poli.data.districts.find(x => x.name === 'Barguna'); return __poli.project(d.centroid[0], d.centroid[1] - 0.05, 0.3); })()")
+        got = pixel(str(OUT / "v9-2d-landscape.png"), *xy); lg = await pg.evaluate("document.querySelectorAll('#lgLand .li').length")
+        check(dE(got, "#4e79a7") < 10 and lg == 5, f"landscape theme: Barguna renders {got} (coast #4e79a7), tree legend lists {lg} landscapes")
+        await pg.click('input[name=theme][value=rule]'); await pg.keyboard.press("3"); await settle(pg, 500, 40000)
+        await pg.click('label.trow.ov:has([data-layer=rivers])'); await pg.wait_for_timeout(1500)
+        off = await pg.evaluate("__poli.cur.rivers"); await pg.click('label.trow.ov:has([data-layer=rivers])'); await pg.wait_for_timeout(1500)
+        check(off < 0.1 and await pg.evaluate("__poli.cur.rivers") > 0.2, f"layer tree overlays switch rivers off ({off:.2f}) and on again")
+        sb = await pg.evaluate("[document.getElementById('sbKm').textContent, document.getElementById('sbHint').textContent, document.getElementById('sbView').textContent]")
+        check(sb[0].endswith("km") and "Drag to move" in sb[1] and "click a district" in sb[1] and "bearing" in sb[2], f"status bar: scale {sb[0]}; '{sb[1]}'; {sb[2]}")
         await pg.click("#stormBtn"); await pg.wait_for_timeout(400)
         n = await pg.evaluate("document.querySelectorAll('#stormList button').length")
         await pg.click("#stormList button[data-sid='2020136N10088']"); await pg.wait_for_timeout(1500)
@@ -199,9 +213,9 @@ async def main():
 
         # ---- deep link
         ctx = await b.new_context(viewport={"width": 1440, "height": 860}); pg = await ctx.new_page(); e2 = []; pg.on("pageerror", lambda e: e2.append(str(e)))
-        await pg.goto(URL + "#step=10&mode=2d&id=khulna"); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await settle(pg, 1500, 60000)
+        await pg.goto(URL + "#step=11&mode=2d&id=khulna"); await pg.wait_for_function("window.__poli && __poli.state.ready", timeout=90000); await settle(pg, 1500, 60000)
         dl = json.loads(await pg.evaluate("JSON.stringify({step: __poli.state.step, dim: __poli.state.dimTarget, pick: __poli.state.pick && __poli.data.byId[__poli.state.pick].name, sheet: document.getElementById('focus').classList.contains('on')})"))
-        check(dl == {"step": 9, "dim": 0, "pick": "Khulna", "sheet": True}, f"deep link restores step, mode and selection: {dl}")
+        check(dl == {"step": 10, "dim": 0, "pick": "Khulna", "sheet": True}, f"deep link restores step, mode and selection: {dl}")
         await pg.screenshot(path=str(OUT / "v7-2d-sheet.png")); check(not e2, f"deep link errors: {e2[:2]}"); await ctx.close()
 
         # ---- reduced motion

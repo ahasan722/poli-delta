@@ -1,4 +1,4 @@
-// story.js  --  v7: the steps of the story.
+// story.js  --  v9: the steps of the story.
 // Each step frames a box of ground (view), sets the relief's uniforms (u) and layer opacities (layers),
 // and may own a timeline (time): a value that plays from `from` to `to` and can be scrubbed.
 //   view: { box: [W, S, E, N], pitch: degrees from straight down (0 = flat map), az: bearing of the camera
@@ -26,6 +26,7 @@ export const CHAPTERS = [
   { id: "storms", nav: "Cyclones", view: V([87.4, 17.6, 93.0, 25.4], 34, 186, 10), u: U({ uFar: 0.5 }), layers: L({ storms: 1, wind: 0.9, rivers: 0.25, labels: 0.55, year: 1960 }),
     time: { key: "year", label: "Year", from: 1960, to: 2025, dur: 12, ticks: [1960, 1980, 2000, 2020], fmt: v => String(Math.floor(v)), tick: v => v } },
   { id: "priority", nav: "The ten", view: V([88.6, 20.9, 92.4, 23.9], 34, 192, 50), u: U({ uFar: 0.3, uRiverGlow: 0.2 }), layers: L({ prisms: 1, ranks: 1, rivers: 0.15, labels: 0, borders: 1, grow: 1 }) },
+  { id: "grow", nav: "What it grows", theme: "landscape", view: V([88.0, 20.6, 92.7, 26.7], 36, 192, 40), u: U({ uFar: 0.3, uRiverGlow: 0.2 }), layers: L({ prisms: 1, ranks: 0, rivers: 0.15, labels: 0, borders: 1, grow: 1 }) },
   { id: "raise", nav: "What works", view: V([88.55, 22.25, 90.0, 23.5], 40, 200, 16), u: U({ uExag: 20, uRiverGlow: 0.15 }), layers: L({ rivers: 0.3, site: 1, labels: 0.6 }) },
   { id: "explore", nav: "Your turn", view: V([88.3, 20.7, 92.6, 25.6], 38, 194, 50), u: U({ uFar: 0.3, uRiverGlow: 0.3 }), layers: L({ prisms: 1, ranks: 1, rivers: 0.25, labels: 0, borders: 1, grow: 1 }), explore: true },
 ];

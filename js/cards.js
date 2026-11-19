@@ -3,8 +3,8 @@
 // Rivers (channels, water, the named rivers and their flow), Land and crops (agro-ecological zones, land cover,
 // the five major crops and the district's share of each) and Cyclones (every pass within 50 km since 1960).
 // Every chart draws itself in when its tab opens.
-import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER } from "./palette.js?v=8";
-import { icon } from "./icons.js?v=8";
+import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=9";
+import { icon } from "./icons.js?v=9";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line, soft: "#f3f4f6" };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map
@@ -54,11 +54,12 @@ function riverBars(parent, named) {
 function aezBar(parent, aez) {
   const zones = D.agri.zones; const tot = d3.sum(aez, a => a[1]); const { s, w } = svg(parent, 30 + aez.length * 26);
   const x = d3.scaleLinear().domain([0, tot]).range([0, w]); let acc = 0;
-  aez.forEach(([z, ha], i) => { s.append("rect").attr("x", x(acc)).attr("y", 0).attr("height", 18).attr("fill", AEZ_COL[Math.min(i, 5)]).attr("width", 0)
+  const col = z => REGION[D.agri.region_of_zone[z]] || AEZ_COL[1];
+  aez.forEach(([z, ha], i) => { s.append("rect").attr("x", x(acc)).attr("y", 0).attr("height", 18).attr("fill", col(z)).attr("width", 0)
       .transition().delay(i * 120).duration(600 * T()).attr("width", Math.max(0, x(ha) - 1.5)); acc += ha; });
   aez.forEach(([z, ha], i) => { const y = 30 + i * 26;
-    s.append("rect").attr("x", 0).attr("y", y + 3).attr("width", 12).attr("height", 12).attr("rx", 2).attr("fill", AEZ_COL[Math.min(i, 5)]);
-    s.append("text").attr("x", 20).attr("y", y + 13).attr("fill", C.ink).attr("font-size", 13.5).text(`${z}. ${zones[z].name}`);
+    s.append("rect").attr("x", 0).attr("y", y + 3).attr("width", 12).attr("height", 12).attr("rx", 2).attr("fill", col(z));
+    s.append("text").attr("x", 20).attr("y", y + 13).attr("fill", C.ink).attr("font-size", 13.5).text(`${z}. ${zones[z].name}`).append("tspan").attr("fill", C.dim).attr("font-size", 12).text("  " + D.agri.regions[D.agri.region_of_zone[z]].toLowerCase());
     s.append("text").attr("x", w).attr("y", y + 13).attr("text-anchor", "end").attr("fill", C.ink).attr("font-size", 12.5).attr("font-family", "IBM Plex Mono").text(Math.round(ha / tot * 100) + "%"); });
 }
 function coverBar(parent, cover) {
@@ -71,7 +72,7 @@ function coverBar(parent, cover) {
 }
 function cropBars(parent, a) {
   const crops = Object.keys(CROP_NAME); const nat = D.agri.national; const share = c => (a.crops[c] || 0) / nat[c] * 100;
-  const max = Math.max(4, d3.max(crops, share)); const { s, w } = svg(parent, crops.length * 44 + 4); const x = d3.scaleLinear().domain([0, max]).range([0, w - 190]);
+  const max = Math.max(4, d3.max(crops, share)); const { s, w } = svg(parent, crops.length * 44 + 4); const x = d3.scaleLinear().domain([0, max]).range([0, w - 225]);
   const lead = crops.reduce((b, c) => share(c) > share(b) ? c : b, crops[0]);
   crops.forEach((c, i) => { const y = i * 44; const rk = a.crop_rank[c];
     s.append("text").attr("x", 0).attr("y", y + 14).attr("fill", C.ink).attr("font-size", 14).attr("font-weight", c === lead ? 600 : 500).text(CROP_NAME[c]);
@@ -147,6 +148,7 @@ export const cards = {
           <p class="src">HydroRIVERS v1.0 reaches and long-term mean discharge, cut at the district line on a 0.7 km grid. Water share: ESA WorldCover 2021.</p>
         </div>
         <div class="pane" data-p="lc">
+          <p class="land">${Object.entries(a.regions || {}).map(([k, v]) => `<span><i style="background:${REGION[k]}"></i>${Math.round(v * 100)}% ${D.agri.regions[k].toLowerCase()}</span>`).join("")}</p>
           ${a.aez.length ? `<div class="sub">Agro-ecological zones</div><div class="fig" id="fAez"></div>` : `<p class="note">${d.name} is not listed among the main districts of any zone in the BARC table.</p>`}
           <div class="sub">What covers the land</div><div class="fig" id="fCover"></div>
           <div class="sub">Major crops: share of national output</div><p class="note" id="fLead"></p><div class="fig" id="fCrop"></div>
