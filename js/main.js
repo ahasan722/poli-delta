@@ -1,22 +1,23 @@
-// main.js  --  v13: one scene, one camera, two views of it.
+// main.js  --  v14: one scene, one camera, two views of it.
 // 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
 // camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
 // runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
 // Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
 // Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=13";
-import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=13";
-import { CHAPTERS, SITE } from "./story.js?v=13";
-import { charts } from "./charts.js?v=13";
-import { cards } from "./cards.js?v=13";
-import { WindField, StormPlayer } from "./wind.js?v=13";
-import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex, WET, BIRD, FISHR, MANGROVE, TEA, SEASONCOL, ROAD, RAIL } from "./palette.js?v=13";
-import { buildTransport, updateTransport } from "./transport.js?v=13";
-import { buildV12, updateV12, drawCalendar, drawTea, drawTeaOut, drawTigers, drawSundFish, inField, MONTH } from "./v12.js?v=13";
-import { buildWet, updateWet, wetAt, haorR, drawHaorDistricts, drawBirds, drawFishNational, drawFishSpecies, sparkKt } from "./wet.js?v=13";
-import { icon, hydrate, STEP_ICON } from "./icons.js?v=13";
-import { buildAtlas, updateAtlas, drawMerge, drawHilsa, drawHalda, drawClock, drawDecades, drawFloodYears, drawErosion, seasonOf, monthOf } from "./atlas.js?v=13";
+import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=14";
+import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=14";
+import { CHAPTERS, SITE } from "./story.js?v=14";
+import { charts } from "./charts.js?v=14";
+import { cards } from "./cards.js?v=14";
+import { WindField, StormPlayer } from "./wind.js?v=14";
+import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex, WET, BIRD, FISHR, MANGROVE, TEA, SEASONCOL, ROAD, RAIL, RAIN } from "./palette.js?v=14";
+import { buildTransport, updateTransport } from "./transport.js?v=14";
+import { buildRain, drawRainYear, drawRainYears, rainHex } from "./rain.js?v=14";
+import { buildV12, updateV12, drawCalendar, drawTea, drawTeaOut, drawTigers, drawSundFish, inField, MONTH } from "./v12.js?v=14";
+import { buildWet, updateWet, wetAt, haorR, drawHaorDistricts, drawBirds, drawFishNational, drawFishSpecies, sparkKt } from "./wet.js?v=14";
+import { icon, hydrate, STEP_ICON } from "./icons.js?v=14";
+import { buildAtlas, updateAtlas, drawMerge, drawHilsa, drawHalda, drawClock, drawDecades, drawFloodYears, drawErosion, seasonOf, monthOf } from "./atlas.js?v=14";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
@@ -40,10 +41,10 @@ const DEFAULT_RULE = { theme: "rule", metric: "pop_le5", sevMin: 3, crop: "aman"
 const FOV = 26, DUR_DIM = 1.4;
 const state = {
   step: 0, lastStory: 0, dimTarget: 1, dimP: 0, pick: 0, hover: 0, storm: null, rule: { ...DEFAULT_RULE },
-  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, season: "all", haz: "floods", fishTab: "hilsa", wetTab: "haors", trk: { q: "", k: 0, sort: -1, view: "list" }, hoverStorm: null, wetHover: null, about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
+  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, season: "all", haz: "rain", trMode: "all", fishTab: "hilsa", wetTab: "haors", trk: { q: "", k: 0, sort: -1, view: "list" }, hoverStorm: null, wetHover: null, about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
 };
 const D = {};
-let atlasG = null, wetG = null, v12G = null, trG = null, cal = null, eye = null, renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
+let atlasG = null, wetG = null, v12G = null, trG = null, rainL = null, rainCh = null, cal = null, eye = null, renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
 const cur = {};                       // the values on screen, eased toward the step's targets
 
 // ---- loading, with real progress ------------------------------------------------------------------
@@ -121,10 +122,10 @@ const stepPose = i => { const v = CHAPTERS[i].view; return state.dimTarget ? fit
 // ---- boot ------------------------------------------------------------------------------------------
 async function boot() {
   state.gl = hasGL();
-  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri, atlas, wet, v12, v13, transport] = await Promise.all([
+  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri, atlas, wet, v12, v13, transport, rain] = await Promise.all([
     loadImg("data/height.png"), loadImg("data/mask.png"), loadImg("data/cover.png"), loadImg("data/cover_rgb.png"), loadImg("data/district_id.png"),
     loadJson("data/rivers_far.geojson"), loadJson("data/storms.json"), loadJson("data/exposure.json"), loadJson("data/rivers.json"),
-    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json"), loadJson("data/atlas.json"), loadJson("data/wet.json"), loadJson("data/v12.json"), loadJson("data/v13.json"), loadJson("data/transport.json")
+    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json"), loadJson("data/atlas.json"), loadJson("data/wet.json"), loadJson("data/v12.json"), loadJson("data/v13.json"), loadJson("data/transport.json"), loadJson("data/rain.json")
   ]);
   try { await Promise.all(['500 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '500 20px "Newsreader"'].map(f => document.fonts.load(f))); } catch (e) {}
   tick();
@@ -137,7 +138,7 @@ async function boot() {
   ds.forEach(d => { const a = agri.districts[d.id]; const f = wet.fish[d.name]; if (a && f) for (const k in FK) a.crops[k] = f[FK[k]]; });
   for (const k in FK) agri.crop_years[k] = wet.fish_year;
   // v13: jute, maize, onion and garlic from the 2024 yearbook (2023-24); bagda and galda farms; ranks among the 64 for every crop
-  D.v12 = v12; D.v13 = v13; D.tr = transport;
+  D.v12 = v12; D.v13 = v13; D.tr = transport; D.rain = rain;
   for (const c of ["jute", "maize", "onion", "garlic"]) { ds.forEach(d => { const a = agri.districts[d.id]; if (a) a.crops[c] = v13.crops[c][d.name] || 0; }); agri.crop_years[c] = v13.year; agri.national[c] = v13.nat[c]; }
   ds.forEach(d => { const a = agri.districts[d.id]; if (a) { a.crops.fish_bagda = v13.shrimp.bagda[d.name] || 0; a.crops.fish_galda = v13.shrimp.galda[d.name] || 0; } }); agri.crop_years.fish_bagda = agri.crop_years.fish_galda = v13.year;
   for (const c of Object.keys(agri.national)) { const order = ds.filter(d => agri.districts[d.id]).sort((x, y) => (agri.districts[y.id].crops[c] || 0) - (agri.districts[x.id].crops[c] || 0)); order.forEach((d, i) => { const a = agri.districts[d.id]; a.crop_rank = a.crop_rank || {}; a.crop_rank[c] = i + 1; }); }
@@ -195,6 +196,7 @@ function buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }) 
   atlasG = buildAtlas(D.atlas, D.riversJson, sampleH, 14); Object.values(atlasG).forEach(g => scene.add(g));
   wetG = buildWet(D.wet); Object.values(wetG).forEach(g => scene.add(g));
   trG = buildTransport(D.tr, sampleH, 14); scene.add(trG);
+  rainL = buildRain(D.rain, (lon, lat) => { const px = Math.min(D.idW - 1, Math.floor((lon - GRID.W) / (GRID.E - GRID.W) * D.idW)), py = Math.min(D.idH - 1, Math.floor((GRID.N - lat) / (GRID.N - GRID.S) * D.idH)); return D.idPix[(py * D.idW + px) * 4] > 0; }); scene.add(rainL);
   v12G = buildV12(D.v12, Object.fromEntries(D.districts.map(d => [d.name, d.centroid]))); Object.values(v12G).forEach(g => scene.add(g));
   // the eye of a storm being played: a ring as wide as its wind and a dot that follows the track
   eye = new THREE.Group(); const er = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 64), new THREE.MeshBasicMaterial({ color: 0x111827, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); er.rotation.x = -Math.PI / 2; er.name = "ring";
@@ -218,9 +220,11 @@ const fieldCrops = m => D.v12.calendar.filter(c => inField(c.field, m));
 const seasonOf2 = (d, m) => fieldCrops(m).reduce((a, c) => a + cropOf(d, c.crop), 0);
 const seasonTop = (d, m) => { let best = null, bv = 0; for (const c of fieldCrops(m)) { const v = cropOf(d, c.crop); if (v > bv) { bv = v; best = c.crop; } } return best; };
 let seasonMax = 0;
+const rainOf = (d, m) => (D.rain.districts[d.name] || [])[m] || 0;
 function rankBy(rule) {
   if (isCrop(rule)) return D.districts.slice().sort((a, b) => cropOf(b, rule.crop) - cropOf(a, rule.crop));
   if (rule.theme === "landscape") return D.districts.slice().sort((a, b) => riceOf(b) - riceOf(a));
+  if (rule.theme === "rain") return D.districts.slice().sort((a, b) => rainOf(b, rule.month || 0) - rainOf(a, rule.month || 0));
   if (rule.theme === "season") return D.districts.slice().sort((a, b) => seasonOf2(b, rule.month || 0) - seasonOf2(a, rule.month || 0));
   return D.districts.filter(d => d.severe >= rule.sevMin).sort((a, b) => b[rule.metric] - a[rule.metric] || b.pop_le5 - a.pop_le5);
 }
@@ -231,7 +235,7 @@ const rampOf = c => c && c.startsWith("fish") ? FISHR : CROP;
 const cropHex = (v, br, c) => rampOf(c)[d3.bisectRight(br, v)];
 const OUTC = new THREE.Color(BASE.out);
 const HEIGHT = { pop_le5: v => v / 1e6 * 32, pop_le2: v => v / 1e6 * 48, severe: v => v * 7 };
-function colourOf(d, r, br) { if (r.theme === "season") { const t = seasonTop(d, r.month || 0); return t ? SEASONCOL[t] : BASE.out; } return isCrop(r) ? cropHex(cropOf(d, r.crop), br, r.crop) : r.theme === "landscape" ? REGION[regionOf(d)] : d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }
+function colourOf(d, r, br) { if (r.theme === "rain") return rainHex(rainOf(d, r.month || 0)); if (r.theme === "season") { const t = seasonTop(d, r.month || 0); return t ? SEASONCOL[t] : BASE.out; } return isCrop(r) ? cropHex(cropOf(d, r.crop), br, r.crop) : r.theme === "landscape" ? REGION[regionOf(d)] : d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }
 function applyRule() {
   const r = state.rule; const list = rankBy(r); D.list = list; const order = new Map(list.map((d, i) => [d.id, i]));
   const br = isCrop(r) ? cropBreaks(r.crop) : null; const cmax = isCrop(r) ? d3.max(D.districts, d => cropOf(d, r.crop)) : d3.max(D.districts, riceOf);
@@ -239,7 +243,7 @@ function applyRule() {
     prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = r.theme !== "rule" || d.severe >= r.sevMin;
       m.userData.q = q; m.userData.rank = order.has(d.id) ? order.get(d.id) : 99;
       if (r.theme === "season" && !seasonMax) for (let k = 0; k < 12; k++) seasonMax = Math.max(seasonMax, d3.max(D.districts, x => seasonOf2(x, k)));
-      m.userData.h = Math.max(0.3, r.theme === "season" ? seasonOf2(d, r.month || 0) / seasonMax * 45 : isCrop(r) ? cropOf(d, r.crop) / cmax * 45 : r.theme === "landscape" ? riceOf(d) / cmax * 40 : HEIGHT[r.metric](d[r.metric]));
+      m.userData.h = Math.max(0.3, r.theme === "rain" ? rainOf(d, r.month || 0) / 960 * 50 : r.theme === "season" ? seasonOf2(d, r.month || 0) / seasonMax * 45 : isCrop(r) ? cropOf(d, r.crop) / cmax * 45 : r.theme === "landscape" ? riceOf(d) / cmax * 40 : HEIGHT[r.metric](d[r.metric]));
       m.userData.col = new THREE.Color(colourOf(d, r, br)); });
     ranks.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); ranks.clear();
     list.slice(0, r.theme === "rule" ? 10 : 5).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
@@ -262,7 +266,7 @@ function goStep(i, { push = true, instant = false } = {}) {
   if (!ch.explore && !ch.section) state.lastStory = i;
   if (state.storm && !ch.explore && ch.id !== "cyclones" && ch.id !== "sundarbans") stopStorm();
   if (state.pick && !pickable()) clearFocus(false);
-  if (!ch.explore) { const want = { ...DEFAULT_RULE, theme: ch.theme || "rule", ...(ch.crop ? { crop: ch.crop } : {}), ...(ch.theme === "season" ? { month: 0 } : {}) };
+  if (!ch.explore) { const want = { ...DEFAULT_RULE, theme: ch.theme || "rule", ...(ch.crop ? { crop: ch.crop } : {}), ...(ch.theme === "season" || ch.theme === "rain" ? { month: 0 } : {}) };
     if (["theme", "metric", "sevMin", "crop", "month"].some(k => state.rule[k] !== want[k])) { state.rule = want; syncTree(); applyRule(); } }
   // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
   setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
@@ -362,7 +366,7 @@ function frame(now) {
   applyOffset(camera, off); pose(camera, cam);
   const vw = view(cam); $("needle").style.transform = `rotate(${(180 - vw.az).toFixed(1)}deg)`;
   // continuous animations that need frames
-  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || v.junctions > 0.05 || v.fishrun > 0.05 || v.coastpts > 0.05 || v.birdflow > 0.05 || v.beels > 0.05 || v.birds > 0.05 || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
+  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || v.junctions > 0.05 || v.fishrun > 0.05 || v.coastpts > 0.05 || v.birdflow > 0.05 || v.beels > 0.05 || v.birds > 0.05 || v.transport > 0.05 || v.rain > 0.05 || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
   if (!(moving || live || interacting || need > 0)) { lastFrame = now; return; }
   need = Math.max(0, need - 1);
   scene.fog.near = cam.d * 1.2; scene.fog.far = cam.d * 3.2;
@@ -378,12 +382,14 @@ function frame(now) {
   farRivers.children.forEach(o => { const u = o.material.uniforms; u.uOpacity.value = 0.6 * v.farRivers; u.uTime.value = time; u.uFlow.value = v.flow; });
   labels.children.forEach(s => s.material.opacity = v.labels * lf);
   districts.children.forEach(l => { const sel = l.userData.id === state.pick; l.material.color.setHex(sel ? hex(BASE.ink) : hex(BASE.outline)); l.material.opacity = sel ? 0.95 : 0.55 * v.borders; });
-  stormLayer(v, lf); prismLayer(v, P, lf); updateAtlas(atlasG, v, time, lf, 1); updateWet(wetG, v, time, lf); updateV12(v12G, v, time, lf); updateTransport(trG, v.transport || 0, lf); eyeLayer(time); seasonTick(v);
+  stormLayer(v, lf); prismLayer(v, P, lf); updateAtlas(atlasG, v, time, lf, 1); updateWet(wetG, v, time, lf); updateV12(v12G, v, time, lf); eyeLayer(time);
+  rainL.visible = (v.rain || 0) > 0.01; rainL.material.uniforms.uOp.value = v.rain || 0; if (rainL.visible) rainL.userData.step(time, clamp(v.month || 0, 0, 11.999)); seasonTick(v);
   site.children.forEach(o => { o.material.opacity = v.site * (o.name === "ring" ? 0.45 + 0.45 * Math.sin(time * 2.4) : o.isSprite ? lf : 1); });
   site.children[1].scale.setScalar(1 + 0.25 * Math.sin(time * 2.4));
   readouts(v);
   // labels keep one size on screen
   const sc = camera.position.distanceTo(cam.look) / 1020;
+  updateTransport(trG, v.transport || 0, lf, time, sc, CHAPTERS[state.step].id === "transport" ? state.trMode : "all");
   const fit = s => { if (s.isSprite && s.userData.base) s.scale.set(s.userData.base.w * sc, s.userData.base.h * sc, 1); };
   Object.values(atlasG).forEach(g => g.visible && g.children.forEach(fit)); Object.values(wetG).forEach(g => g.visible && g.children.forEach(fit)); Object.values(v12G).forEach(g => g.visible && g.children.forEach(fit)); if (trG.visible) trG.children.forEach(fit); labels.children.forEach(fit); rivers.children.forEach(fit); ranks.children.forEach(fit); site.children.forEach(fit); storms.children.forEach(s => { if (s.userData.isStormLabel) fit(s); });
   if (state.storm && state.tl.def) { const s = player.storm; const n = s.pts.length; player.t = player.t0 + state.tl.t * (n - 1 - player.t0); syncTimeline(); }
@@ -481,7 +487,7 @@ function cropKey(c) { const br = cropBreaks(c); const f = v => v >= 1e6 ? f1(v /
   return [["", CROP_NAME[c] + ", tonnes (" + D.agri.crop_years[c] + ")"], ...rampOf(c).map((col, i) => [col, i === 0 ? "under " + f(br[0]) : i === 4 ? f(br[3]) + " and more" : f(br[i - 1]) + "–" + f(br[i])]).reverse()]; }
 const landKey = () => [["", "Main landscape of the district"], ...REGION_ORDER.map(k => [REGION[k], D.agri ? D.agri.regions[k] : k])];
 function showKey(id) {
-  const r = state.rule; const k = id === "seasons" ? [["", "Largest crop in the ground"], ...D.v12.calendar.map(c => [SEASONCOL[c.crop], c.name]), ["", "Height: tonnes in the ground"]] : id === "explore" || id === "crops" || id === "fishmap" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
+  const r = state.rule; const k = id === "rain" ? [["", "Rain this month, mm"], [RAIN[4], "500 and more"], [RAIN[3], "300 to 500"], [RAIN[2], "150 to 300"], [RAIN[1], "50 to 150"], [RAIN[0], "under 50"], ["l:#1e3a8a", "falling rain"]] : id === "seasons" ? [["", "Largest crop in the ground"], ...D.v12.calendar.map(c => [SEASONCOL[c.crop], c.name]), ["", "Height: tonnes in the ground"]] : id === "explore" || id === "crops" || id === "fishmap" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
   $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : c.startsWith("o:") ? `<div><i class="o" style="border-color:${c.slice(2)}"></i>${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
 }
 // the same keys, drawn inside the layer tree under the active theme
@@ -672,6 +678,9 @@ function showTip(id) {
   if (state.rule.theme === "landscape") { const sh = A(d.id) ? A(d.id).regions : {};
     tip.innerHTML = `<div class="t"><i style="background:${REGION[regionOf(d)]}"></i>${d.name}</div>` + Object.entries(sh).slice(0, 3).map(([k, v]) => `<div class="row">${D.agri.regions[k]} <b>${Math.round(v * 100)}%</b></div>`).join("") + `<div class="row">rice grown <b>${d3.format(",")(Math.round(riceOf(d) / 1000))}k t</b></div><div class="hintline">Click for details</div>`;
     tip.classList.add("on"); placeTip(...tipXY); return; }
+  if (state.rule.theme === "rain") { const m = state.rule.month || 0; const v = rainOf(d, m), yr = d3.sum(D.rain.districts[d.name] || []);
+    tip.innerHTML = `<div class="t"><i style="background:${rainHex(v)}"></i>${d.name}</div><div class="row">${MONTH[m]} <b>${fmt(v)} mm</b></div><div class="row">a year <b>${fmt(yr)} mm</b></div><div class="row" style="color:#6b7280">estimated from the nearest stations</div><div class="hintline">Click for details</div>`;
+    tip.classList.add("on"); placeTip(...tipXY); return; }
   if (state.rule.theme === "season") { const m = state.rule.month || 0; const fc = fieldCrops(m).map(c => [c, cropOf(d, c.crop)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
     tip.innerHTML = `<div class="t"><i style="background:${colourOf(d, state.rule)}"></i>${d.name}</div><div class="row">in the ground, ${MONTH[m]}</div>` + fc.slice(0, 4).map(([c, v]) => `<div class="row"><span style="color:${SEASONCOL[c.crop]}">●</span> ${c.name} <b>${fmt(Math.round(v / 1000))}k t</b></div>`).join("") + `<div class="hintline">Click for details</div>`;
     tip.classList.add("on"); placeTip(...tipXY); return; }
@@ -844,7 +853,7 @@ function openSection(ch) {
   const A = D.atlas; if (!A) return;
   if (ch.section === "rivers") { document.querySelectorAll("#rivSeg button").forEach(b => b.classList.toggle("on", b.dataset.r === ch.id)); document.querySelectorAll(".rpane").forEach(p => p.hidden = p.dataset.r !== ch.id); }
   if (ch.id === "rivers") drawMerge($("chMerge"), A);
-  if (ch.id === "transport") drawBridges($("chBridges"));
+  if (ch.id === "transport") { drawBridges($("chBridges")); showTrMode(state.trMode); }
   if (ch.id === "fish") showFish(state.fishTab === "district" ? "hilsa" : state.fishTab);
   if (ch.id === "fishmap") { showFish("district"); syncFishMetric(); renderFishRank(); drawFishNational($("chFishNat"), D.wet); drawFishSpecies($("chFishSp"), D.wet); }
   if (ch.section === "crops") { document.querySelectorAll("#cropSegTop button").forEach(b => b.classList.toggle("on", b.dataset.k === ch.id)); document.querySelectorAll(".kpane").forEach(p => p.hidden = p.dataset.k !== ch.id); }
@@ -858,6 +867,7 @@ function openSection(ch) {
   if (ch.id === "cyclones") showTrk(state.trk.view);
   if (ch.section === "hazards") { state.haz = ch.id; document.querySelectorAll("#hazSeg button").forEach(b => b.classList.toggle("on", b.dataset.h === ch.id)); document.querySelectorAll(".hpane").forEach(p => p.hidden = p.dataset.h !== ch.id);
     if (ch.id === "floods") drawFloodYears($("chFlood"), A);
+    if (ch.id === "rain") { rainCh = drawRainYear($("chRainYear"), D.rain, m => { state.tl.t = m / 11.999; state.tl.playing = false; syncTimeline(); kick(); }); rainCh.move(0); rainText(0); drawRainYears($("chRainYears"), D.rain); }
     if (ch.id === "erosion") drawErosion($("chEro"), A); }
 }
 // ---- cyclone tracker: a list you can filter, a clock of the seasons ------------------------------------------
@@ -894,10 +904,25 @@ function drawBridges(el) {
     g.append("rect").attr("x", x0).attr("y", 6).attr("height", 12).attr("rx", 2).attr("width", 0).attr("fill", b.rail ? RAIL.line : ROAD.major).transition().delay(i * 50 * (reduced ? 0 : 1)).duration(reduced ? 0 : 700).attr("width", x(b.km));
     g.append("text").attr("x", x0 + 6 + x(b.km)).attr("y", 16).attr("font-size", 11.5).attr("font-family", "IBM Plex Mono").attr("fill", BASE.ink).text(b.km.toFixed(1) + " km"); });
 }
+// ---- rain ------------------------------------------------------------------------------------------------
+function rainText(m) { $("rainMonth").textContent = MONTH[m]; $("rainMm").textContent = D.rain.national[m] + " mm"; }
+function showTrMode(mode) { state.trMode = mode; document.querySelectorAll("#trMode button").forEach(b => b.classList.toggle("on", b.dataset.m === mode)); document.querySelectorAll(".tm").forEach(p => p.hidden = p.dataset.m !== mode);
+  $("chBridges").style.display = mode === "all" || mode === "bridges" ? "" : "none";
+  const jv = mode === "all" || mode === "rails" ? "" : "none"; $("jctChips").style.display = jv; $("jctChips").previousElementSibling.style.display = jv;
+  if (mode === "roads") drawRoadLengths($("chRoads")); kick(); }
+function drawRoadLengths(el) {
+  const km = {}; D.tr.roads.filter(r => r.c === "N").forEach(r => { let L = 0; for (let i = 0; i < r.p.length - 1; i++) L += Math.hypot((r.p[i + 1][0] - r.p[i][0]) * 102.5, (r.p[i + 1][1] - r.p[i][1]) * 110.8); km[r.r] = (km[r.r] || 0) + L; });
+  const rows = Object.entries(km).sort((a, b) => a[0].localeCompare(b[0])); el.innerHTML = ""; const w = Math.max(280, el.clientWidth || 340); const x = d3.scaleLinear().domain([0, d3.max(rows, r => r[1])]).range([0, w - 110]);
+  const s = d3.select(el).append("svg").attr("width", w).attr("height", rows.length * 24 + 4).attr("font-family", "IBM Plex Sans, sans-serif");
+  rows.forEach(([r, v], i) => { const y = i * 24; s.append("text").attr("x", 0).attr("y", y + 15).attr("font-size", 13).attr("font-weight", 700).attr("fill", ROAD.major).text(r);
+    s.append("rect").attr("x", 40).attr("y", y + 5).attr("height", 12).attr("rx", 2).attr("fill", ROAD.major).attr("width", 0).transition().delay(i * 60 * (reduced ? 0 : 1)).duration(reduced ? 0 : 700).attr("width", x(v));
+    s.append("text").attr("x", 46 + x(v)).attr("y", y + 15).attr("font-size", 11.5).attr("font-family", "IBM Plex Mono").attr("fill", BASE.ink).text(Math.round(v) + " km"); });
+}
 // ---- the year in the fields --------------------------------------------------------------------------------
 function seasonTick(v) {
-  if (CHAPTERS[state.step].id !== "seasons" || state.rule.theme !== "season") return; const mv = clamp(v.month || 0, 0, 11.999); cal?.move(mv);
-  const m = Math.floor(mv); if (state.rule.month !== m) { state.rule.month = m; applyRule(); }
+  const id = CHAPTERS[state.step].id; if (!((id === "seasons" && state.rule.theme === "season") || (id === "rain" && state.rule.theme === "rain"))) return;
+  const mv = clamp(v.month || 0, 0, 11.999); (id === "rain" ? rainCh : cal)?.move(mv);
+  const m = Math.floor(mv); if (state.rule.month !== m) { state.rule.month = m; applyRule(); if (id === "rain") rainText(m); }
 }
 function renderCalNow() {
   const m = state.rule.month || 0; $("calMonth").textContent = MONTH[m]; $("calHead").textContent = `In the ground in ${MONTH[m]}`;
@@ -962,7 +987,17 @@ function bindSections() {
     $("fishLede").textContent = `Inland fish by district, ${W.fish_year}. Ponds gave ${Math.round(pond / all * 100)}% of all the country's fish that year. Shrimp and prawn farms cluster in the south-west.`; }
   $("fishMetric").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { setRule({ theme: "crop", crop: b.dataset.c }); syncFishMetric(); renderFishRank(); }));
   $("srcFishD").textContent = D.v13.shrimp_src + " " + W.fish_src + ` Shrimp and prawn farms cover ${fmt(W.shrimp_area_ha)} ha. "Farmed" is ponds, seasonal waterbodies, baors, shrimp farms, pens and cages; "caught" is rivers, the Sundarbans, beels, Kaptai Lake and floodplains.`;
+  // rain
+  const RR = D.rain; const wet = RR.stations[0], dry = RR.stations[RR.stations.length - 1];
+  $("rainLede").textContent = `Play the year: districts rise with the month's rain and rain falls over the land. ${Math.round(d3.sum(RR.national.slice(5, 9)) / d3.sum(RR.national) * 100)}% of the year's rain comes from June to September. ${wet.name} gets about ${fmt(wet.y)} mm a year, ${dry.name} about ${fmt(dry.y)}.`;
+  const rl = [...RR.stations.slice(0, 5), ...RR.stations.slice(-3)]; const rmax = wet.y;
+  $("rainList").innerHTML = rl.map((s, i) => `<li data-i="${i}" tabindex="0"${i === 5 ? ' class="cut"' : ""}><span class="r">${i < 5 ? i + 1 : RR.stations.length - (rl.length - 1 - i)}</span><span class="nm">${s.name}</span><span class="v">${fmt(s.y)} mm</span><span class="b"><i style="width:${(s.y / rmax * 100).toFixed(1)}%;background:${rainHex(d3.max(s.m))}"></i></span></li>`).join("");
+  $("rainList").querySelectorAll("li").forEach(li => li.addEventListener("click", () => { const s = rl[+li.dataset.i]; flyToPlace(s.lon, s.lat, 0.5, 44); place({ eyebrow: "BMD rain station", dot: "#3182bd", title: s.name, sub: `about ${fmt(s.y)} mm a year (${s.base}, record ${s.span[0]} to ${s.span[1]})`, body: `<table>${s.m.map((v, k) => `<tr><td>${MONTH[k]}</td><td>${fmt(v)} mm</td></tr>`).join("")}</table><p class="src">${RR.src}</p>` }); }));
+  $("srcRain").textContent = RR.src + " " + RR.src24;
   // rivers and transport
+  document.querySelectorAll("#trMode button").forEach(b => b.addEventListener("click", () => showTrMode(b.dataset.m)));
+  { let km = 0; D.tr.rails.forEach(l => { for (let i = 0; i < l.length - 1; i++) km += Math.hypot((l[i + 1][0] - l[i][0]) * 102.5, (l[i + 1][1] - l[i][1]) * 110.8); });
+    $("railLede").textContent = `About ${fmt(Math.round(km / 10) * 10)} km of main and branch line as drawn in OpenStreetMap (a double track drawn as two lines counts twice). The white dashes are the classic map sign for a railway; the yellow blocks are not real trains, they show the line is running. Junctions are where lines leave in three or more directions.`; }
   document.querySelectorAll("#rivSeg button").forEach(b => b.addEventListener("click", () => goStep(CHAPTERS.findIndex(c => c.id === b.dataset.r))));
   $("jctChips").innerHTML = D.tr.junctions.map((j, i) => `<button type="button" class="chip" data-i="${i}">${j.upazila}<small>${j.ends}</small></button>`).join("");
   $("jctChips").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const j = D.tr.junctions[+b.dataset.i]; flyToPlace(j.lon, j.lat, 0.18, 48);

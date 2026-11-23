@@ -591,3 +591,12 @@ body.in-section .key{display:flex}
 .rpane{animation:secIn 300ms var(--ease) both}
 #jctChips .chip small{margin-left:6px}
 @media (max-width:820px){ .key{font-size:13px;max-width:220px;padding:8px 10px} }
+
+/* ==== v14: rain, the transport modes ============================================================ */
+.chips.trmode{margin:0 0 12px}
+.chips.trmode .chip{height:34px;font-size:13.5px;padding:0 14px}
+.tm{animation:secIn 300ms var(--ease) both}
+.seg.seg3 button{font-size:13px}
+#rainList li.cut{border-top:1px dashed var(--line);margin-top:6px;padding-top:10px}
+/* the timeline sits between the key and the map buttons, never on top of the key */
+@media (min-width:821px){ .timeline{left:calc(300px + (100% - 300px - 80px) / 2);width:min(500px,calc(100% - 420px))} body.sheet-open .timeline{left:calc(300px + (100% - var(--sheetw) - 72px - 300px) / 2);width:min(420px,calc(100% - var(--sheetw) - 400px))} }

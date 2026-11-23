@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css?v=13">
+<link rel="stylesheet" href="css/poli.css?v=14">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -25,7 +25,7 @@
     <button type="button" id="modeFish" data-sec="fish" data-group="fish" role="tab" aria-selected="false"><span data-icon="fish"></span><span>Fish</span></button>
     <button type="button" id="modeCrops" data-sec="crops" data-group="crops" role="tab" aria-selected="false"><span data-icon="wheat"></span><span>Crops</span></button>
     <button type="button" id="modeCyclones" data-sec="cyclones" data-group="cyclones" role="tab" aria-selected="false"><span data-icon="cyclone"></span><span>Cyclones</span></button>
-    <button type="button" id="modeHazards" data-sec="floods" data-group="hazards" role="tab" aria-selected="false"><span data-icon="waves"></span><span>Floods</span></button>
+    <button type="button" id="modeHazards" data-sec="rain" data-group="hazards" role="tab" aria-selected="false"><span data-icon="droplet"></span><span>Rain &amp; floods</span></button>
     <button type="button" id="modeExplore" role="tab" aria-selected="false"><span data-icon="compass"></span><span>Explore</span></button>
     <button type="button" id="modeAbout" role="tab" aria-selected="false"><span data-icon="info"></span><span>About</span></button>
   </nav>
@@ -175,8 +175,11 @@
       <p class="src">Mean flows: HydroRIVERS v1.0 reaches beside each junction (m³/s, long-term average). Danger levels: FFWC.</p>
     </div>
     <div class="rpane" data-r="transport" hidden>
-      <h2>Bridges over the big rivers</h2>
-      <p>For decades the Jamuna and the Padma could only be crossed by ferry. The national highways (N1 to N8), the railways and the bridges that join them, as mapped in OpenStreetMap.</p>
+      <div class="chips trmode" id="trMode"><button type="button" class="chip on" data-m="all">All</button><button type="button" class="chip" data-m="roads">Highways</button><button type="button" class="chip" data-m="rails">Railways</button><button type="button" class="chip" data-m="bridges">Bridges</button></div>
+      <div class="tm" data-m="all"><h2>How the delta is crossed</h2><p>The national highways (N1 to N8 in bold), the railways and the long bridges that join them across the big rivers, as mapped in OpenStreetMap. Pick one to see it on its own.</p></div>
+      <div class="tm" data-m="roads" hidden><h2>The national highways</h2><p>N1 to N8 in bold, the other national highways in light orange; lengths are as drawn, so a divided road can count twice. The moving light shows the direction of travel on each side, not real traffic.</p><div class="fig" id="chRoads"></div></div>
+      <div class="tm" data-m="rails" hidden><h2>The railways</h2><p id="railLede"></p></div>
+      <div class="tm" data-m="bridges" hidden><h2>Bridges over the big rivers</h2><p>For decades the Jamuna and the Padma could only be crossed by ferry. Click a bridge to fly to it.</p></div>
       <div class="fig" id="chBridges"></div>
       <div class="tsec">Rail junctions <small>where lines leave in three or more directions; named by upazila</small></div>
       <div class="chips" id="jctChips"></div>
@@ -293,8 +296,16 @@
     <p class="src">IBTrACS v04r01 (NOAA), a fix every 6 hours; peak wind near the delta. Deaths: EM-DAT (CRED, UCLouvain).</p>
   </div>
   <div class="sec" data-sec="hazards" hidden>
-    <div class="seg seg2" id="hazSeg" role="tablist"><button type="button" data-h="floods" class="on"><span data-icon="waves" data-size="16"></span>Floods</button><button type="button" data-h="erosion"><span data-icon="lowland" data-size="16"></span>Erosion</button></div>
-    <div class="hpane" data-h="floods">
+    <div class="seg seg3" id="hazSeg" role="tablist"><button type="button" data-h="rain" class="on"><span data-icon="droplet" data-size="16"></span>Rain</button><button type="button" data-h="floods"><span data-icon="waves" data-size="16"></span>Floods</button><button type="button" data-h="erosion"><span data-icon="lowland" data-size="16"></span>Erosion</button></div>
+    <div class="hpane" data-h="rain">
+      <h2><b id="rainMonth">January</b>: <b id="rainMm">8 mm</b> of rain</h2>
+      <p id="rainLede"></p>
+      <div class="fig" id="chRainYear"></div>
+      <div class="tsec">Wettest and driest stations <small>a year's rain, mm</small></div><ol class="rlist" id="rainList"></ol>
+      <div class="tsec">Rain each year, mm <small>mean of the stations</small></div><div class="fig" id="chRainYears"></div>
+      <p class="src" id="srcRain"></p>
+    </div>
+    <div class="hpane" data-h="floods" hidden>
       <h2>In a bad year, two-thirds of the country goes under</h2>
       <p>Share of Bangladesh flooded each year since 1954. On the map, each gauge rises as far as its record flood went above the danger level.</p>
       <div class="fig" id="chFlood"></div>
@@ -420,7 +431,7 @@
     <p>A district joins the list when a cyclone of hurricane force, 64 knots or more, has passed within 50 km of it at least three times since 1960. The districts that qualify are ranked by how many people live on land under 5 metres. That is deliberately simple. It is a screen, not a cost-benefit study, and the Explore tab is there so that anyone who weighs things differently can try their own.</p>
     <h2>Reading the map</h2>
     <p>Step through with the arrows at the foot of the story panel, or with the keyboard. The 2D and 3D buttons show the same ground flat or tilted; in 3D the districts rise as columns. Steps that change over time have a small player at the bottom of the map. Click any district for its sheet: cyclone history, rivers, farming zones and the main crops, each ranked against the other 63. The cyclone button plays any of the fourteen named storms since 1970.</p>
-    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings, and the highways, railways and bridges that cross them. Click any district on any map for its sheet, or a cyclone track to play it. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Floods puts the flood record and river erosion side by side. Click anything in a list and the map flies there.</p>
+    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings, and the highways, railways and bridges that cross them. Click any district on any map for its sheet, or a cyclone track to play it. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Rain and floods plays the year of rain month by month, then the flood record and river erosion. Click anything in a list and the map flies there.</p>
     <h2>Where the numbers come from</h2>
     <dl class="sources">
       <dt>Ground height</dt><dd>SRTM 90 m (CGIAR-CSI). ETOPO5 for the Bay and the land beyond the border.</dd>
@@ -433,6 +444,7 @@
       <dt>Land cover</dt><dd>ESA WorldCover 2021.</dd>
       <dt>Floods</dt><dd>FFWC, Annual Flood Report 2021: danger levels and record peaks at 81 gauges, and the flooded share of the country since 1954. Gauge positions from BWDB station lists.</dd>
       <dt>River erosion</dt><dd>CEGIS erosion and accretion along the Jamuna, Padma and Ganges since 1973, with its 2025 figures and 2026 forecast; Banglapedia for the coast.</dd>
+      <dt>Rain</dt><dd>Bangladesh Meteorological Department monthly rainfall at 32 stations, 1948-2013 (as re-hosted by Gauhar et al. 2021), monthly means 1981-2010; district values estimated from the nearest stations. Yearly series also from the BMD 24-station panel, 1982-2022.</dd>
       <dt>Maize, onion, garlic, jute; bagda and galda</dt><dd>BBS, Yearbook of Agricultural Statistics 2024: district production 2023-24, and Table 9.4.46, shrimp and prawn farms by district.</dd>
       <dt>Roads, railways, bridges</dt><dd>OpenStreetMap contributors (ODbL): national highways, railway lines, and bridge lengths measured from the mapped lines.</dd>
       <dt>Jute, crop calendar, tea</dt><dd>BBS 45 Years Agriculture Statistics (jute, 2014-15, bales converted at 181.4 kg); Banglapedia (Agricultural Produce, Potato, Crop, Wheat) for the months; Bangladesh Tea Board figures as reported by The Daily Star and Prothom Alo.</dd>
@@ -454,6 +466,6 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js?v=13"></script>
+<script type="module" src="js/main.js?v=14"></script>
 </body>
 </html>

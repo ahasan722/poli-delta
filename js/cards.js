@@ -3,8 +3,8 @@
 // Rivers (channels, water, the named rivers and their flow), Land and crops (agro-ecological zones, land cover,
 // the five major crops and the district's share of each) and Cyclones (every pass within 50 km since 1960).
 // Every chart draws itself in when its tab opens.
-import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=13";
-import { icon } from "./icons.js?v=13";
+import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=14";
+import { icon } from "./icons.js?v=14";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line, soft: "#f3f4f6" };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map

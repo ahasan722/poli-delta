@@ -58,7 +58,10 @@ export const SEASONCOL = { aman: "#1b9e77", boro: "#d95f02", aus: "#7570b3", jut
 
 // v13: roads (ColorBrewer YlOrBr), rail in ink-grey, bridges in ink
 export const ROAD = { major: "#cc4c02", minor: "#fe9929", bridge: "#111827" };
-export const RAIL = { line: "#374151" };
+export const RAIL = { line: "#374151", train: "#fbbf24" };
+
+// v14: rainfall, ColorBrewer Blues by month (mm)
+export const RAIN = ["#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"];
 
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";
