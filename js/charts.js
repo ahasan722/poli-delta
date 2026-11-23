@@ -1,5 +1,5 @@
 // charts.js  --  v5: the two small charts that sit in the story panel. Direct labels, no legends.
-import { BASE, sevHex, REGION, REGION_ORDER, CROP_NAME } from "./palette.js?v=10";
+import { BASE, sevHex, REGION, REGION_ORDER, CROP_NAME } from "./palette.js?v=11";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, text: BASE.text, dim: BASE.dim, line: BASE.line };
 function svgIn(id, h) { const el = document.getElementById(id); el.innerHTML = ""; const w = el.clientWidth || 310; return { s: d3.select(el).append("svg").attr("width", w).attr("height", h).attr("font-family", "IBM Plex Sans, sans-serif"), w }; }
@@ -27,7 +27,7 @@ function ten(D) {
 }
 // what the land grows: one 100% bar for the land and one per crop, split by landscape, the coast first
 function grow(D) {
-  const A = D.agri; if (!A) return; const rows = [["Land", A.area_by_region_ha], ...Object.keys(CROP_NAME).map(c => [CROP_NAME[c], A.crop_by_region[c]])];
+  const A = D.agri; if (!A) return; const rows = [["Land", A.area_by_region_ha], ...Object.keys(CROP_NAME).filter(c => A.crop_by_region[c]).map(c => [CROP_NAME[c], A.crop_by_region[c]])];
   const { s, w } = svgIn("chGrow", 40 + rows.length * 34); const x = d3.scaleLinear().domain([0, 1]).range([92, w - 2]);
   // a direct key above the bars
   let kx = 0; REGION_ORDER.forEach(k => { const g = s.append("g").attr("transform", `translate(${kx},0)`); g.append("rect").attr("width", 10).attr("height", 10).attr("y", 2).attr("rx", 2).attr("fill", REGION[k]);

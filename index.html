@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css?v=10">
+<link rel="stylesheet" href="css/poli.css?v=11">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -17,12 +17,14 @@
 
 <header class="top">
   <a class="brand" href="#" id="brand" aria-label="Poli, back to the first step"><span class="mark" aria-hidden="true">পলি</span><span class="title">Poli<small>Where should Bangladesh defend first?</small></span></a>
-  <nav class="tabs" role="tablist" aria-label="Sections">
+  <nav class="tabs" role="tablist" aria-label="Sections"><i class="ink" id="tabInk" aria-hidden="true"></i>
     <button type="button" id="modeStory" role="tab" aria-selected="true" class="on"><span data-icon="book"></span><span>Story</span></button>
-    <button type="button" id="modeRivers" data-sec="rivers" role="tab" aria-selected="false"><span data-icon="river"></span><span>Rivers</span></button>
-    <button type="button" id="modeFish" data-sec="fish" role="tab" aria-selected="false"><span data-icon="fish"></span><span>Fish</span></button>
-    <button type="button" id="modeCrops" data-sec="crops" role="tab" aria-selected="false"><span data-icon="wheat"></span><span>Crops</span></button>
-    <button type="button" id="modeHazards" data-sec="cyclones" role="tab" aria-selected="false"><span data-icon="cyclone"></span><span>Hazards</span></button>
+    <button type="button" id="modeRivers" data-sec="rivers" data-group="rivers" role="tab" aria-selected="false"><span data-icon="river"></span><span>Rivers</span></button>
+    <button type="button" id="modeWet" data-sec="haors" data-group="wetlands" role="tab" aria-selected="false"><span data-icon="droplet"></span><span>Wetlands</span></button>
+    <button type="button" id="modeFish" data-sec="fish" data-group="fish" role="tab" aria-selected="false"><span data-icon="fish"></span><span>Fish</span></button>
+    <button type="button" id="modeCrops" data-sec="crops" data-group="crops" role="tab" aria-selected="false"><span data-icon="wheat"></span><span>Crops</span></button>
+    <button type="button" id="modeCyclones" data-sec="cyclones" data-group="cyclones" role="tab" aria-selected="false"><span data-icon="cyclone"></span><span>Cyclones</span></button>
+    <button type="button" id="modeHazards" data-sec="floods" data-group="hazards" role="tab" aria-selected="false"><span data-icon="waves"></span><span>Floods</span></button>
     <button type="button" id="modeExplore" role="tab" aria-selected="false"><span data-icon="compass"></span><span>Explore</span></button>
     <button type="button" id="modeAbout" role="tab" aria-selected="false"><span data-icon="info"></span><span>About</span></button>
   </nav>
@@ -163,9 +165,33 @@
     <ul class="plist" id="jList"></ul>
     <p class="src">Mean flows: HydroRIVERS v1.0 reaches beside each junction (m³/s, long-term average). Danger levels: FFWC.</p>
   </div>
+  <div class="sec" data-sec="wetlands" hidden>
+    <div class="seg seg3" id="wetSeg" role="tablist"><button type="button" data-w="haors" class="on">Haors</button><button type="button" data-w="beels">Beels</button><button type="button" data-w="birds">Waterbirds</button></div>
+    <div class="wpane" data-w="haors">
+      <h2><b id="haorN">373</b> haors, <b id="haorKm">8,585 km²</b></h2>
+      <p>Bowl-shaped floodplains in the north-east that fill in the monsoon and dry to rice land and beels in winter. Each circle on the map has its haor's area. Hover for its name, click to read more.</p>
+      <div class="tsec">Share of each district that is haor</div><div class="fig" id="chHaorD"></div>
+      <div class="tsec">The largest haors <small>click to fly there</small></div><ul class="plist" id="haorList"></ul>
+      <p class="src" id="srcHaor"></p>
+    </div>
+    <div class="wpane" data-w="beels" hidden>
+      <h2>Beels: the floodplain's low ground</h2>
+      <p>Outside the haor basin, rain and river water collect in thousands of beels. Some are shrinking, and some are drowning behind embankments.</p>
+      <ul class="plist" id="beelList"></ul>
+      <div class="tsec">Other beels named in Banglapedia</div><p class="small" id="beelOther"></p>
+      <p class="src" id="srcBeel"></p>
+    </div>
+    <div class="wpane" data-w="birds" hidden>
+      <h2>Where the winter waterbirds go</h2>
+      <p id="birdLede"></p>
+      <div class="tsec">Birds counted each January <small>same scale for every site</small></div><div class="fig" id="chBirds"></div>
+      <div class="tsec">Coastal sites for migrants <small>click to fly there</small></div><ul class="plist" id="coastBirds"></ul>
+      <p class="src" id="srcBirds"></p>
+    </div>
+  </div>
   <div class="sec" data-sec="fish" hidden>
-    <h2>Hilsa, the Halda and the sea</h2>
-    <div class="seg seg3" id="fishSeg" role="tablist"><button type="button" class="on" data-f="hilsa">Hilsa</button><button type="button" data-f="halda">Halda river</button><button type="button" data-f="sea">Sea grounds</button></div>
+    <h2 id="fishH">Hilsa, the Halda and the sea</h2>
+    <div class="seg seg4" id="fishSeg" role="tablist"><button type="button" class="on" data-f="hilsa">Hilsa</button><button type="button" data-f="halda">Halda</button><button type="button" data-f="sea">Sea</button><button type="button" data-f="district">By district</button></div>
     <div class="fpane" data-f="hilsa">
       <p>Hilsa run in from the Bay to spawn in the Meghna and its channels. Six stretches are closed to fishing in the breeding months.</p>
       <div class="tsec">Hilsa landed, tonnes</div><div class="fig" id="chHilsa"></div>
@@ -176,6 +202,15 @@
       <p>The Halda, a 98 km river in Chattogram, is where wild carp spawn and fishers collect the eggs by hand.</p>
       <div class="tsec">Eggs collected, kg</div><div class="fig" id="chHalda"></div>
       <p id="haldaSpawn"></p><p class="src" id="srcHalda"></p>
+    </div>
+    <div class="fpane" data-f="district" hidden>
+      <p id="fishLede"></p>
+      <div class="chips" id="fishMetric"><button type="button" class="chip on" data-c="fish_total">All inland</button><button type="button" class="chip" data-c="fish_culture">Farmed</button><button type="button" class="chip" data-c="fish_capture">Caught</button><button type="button" class="chip" data-c="fish_shrimp">Shrimp farms</button></div>
+      <div class="legend" id="lgFish"></div>
+      <div class="tsec" id="fishRankHead">Top districts</div><ol class="rlist" id="fishRank"></ol>
+      <div class="tsec">The whole country, tonnes a year</div><div class="fig" id="chFishNat"></div>
+      <div class="tsec">By kind of fish, <span class="fyr">2024-25</span> <small>blue inland, grey sea</small></div><div class="fig" id="chFishSp"></div>
+      <p class="src" id="srcFishD"></p>
     </div>
     <div class="fpane" data-f="sea" hidden>
       <p>The Bay's three main fishing grounds, with their areas.</p>
@@ -190,17 +225,30 @@
     <div class="tsec" id="secRankHead">Top districts</div><ol class="rlist" id="secRank"></ol>
     <p class="src">BARC 2018 zones in five landscapes; BBS crops (Aman 2011-12, Boro 2012-13, others 2014-15), split by each district's area in each zone.</p>
   </div>
-  <div class="sec" data-sec="hazards" hidden>
-    <div class="seg seg3" id="hazSeg" role="tablist"><button type="button" data-h="cyclones" class="on"><span data-icon="cyclone" data-size="16"></span>Cyclones</button><button type="button" data-h="floods"><span data-icon="waves" data-size="16"></span>Floods</button><button type="button" data-h="erosion"><span data-icon="lowland" data-size="16"></span>Erosion</button></div>
-    <div class="hpane" data-h="cyclones">
-      <h2>Two cyclone seasons a year</h2>
-      <p>Every storm of 34 kt or more near the delta since 1960, placed on the day of the year it formed. Further out is stronger. Click a dot to play it.</p>
-      <div class="chips" id="seasonSeg"><button type="button" class="chip on" data-s="all">All</button><button type="button" class="chip" data-s="pre">April to June</button><button type="button" class="chip" data-s="post">October to December</button></div>
+  <div class="sec" data-sec="cyclones" hidden>
+    <h2>Cyclone tracker</h2>
+    <p>Every storm of 34 kt or more that came near the delta, 1960 to 2025. Point at one to see its track, click to play it.</p>
+    <div class="seg seg2" id="trkView" role="tablist"><button type="button" data-v="list" class="on"><span data-icon="sliders" data-size="16"></span>Storms</button><button type="button" data-v="season"><span data-icon="cyclone" data-size="16"></span>Seasons</button></div>
+    <div class="tpane" data-v="list">
+      <div class="trkf">
+        <label class="find"><span data-icon="search" data-size="16"></span><input id="trkQ" type="search" placeholder="Name or year" autocomplete="off" aria-label="Find a storm by name or year"></label>
+        <div class="chips" id="trkK"><button type="button" class="chip on" data-k="0">All</button><button type="button" class="chip" data-k="64">64 kt+</button><button type="button" class="chip" data-k="96">96 kt+</button></div>
+      </div>
+      <div class="chips" id="seasonSeg"><button type="button" class="chip on" data-s="all">Any month</button><button type="button" class="chip" data-s="pre">April to June</button><button type="button" class="chip" data-s="post">October to December</button></div>
+      <div class="trkhead"><span id="trkCount"></span><button type="button" class="linkbtn" id="trkSort">Newest first</button></div>
+      <ul class="trk" id="trkList"></ul>
+    </div>
+    <div class="tpane" data-v="season" hidden>
+      <h3 class="h3">Two cyclone seasons a year</h3>
+      <p>Each storm on the day of the year it formed. Further out is stronger. Click a dot to play it.</p>
       <div class="fig" id="chClock"></div>
       <div class="tsec">Storms per decade <small>grey all, red hurricane force</small></div><div class="fig" id="chDecade"></div>
-      <p class="src">IBTrACS v04r01: day of formation from the storm's ID, peak wind near the delta.</p>
     </div>
-    <div class="hpane" data-h="floods" hidden>
+    <p class="src">IBTrACS v04r01 (NOAA), a fix every 6 hours; peak wind near the delta. Deaths: EM-DAT (CRED, UCLouvain).</p>
+  </div>
+  <div class="sec" data-sec="hazards" hidden>
+    <div class="seg seg2" id="hazSeg" role="tablist"><button type="button" data-h="floods" class="on"><span data-icon="waves" data-size="16"></span>Floods</button><button type="button" data-h="erosion"><span data-icon="lowland" data-size="16"></span>Erosion</button></div>
+    <div class="hpane" data-h="floods">
       <h2>In a bad year, two-thirds of the country goes under</h2>
       <p>Share of Bangladesh flooded each year since 1954. On the map, each gauge rises as far as its record flood went above the danger level.</p>
       <div class="fig" id="chFlood"></div>
@@ -324,7 +372,7 @@
     <p>A district joins the list when a cyclone of hurricane force, 64 knots or more, has passed within 50 km of it at least three times since 1960. The districts that qualify are ranked by how many people live on land under 5 metres. That is deliberately simple. It is a screen, not a cost-benefit study, and the Explore tab is there so that anyone who weighs things differently can try their own.</p>
     <h2>Reading the map</h2>
     <p>Step through with the arrows at the foot of the story panel, or with the keyboard. The 2D and 3D buttons show the same ground flat or tilted; in 3D the districts rise as columns. Steps that change over time have a small player at the bottom of the map. Click any district for its sheet: cyclone history, rivers, farming zones and the main crops, each ranked against the other 63. The cyclone button plays any of the fourteen named storms since 1970.</p>
-    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings. Fish follows the hilsa, the Halda and the grounds in the Bay. Crops colours the districts by landscape or by crop. Hazards puts cyclones, floods and river erosion side by side. Click anything in a list and the map flies there.</p>
+    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop. Cyclones is a tracker for every storm since 1960. Floods puts the flood record and river erosion side by side. Click anything in a list and the map flies there.</p>
     <h2>Where the numbers come from</h2>
     <dl class="sources">
       <dt>Ground height</dt><dd>SRTM 90 m (CGIAR-CSI). ETOPO5 for the Bay and the land beyond the border.</dd>
@@ -337,6 +385,9 @@
       <dt>Land cover</dt><dd>ESA WorldCover 2021.</dd>
       <dt>Floods</dt><dd>FFWC, Annual Flood Report 2021: danger levels and record peaks at 81 gauges, and the flooded share of the country since 1954. Gauge positions from BWDB station lists.</dd>
       <dt>River erosion</dt><dd>CEGIS erosion and accretion along the Jamuna, Padma and Ganges since 1973, with its 2025 figures and 2026 forecast; Banglapedia for the coast.</dd>
+      <dt>Haors and beels</dt><dd>DBHWD, Classification of Wetlands of Bangladesh, Annexure 2: Haors of Bangladesh (2016), after the BHWDB Haor Master Plan (2012); Banglapedia for the beels. Wet ground: ESA WorldCover 2021. Upazilas for placing haors: geoBoundaries.</dd>
+      <dt>Waterbirds</dt><dd>IUCN Bangladesh and Bangladesh Bird Club January counts, as reported; Alam et al. 2023 (Avian Conservation and Ecology); Regional Flyway Initiative priority sites (2024).</dd>
+      <dt>Fish by district</dt><dd>Department of Fisheries yearbooks, harmonised by Rabbi (2026), Zenodo doi:10.5281/zenodo.23466909.</dd>
       <dt>Fish</dt><dd>Department of Fisheries hilsa landings; hilsa sanctuaries from Sustainability 14(13):7782; Halda egg collection from Department of Fisheries figures as reported in the press; fishing grounds from Banglapedia.</dd>
     </dl>
     <p>Every figure on the page, with the paper or file it came from, is listed in the <a href="https://github.com/ahasan722/poli-delta" target="_blank" rel="noopener">project repository</a>, together with the scripts that turn the raw files into the map.</p>
@@ -351,6 +402,6 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js?v=10"></script>
+<script type="module" src="js/main.js?v=11"></script>
 </body>
 </html>

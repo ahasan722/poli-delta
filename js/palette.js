@@ -32,7 +32,7 @@ export const RIVER = { quiet: "#9ebcd4", strong: "#2171b5" };
 
 // crop production (Explore, the district sheet): ColorBrewer YlGn, five of its nine steps, spaced for colour-blind readers
 export const CROP = ["#d9f0a3", "#78c679", "#41ab5d", "#238443", "#005a32"];   // YlGn 9-class steps 3, 5, 6, 7, 8
-export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice", wheat: "Wheat", potato: "Potato" };
+export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice", wheat: "Wheat", potato: "Potato", fish_total: "Inland fish", fish_culture: "Farmed fish", fish_capture: "Fish caught inland", fish_shrimp: "Shrimp and prawn farms" };
 
 // landscapes (the 30 agro-ecological zones in five groups): Tableau 10, chosen for meaning (water blue for the coast,
 // grain yellow for the floodplains, violet for the haor basins, earth brown for the terraces, forest green for the hills)
@@ -45,6 +45,11 @@ export const GAUGE = ["#c6dbef", "#6baed6", "#2171b5", "#08306b"];              
 export const ERODE = { Jamuna: "#a63603", Padma: "#e6550d", Ganges: "#fd8d3c", coast: "#a63603" };  // ColorBrewer Oranges by land lost
 export const JUNCTION = "#111827";
 export const SEASON = { pre: "#E69F00", post: "#0072B2", other: "#8b93a0" };                         // Okabe-Ito: before and after the monsoon
+
+// v11: wetlands, waterbirds, fish by district
+export const WET = { fill: "#9ecae1", haor: "#02818a", edge: "#016450", text: "#014636", beel: "#D55E00" };   // ColorBrewer Blues / PuBuGn; Okabe-Ito vermillion for beels
+export const BIRD = { site: "#E69F00", edge: "#a66f00", text: "#6b4700", flow: "#374151" };                    // Okabe-Ito orange
+export const FISHR = ["#d0d1e6", "#74a9cf", "#3690c0", "#0570b0", "#034e7b"];                                  // ColorBrewer PuBu 9-class steps 3, 5, 6, 7, 8
 
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";

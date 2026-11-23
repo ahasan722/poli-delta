@@ -104,7 +104,7 @@ export class StormPlayer {
     if (this.ribbon) {
       // reveal the ribbon up to the vortex; the ribbon was built from the fixes inside the scene window
       const k = this.ribbon.userData.fixIndex; const seg = k ? k.findIndex(j => j > this.t) : -1;
-      const upto = seg < 0 ? Infinity : Math.max(0, seg - 1) * 6; this.ribbon.geometry.setDrawRange(0, upto);
+      const upto = seg < 0 ? Infinity : seg * 6; this.ribbon.geometry.setDrawRange(0, upto);
     }
     if (this.onTick) this.onTick({ lon, lat, kt, i, f, t: this.t, n });
   }
