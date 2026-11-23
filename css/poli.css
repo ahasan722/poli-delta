@@ -576,3 +576,18 @@ body.in-section .key{display:flex}
 #chCal .playhead{transition:transform 120ms linear}
 @media (max-width:1600px){ .tabs button [data-icon]{display:none} .tabs button{padding:0 10px;font-size:14.5px} }
 @media (max-width:1400px){ .brand small{display:none} .tabs button{padding:0 8px;font-size:14px} }
+
+/* ==== v13: a bigger key, connections, picking anywhere ========================================== */
+.key{font-size:14.5px;gap:7px;padding:12px 16px 13px;max-width:330px;border:1px solid var(--line)}
+.key .kt{font-size:12px;margin-bottom:4px;letter-spacing:.06em}
+.key i{width:16px!important;height:12px!important;border-radius:3px}
+.key i.l{height:4px!important;border-radius:2px;width:22px!important}
+.key i.o{background:#fff!important;border:2.5px solid;border-radius:50%;width:12px!important;height:12px!important;box-sizing:border-box}
+.key i.ramp{width:56px!important;height:10px!important}
+#focus table.conn td:last-child{font-family:var(--sans);font-size:13px;text-align:right}
+#focus table.conn small{color:var(--dim)}
+#focus .pane.on{animation:secIn 320ms var(--ease) both}
+#focus.on{box-shadow:0 12px 36px rgba(17,24,39,.16)}
+.rpane{animation:secIn 300ms var(--ease) both}
+#jctChips .chip small{margin-left:6px}
+@media (max-width:820px){ .key{font-size:13px;max-width:220px;padding:8px 10px} }

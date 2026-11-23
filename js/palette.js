@@ -32,7 +32,7 @@ export const RIVER = { quiet: "#9ebcd4", strong: "#2171b5" };
 
 // crop production (Explore, the district sheet): ColorBrewer YlGn, five of its nine steps, spaced for colour-blind readers
 export const CROP = ["#d9f0a3", "#78c679", "#41ab5d", "#238443", "#005a32"];   // YlGn 9-class steps 3, 5, 6, 7, 8
-export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice", wheat: "Wheat", potato: "Potato", jute: "Jute", fish_total: "Inland fish", fish_culture: "Farmed fish", fish_capture: "Fish caught inland", fish_shrimp: "Shrimp and prawn farms" };
+export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice", wheat: "Wheat", potato: "Potato", jute: "Jute", maize: "Maize", onion: "Onion", garlic: "Garlic", fish_total: "Inland fish", fish_culture: "Farmed fish", fish_capture: "Fish caught inland", fish_shrimp: "Shrimp and prawn farms", fish_bagda: "Bagda (tiger shrimp) farms", fish_galda: "Galda (giant prawn) farms" };
 
 // landscapes (the 30 agro-ecological zones in five groups): Tableau 10, chosen for meaning (water blue for the coast,
 // grain yellow for the floodplains, violet for the haor basins, earth brown for the terraces, forest green for the hills)
@@ -55,6 +55,10 @@ export const FISHR = ["#d0d1e6", "#74a9cf", "#3690c0", "#0570b0", "#034e7b"];   
 export const MANGROVE = { fill: "#1b7837", edge: "#00441b", text: "#00441b" };
 export const TEA = { fill: "#4d9221", edge: "#276419", text: "#276419" };
 export const SEASONCOL = { aman: "#1b9e77", boro: "#d95f02", aus: "#7570b3", jute: "#e7298a", wheat: "#e6ab02", potato: "#a6761d" };
+
+// v13: roads (ColorBrewer YlOrBr), rail in ink-grey, bridges in ink
+export const ROAD = { major: "#cc4c02", minor: "#fe9929", bridge: "#111827" };
+export const RAIL = { line: "#374151" };
 
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";

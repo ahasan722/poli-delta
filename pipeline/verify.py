@@ -277,6 +277,30 @@ async def main():
         await pg.click("#cropSegTop button[data-k='tea']"); await settle(pg, 800, 40000)
         te = await pg.evaluate("[document.querySelectorAll('#chTea rect').length, __poli.cur.tea, location.hash]")
         check(te[0] == 8 and te[1] > 0.5 and "sec=tea" in te[2], f"tea: {te[0]} districts with gardens on the map")
+        # ---- v13: roads, rail and bridges; picking a district from any section; new crops; shrimp and prawn
+        await pg.click("#modeRivers"); await settle(pg, 500, 40000); await pg.click("#rivSeg button[data-r='transport']"); await settle(pg, 800, 40000)
+        tr = await pg.evaluate("[location.hash, document.querySelectorAll('#chBridges rect').length, document.querySelectorAll('#jctChips button').length, __poli.cur.transport]")
+        check("sec=transport" in tr[0] and tr[1] >= 20 and tr[2] >= 10 and tr[3] > 0.5, f"Roads, rail and bridges: {tr[2]} rail junctions, bridges charted, layer on")
+        xy = await pg.evaluate("__poli.project(90.0, 23.75, 0)"); await pg.mouse.click(xy[0], xy[1]); await pg.wait_for_timeout(1500)
+        pk = await pg.evaluate("[__poli.state.pick && __poli.data.byId[__poli.state.pick].name, __poli.state.step === __poli.idx('transport'), document.querySelector('#focus').innerText.toLowerCase().includes('getting there')]")
+        await pg.click("#focus .ftabs button[data-p='fi']"); await pg.wait_for_timeout(800); fb = await pg.evaluate("document.querySelectorAll('#fFish rect').length")
+        check(pk[0] == "Manikganj" and pk[1] and pk[2] and fb >= 3, f"clicking the map in a section picks {pk[0]} and stays there; the sheet shows how to get there and a Fish tab ({fb} bars)")
+        await pg.keyboard.press("Escape")
+        await pg.click("#modeCrops"); await settle(pg, 500, 40000)
+        tops = {}
+        for c in ["maize", "onion", "garlic", "jute"]:
+            await pg.click(f"#secCropSeg button[data-c='{c}']"); await pg.wait_for_timeout(500); tops[c] = await pg.evaluate("document.querySelector('#secRank li .nm').textContent")
+        check(tops == {"maize": "Dinajpur", "onion": "Pabna", "garlic": "Natore", "jute": "Faridpur"}, f"2023-24 crops by district, first: {tops}")
+        await pg.click("#modeFish"); await settle(pg, 500, 40000); await pg.click("#fishSeg button[data-f='district']"); await settle(pg, 500, 40000)
+        sp = {}
+        for c in ["fish_bagda", "fish_galda"]:
+            await pg.click(f"#fishMetric button[data-c='{c}']"); await pg.wait_for_timeout(500); sp[c] = await pg.evaluate("document.querySelector('#fishRank li .nm').textContent")
+        check(sp == {"fish_bagda": "Satkhira", "fish_galda": "Bagerhat"}, f"shrimp and prawn farms, first: {sp}")
+        await pg.click("#modeCyclones"); await settle(pg, 800, 40000)
+        sid = await pg.evaluate("""(() => { const s = __poli.data.storms.find(x => x.note && x.note.label === 'Mocha'); const p = s.pts.find(q => q[1] > 19.5) || s.pts[s.pts.length - 1]; return __poli.project(p[0], p[1], 6); })()""")
+        await pg.mouse.click(sid[0], sid[1]); await pg.wait_for_timeout(1200)
+        check(bool(await pg.evaluate("__poli.state.storm")), f"clicking a track on the map plays a cyclone ({await pg.evaluate('__poli.state.storm')})")
+        await pg.keyboard.press("Escape")
         await pg.click("#modeHazards"); await settle(pg, 800, 40000)
         await pg.click("#hazSeg button[data-h='erosion']"); await settle(pg, 800, 40000)
         er = await pg.evaluate("[document.querySelector('.hpane[data-h=erosion]').hidden, document.querySelectorAll('#chEro rect').length, document.getElementById('eroTotal').textContent]")

@@ -3,8 +3,8 @@
 // Rivers (channels, water, the named rivers and their flow), Land and crops (agro-ecological zones, land cover,
 // the five major crops and the district's share of each) and Cyclones (every pass within 50 km since 1960).
 // Every chart draws itself in when its tab opens.
-import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=12";
-import { icon } from "./icons.js?v=12";
+import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=13";
+import { icon } from "./icons.js?v=13";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line, soft: "#f3f4f6" };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map
@@ -83,6 +83,15 @@ function cropBars(parent, a) {
       .text(`${f1(share(c))}% · ${ord(rk)}`).transition().delay(600 + i * 90).duration(300 * T()).attr("opacity", 1); });
   return lead;
 }
+// ---- Fish: inland production by kind of water ------------------------------------------------------------------
+function fishBars(parent, f) {
+  const rows = [["Ponds", f.pond, "#0570b0"], ["Shrimp and prawn farms", f.shrimp, "#034e7b"], ["Other farmed water", f.culture - f.pond - f.shrimp, "#3690c0"], ["Floodplains", f.flood, "#74a9cf"], ["Rivers and estuaries", f.river, "#9ecae1"], ["Beels", f.beel, "#bdc9e1"], ["Other caught", f.capture - f.flood - f.river - f.beel, "#d0d1e6"]].filter(r => r[1] > 0.5);
+  const max = d3.max(rows, r => r[1]) || 1; const { s, w } = svg(parent, rows.length * 30 + 4); const x = d3.scaleLinear().domain([0, max]).range([0, w - 230]);
+  rows.forEach(([n, v, c], i) => { const y = i * 30;
+    s.append("text").attr("x", 0).attr("y", y + 16).attr("fill", C.ink).attr("font-size", 13).text(n);
+    s.append("rect").attr("x", 160).attr("y", y + 6).attr("height", 14).attr("rx", 2).attr("fill", c).attr("width", 0).transition().delay(100 + i * 80).duration(700 * T()).ease(d3.easeCubicOut).attr("width", x(v));
+    s.append("text").attr("x", 166 + x(v)).attr("y", y + 17).attr("fill", C.ink).attr("font-size", 12).attr("font-family", "IBM Plex Mono").text(tons(v)); });
+}
 // ---- Cyclones: every pass within 50 km, by year and wind ---------------------------------------------------------
 function stormStrip(parent, hits) {
   const { s, w } = svg(parent, 96); const x = d3.scaleLinear().domain([1960, 2026]).range([8, w - 8]); const y = d3.scaleLinear().domain([20, 140]).range([66, 10]); const r = d3.scaleSqrt().domain([20, 140]).range([2.5, 10]);
@@ -129,8 +138,11 @@ export const cards = {
     const tab = (p, ic, t) => `<button type="button" role="tab" data-p="${p}">${icon(ic, 16)}${t}</button>`;
     const named = a.rivers.named; const water = d.cover.water || 0;
     const hurr = d.storms.hits.filter(h => h[1] >= 64).sort((x, y) => y[0] - x[0]);
+    const conn = D.v13 && D.v13.conn[d.name]; const fish = D.wet && D.wet.fish[d.name];
+    const fishRank = fish ? 1 + Object.values(D.wet.fish).filter(f => f.total > fish.total).length : 0;
+    const bag = (D.v13 && D.v13.shrimp.bagda[d.name]) || 0, gal = (D.v13 && D.v13.shrimp.galda[d.name]) || 0;
     el.innerHTML = head(`District · ${d.division} division`, sevHex(d.severe), d.name, `${fmt(d.area_km2)} km² · ${f1(d.pop_census2022 / 1e6)} M people (census 2022)`) + `
-      <div class="ftabs" role="tablist">${tab("ov", "overview", "Overview")}${tab("rv", "river", "Rivers")}${tab("lc", "sprout", "Farming")}${tab("cy", "cyclone", "Cyclones")}</div>
+      <div class="ftabs" role="tablist">${tab("ov", "overview", "Overview")}${tab("rv", "river", "Rivers")}${tab("lc", "sprout", "Farming")}${tab("fi", "fish", "Fish")}${tab("cy", "cyclone", "Cyclones")}</div>
       <div class="fbody">
         <div class="pane" data-p="ov">
           ${verdict}
@@ -141,6 +153,11 @@ export const cards = {
             <tr><td>Highest ground</td><td>${fmt(d.h_max)} m</td></tr>
             <tr><td>Area</td><td>${fmt(d.area_km2)} km²</td></tr>
           </table>
+          ${conn ? `<div class="sub">Getting there</div><table class="conn">
+            <tr><td>National highways</td><td>${conn.roads.filter(r => r.length <= 2).join(", ") || "none of N1 to N8"}${conn.roads.filter(r => r.length > 2).length ? ` <small>+ ${conn.roads.filter(r => r.length > 2).length} more</small>` : ""}</td></tr>
+            <tr><td>Railway</td><td>${conn.rail ? "yes" : "none mapped"}${conn.junctions.length ? `, junction at ${conn.junctions.join(", ")}` : ""}</td></tr>
+            ${conn.bridges.length ? `<tr><td>Long bridges</td><td>${conn.bridges.map(b => b.replace(/ \(.*\)/, "")).join(", ")}</td></tr>` : ""}
+          </table>` : ""}
         </div>
         <div class="pane" data-p="rv">
           <div class="stats"><div><b class="cu" data-v="${a.rivers.major_km + a.rivers.minor_km}" data-f="int">0</b><span>km of mapped river channel</span></div><div><b>${a.rivers.density}</b><span>km of channel per 100 km²</span></div><div><b>${f1(water)}%</b><span>of the land is water (WorldCover)</span></div></div>
@@ -152,7 +169,13 @@ export const cards = {
           ${a.aez.length ? `<div class="sub">Agro-ecological zones</div><div class="fig" id="fAez"></div>` : `<p class="note">${d.name} is not listed among the main districts of any zone in the BARC table.</p>`}
           <div class="sub">What covers the land</div><div class="fig" id="fCover"></div>
           <div class="sub">Major crops: share of national output</div><p class="note" id="fLead"></p><div class="fig" id="fCrop"></div>
-          <p class="src">Zones: BARC, Fertilizer Recommendation Guide 2018 (each zone's main districts and their area in it). Crops: BBS, 45 Years Agriculture Statistics of Major Crops; bar colour = the district's rank class for that crop. Land cover: ESA WorldCover 2021.</p>
+          <p class="src">Zones: BARC, Fertilizer Recommendation Guide 2018 (each zone's main districts and their area in it). Crops: BBS, 45 Years Agriculture Statistics of Major Crops (rice, wheat, potato) and Yearbook of Agricultural Statistics 2024 (jute, maize, onion, garlic, 2023-24); bar colour = the district's rank class for that crop. Land cover: ESA WorldCover 2021.</p>
+        </div>
+        <div class="pane" data-p="fi">
+          ${fish ? `<div class="stats"><div><b class="cu" data-v="${fish.total}" data-f="int">0</b><span>tonnes of inland fish, ${D.wet.fish_year} · ${ord(fishRank)} of 64</span></div><div><b>${Math.round(fish.culture / Math.max(1, fish.total) * 100)}%</b><span>farmed, the rest caught</span></div></div>
+          <div class="sub">Where the fish come from</div><div class="fig" id="fFish"></div>
+          ${(bag || gal) ? `<div class="sub">Shrimp and prawn farms, ${D.v13.year}</div><table><tr><td>Bagda (tiger shrimp)</td><td>${tons(bag)}</td></tr><tr><td>Galda (giant freshwater prawn)</td><td>${tons(gal)}</td></tr></table>` : ""}
+          <p class="src">${D.wet.fish_src} Shrimp farms: ${D.v13.shrimp_src}</p>` : `<p class="note">No fish figures for ${d.name}.</p>`}
         </div>
         <div class="pane" data-p="cy">
           <div class="stats"><div><b>${d.severe}</b><span>hurricane-force passes since 1960</span></div><div><b>${d.storms.n}</b><span>cyclones of any strength within 50 km</span></div><div><b>${d.storms.hits.length ? d3.max(d.storms.hits, h => h[1]) : 0} kt</b><span>strongest wind recorded nearby</span></div></div>
@@ -171,6 +194,7 @@ export const cards = {
       lc: () => { if (a.aez.length) aezBar(el.querySelector("#fAez"), a.aez); coverBar(el.querySelector("#fCover"), d.cover);
         const lead = cropBars(el.querySelector("#fCrop"), a); const sh = a.crops[lead] / D.agri.national[lead] * 100;
         el.querySelector("#fLead").textContent = `${d.name}'s largest share of national output is ${CROP_NAME[lead].toLowerCase()}: ${f1(sh)}%, ${ord(a.crop_rank[lead])} of 64.`; },
+      fi: () => { counters(el.querySelector('.pane[data-p="fi"]')); if (fish) fishBars(el.querySelector("#fFish"), fish); },
       cy: () => stormStrip(el.querySelector("#fStorms"), d.storms.hits)
     });
   },
