@@ -3,8 +3,8 @@
 // Rivers (channels, water, the named rivers and their flow), Land and crops (agro-ecological zones, land cover,
 // the five major crops and the district's share of each) and Cyclones (every pass within 50 km since 1960).
 // Every chart draws itself in when its tab opens.
-import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=9";
-import { icon } from "./icons.js?v=9";
+import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=10";
+import { icon } from "./icons.js?v=10";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line, soft: "#f3f4f6" };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map
@@ -173,6 +173,11 @@ export const cards = {
         el.querySelector("#fLead").textContent = `${d.name}'s largest share of national output is ${CROP_NAME[lead].toLowerCase()}: ${f1(sh)}%, ${ord(a.crop_rank[lead])} of 64.`; },
       cy: () => stormStrip(el.querySelector("#fStorms"), d.storms.hits)
     });
+  },
+  // a place from the atlas: a junction, a sanctuary, a gauge, a stretch of coast
+  showPlace(o) {
+    el.innerHTML = head(o.eyebrow, o.dot || BASE.ink, o.title, o.sub || "") + `<div class="fbody">${o.body}</div>`;
+    el.querySelector(".back").addEventListener("click", () => api.clear()); el.classList.add("on"); el.scrollTop = 0;
   },
   showStorm(s) {
     const n = s.note || {}; const peak = s.peak_kt; const name = n.label || (s.name && s.name !== "NOT_NAMED" ? s.name : "Unnamed storm");

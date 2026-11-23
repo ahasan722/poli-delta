@@ -1,4 +1,4 @@
-"""verify.py: v9 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
+"""verify.py: v10 checks in Chromium (swiftshader WebGL). Run: python pipeline/verify.py http://localhost:8793/index.html [outdir]
 Prints ok / FAIL lines and writes screenshots of 2D, 3D, the open sheet and the phone layout to outdir (default notes/shots).
 Swiftshader renders on the CPU at a few frames a second, so waits are long and the frame-time sample is reported,
 not held to 60 fps; on a laptop GPU the same page runs at the display rate."""
@@ -29,6 +29,10 @@ async def settle(pg, ms=1500, limit=30000):
     """wait until no flight, no dimension change and the timeline is not playing"""
     await pg.wait_for_function("(() => { const P = __poli; return !P.flight && P.state.dimP === P.state.dimTarget && !P.state.tl.playing; })()", timeout=limit)
     await pg.wait_for_timeout(ms)
+
+async def open_search(pg):
+    if not await pg.evaluate("document.body.classList.contains('searching')"): await pg.click("#searchToggle")
+    await pg.click("#search")
 
 async def main():
     async with async_playwright() as p:
@@ -131,12 +135,12 @@ async def main():
         check(sh.startswith("Khulna"), f"click opens the district sheet: {sh[:30]} / {await pg.evaluate('location.hash')}")
         await settle(pg, 1200); await pg.screenshot(path=str(OUT / "v7-sheet.png"))
         await pg.keyboard.press("Escape"); await pg.wait_for_timeout(500); check(not await pg.evaluate("document.getElementById('focus').classList.contains('on')"), "Esc closes the sheet")
-        await pg.click("#search"); await pg.keyboard.type("bhol"); await pg.wait_for_timeout(300)
+        await open_search(pg); await pg.keyboard.type("bhol"); await pg.wait_for_timeout(300)
         opts = await pg.evaluate("[...document.querySelectorAll('#searchList li')].map(l => l.textContent)")
-        await pg.keyboard.press("Enter"); await pg.wait_for_timeout(600)
+        await pg.keyboard.press("Enter"); await pg.wait_for_timeout(150)
         check(any("Bhola" in o for o in opts) and await pg.evaluate("document.querySelector('#focus h3').textContent.startsWith('Bhola') && !!__poli.flight"), f"search suggests {opts[:2]}, Enter opens Bhola and flies to it")
         await settle(pg, 500)
-        await pg.click("#search"); await pg.keyboard.type("sidr"); await pg.wait_for_timeout(300); await pg.keyboard.press("Enter"); await pg.wait_for_timeout(1500)
+        await open_search(pg); await pg.keyboard.type("sidr"); await pg.wait_for_timeout(300); await pg.keyboard.press("Enter"); await pg.wait_for_timeout(1500)
         stx = json.loads(await pg.evaluate("JSON.stringify({s: __poli.state.storm, card: document.querySelector('#focus h3').textContent, tl: document.getElementById('tlLabel').textContent, hash: location.hash})"))
         check(stx["s"] == "2007314N10093" and "Sidr" in stx["card"] and "Sidr" in stx["tl"], f"search plays Cyclone Sidr with its own timeline ({stx['hash']})")
         await settle(pg, 800, 40000); check("day" in await pg.evaluate("document.getElementById('tlValue').textContent"), "the storm timeline reads days and wind")
@@ -205,6 +209,33 @@ async def main():
         await pg.click("#stormList button[data-sid='2020136N10088']"); await pg.wait_for_timeout(1500)
         check(n == 14 and await pg.evaluate("__poli.state.storm") == "2020136N10088" and await pg.evaluate("document.getElementById('stormPop').hidden"), f"cyclone picker lists {n} storms and plays Amphan")
         await pg.keyboard.press("Escape"); await settle(pg, 500, 40000)
+        # ---- atlas sections (v10)
+        await pg.click("#modeRivers"); await settle(pg, 800, 40000)
+        rv = json.loads(await pg.evaluate("JSON.stringify({h: location.hash, j: document.querySelectorAll('#jList button').length, bars: document.querySelectorAll('#chMerge rect').length, inSec: document.body.classList.contains('in-section')})"))
+        check("sec=rivers" in rv["h"] and rv["j"] == 6 and rv["bars"] >= 4 and rv["inSec"], f"Rivers section: {rv['j']} junctions, {rv['bars']} flow bars, {rv['h']}")
+        await pg.click("#jList button[data-id='goalundo']"); await pg.wait_for_timeout(600)
+        card = await pg.evaluate("document.getElementById('focus').innerText")
+        check("Goalundo" in card and "Padma" in card and "34,838" in card, "junction card: Ganges + Jamuna -> Padma at Goalundo, 34,838 m³/s")
+        await pg.keyboard.press("Escape"); await pg.click("#modeFish"); await settle(pg, 800, 40000)
+        fh = await pg.evaluate("[document.querySelectorAll('#chHilsa rect').length, document.querySelectorAll('#sList button').length]")
+        await pg.click("#fishSeg button[data-f='halda']"); await pg.wait_for_timeout(1500); hd = await pg.evaluate("document.querySelectorAll('#chHalda rect').length")
+        await pg.click("#fishSeg button[data-f='sea']"); await pg.wait_for_timeout(500); gd = await pg.evaluate("document.querySelectorAll('#gList li').length")
+        check(fh == [6, 6] and hd == 5 and gd == 3, f"Fish section: hilsa {fh[0]} years, {fh[1]} sanctuaries; Halda {hd} years of eggs; {gd} sea grounds")
+        await pg.click("#modeHazards"); await settle(pg, 800, 40000)
+        cy = await pg.evaluate("document.querySelectorAll('#chClock circle').length")
+        await pg.click("#seasonSeg button[data-s='pre']"); await pg.wait_for_timeout(600); cy2 = await pg.evaluate("document.querySelectorAll('#chClock circle').length")
+        check(cy > 60 and 0 < cy2 < cy, f"cyclone clock: {cy} storms, {cy2} in April to June")
+        await pg.click("#seasonSeg button[data-s='all']")
+        await pg.click("#hazSeg button[data-h='floods']"); await settle(pg, 800, 40000)
+        fl = await pg.evaluate("[document.querySelectorAll('#chFlood rect').length, document.querySelectorAll('#gaugeList li').length, location.hash]")
+        check(fl[0] >= 60 and fl[1] >= 5 and "sec=floods" in fl[2], f"Floods: {fl[0]} years of flood extent, {fl[1]} gauges listed, {fl[2]}")
+        await pg.click("#hazSeg button[data-h='erosion']"); await settle(pg, 800, 40000)
+        er = await pg.evaluate("[document.querySelector('.hpane[data-h=erosion]').hidden, document.querySelectorAll('#chEro rect').length, document.getElementById('eroTotal').textContent]")
+        check(not er[0] and er[1] >= 3 and "km²" in er[2], f"Erosion pane: {er[1]} bars, '{er[2]}'")
+        await pg.click("#modeCrops"); await settle(pg, 800, 40000)
+        cr = await pg.evaluate("[__poli.state.rule.theme, document.querySelectorAll('#secRank li').length]")
+        check(cr == ["landscape", 10], f"Crops section: theme {cr[0]}, top {cr[1]} districts")
+        await pg.click("#modeExplore"); await settle(pg, 800, 40000)
         # ---- share
         await pg.click("#shareBtn"); await pg.wait_for_timeout(300)
         check("copied" in (await pg.evaluate("document.getElementById('toast').textContent")).lower(), "Share copies the link")

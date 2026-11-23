@@ -39,6 +39,13 @@ export const CROP_NAME = { aman: "Aman rice", boro: "Boro rice", aus: "Aus rice"
 export const REGION = { coast: "#4e79a7", floodplains: "#edc948", basins: "#b07aa1", terraces: "#9c755f", hills: "#59a14f" };
 export const REGION_ORDER = ["coast", "floodplains", "basins", "terraces", "hills"];
 
+// the atlas sections
+export const FISH = { sanct: "#CC79A7", halda: "#E69F00", ground: "#0072B2", run: "#1f2937" };   // Okabe-Ito reddish purple, orange, blue
+export const GAUGE = ["#c6dbef", "#6baed6", "#2171b5", "#08306b"];                                 // ColorBrewer Blues: record peak above danger level
+export const ERODE = { Jamuna: "#a63603", Padma: "#e6550d", Ganges: "#fd8d3c", coast: "#a63603" };  // ColorBrewer Oranges by land lost
+export const JUNCTION = "#111827";
+export const SEASON = { pre: "#E69F00", post: "#0072B2", other: "#8b93a0" };                         // Okabe-Ito: before and after the monsoon
+
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";
 // selection is drawn in ink, not a hue, so it never reads as data

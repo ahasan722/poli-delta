@@ -1,11 +1,11 @@
-// story.js  --  v9: the steps of the story.
+// story.js  --  v10: the steps of the story.
 // Each step frames a box of ground (view), sets the relief's uniforms (u) and layer opacities (layers),
 // and may own a timeline (time): a value that plays from `from` to `to` and can be scrubbed.
 //   view: { box: [W, S, E, N], pitch: degrees from straight down (0 = flat map), az: bearing of the camera
 //           from the box centre (180 = from the south, north up), top: km of relief to keep in frame }
 // In 2D every view is seen straight down with north up; pitch and az only apply in 3D.
 const U = (o = {}) => ({ uExag: 14, uSeaLevel: 0, uRiverGlow: 0.35, uFar: 0.55, uLowBand: 0, uSink: 0, uCoverMix: 0, uForest: 0, uWet: 0, uBuilt: 0, uLoss: 0, uCutOn: 0, uBathy: 0, ...o });
-const L = (o = {}) => ({ rivers: 0.35, riverLabels: 0, farRivers: 0.5, labels: 0.9, storms: 0, wind: 0, prisms: 0, ranks: 0, site: 0, borders: 0, grow: 0, year: 2025, flow: 0.25, ...o });
+const L = (o = {}) => ({ rivers: 0.35, riverLabels: 0, farRivers: 0.5, labels: 0.9, storms: 0, wind: 0, prisms: 0, ranks: 0, site: 0, borders: 0, grow: 0, year: 2025, flow: 0.25, junctions: 0, sanct: 0, grounds: 0, halda: 0, fishrun: 0, gauges: 0, erosion: 0, coastpts: 0, ...o });
 const V = (box, pitch, az, top = 10) => ({ box, pitch, az, top });
 
 const WHOLE = [88.05, 20.75, 92.65, 26.6];
@@ -29,4 +29,11 @@ export const CHAPTERS = [
   { id: "grow", nav: "What it grows", theme: "landscape", view: V([88.0, 20.6, 92.7, 26.7], 36, 192, 40), u: U({ uFar: 0.3, uRiverGlow: 0.2 }), layers: L({ prisms: 1, ranks: 0, rivers: 0.15, labels: 0, borders: 1, grow: 1 }) },
   { id: "raise", nav: "What works", view: V([88.55, 22.25, 90.0, 23.5], 40, 200, 16), u: U({ uExag: 20, uRiverGlow: 0.15 }), layers: L({ rivers: 0.3, site: 1, labels: 0.6 }) },
   { id: "explore", nav: "Your turn", view: V([88.3, 20.7, 92.6, 25.6], 38, 194, 50), u: U({ uFar: 0.3, uRiverGlow: 0.3 }), layers: L({ prisms: 1, ranks: 1, rivers: 0.25, labels: 0, borders: 1, grow: 1 }), explore: true },
+  // ---- the atlas: sections outside the story, reached from the top bar -------------------------------------
+  { id: "rivers", section: "rivers", nav: "Rivers", view: V([88.2, 21.4, 92.6, 26.5], 30, 186, 8), u: U({ uRiverGlow: 1, uFar: 0.9, uBathy: 0.5 }), layers: L({ rivers: 1, farRivers: 1, riverLabels: 1, labels: 0.35, flow: 1, junctions: 1 }) },
+  { id: "fish", section: "fish", nav: "Fish", view: V([88.9, 20.7, 92.1, 23.5], 32, 188, 8), u: U({ uBathy: 1, uRiverGlow: 0.5, uFar: 0.7 }), layers: L({ rivers: 0.6, riverLabels: 0.5, labels: 0.4, flow: 0.8, sanct: 1, grounds: 1, halda: 1, fishrun: 1 }) },
+  { id: "crops", section: "crops", nav: "Crops", theme: "landscape", view: V([88.0, 20.6, 92.7, 26.7], 36, 192, 40), u: U({ uFar: 0.3, uRiverGlow: 0.2 }), layers: L({ prisms: 1, ranks: 1, rivers: 0.15, labels: 0, borders: 1, grow: 1 }) },
+  { id: "cyclones", section: "hazards", nav: "Cyclones", view: V([86.6, 15.8, 94.0, 26.2], 30, 184, 10), u: U({ uFar: 0.5, uBathy: 0.6 }), layers: L({ storms: 1, wind: 0.6, rivers: 0.2, labels: 0.5 }) },
+  { id: "floods", section: "hazards", nav: "Floods", view: V([88.1, 21.4, 92.7, 26.6], 40, 190, 30), u: U({ uRiverGlow: 0.7, uFar: 0.5 }), layers: L({ rivers: 0.8, flow: 0.6, riverLabels: 0.4, labels: 0.3, gauges: 1 }) },
+  { id: "erosion", section: "hazards", nav: "Erosion", view: V([88.4, 21.3, 92.0, 25.9], 34, 190, 8), u: U({ uRiverGlow: 0.4, uFar: 0.5 }), layers: L({ rivers: 0.5, riverLabels: 0.6, labels: 0.4, erosion: 1, coastpts: 1 }) },
 ];

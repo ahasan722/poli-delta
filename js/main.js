@@ -1,18 +1,19 @@
-// main.js  --  v9: one scene, one camera, two views of it.
+// main.js  --  v10: one scene, one camera, two views of it.
 // 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
 // camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
 // runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
 // Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
 // Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=9";
-import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=9";
-import { CHAPTERS, SITE } from "./story.js?v=9";
-import { charts } from "./charts.js?v=9";
-import { cards } from "./cards.js?v=9";
-import { WindField, StormPlayer } from "./wind.js?v=9";
-import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex } from "./palette.js?v=9";
-import { icon, hydrate, STEP_ICON } from "./icons.js?v=9";
+import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=10";
+import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=10";
+import { CHAPTERS, SITE } from "./story.js?v=10";
+import { charts } from "./charts.js?v=10";
+import { cards } from "./cards.js?v=10";
+import { WindField, StormPlayer } from "./wind.js?v=10";
+import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex } from "./palette.js?v=10";
+import { icon, hydrate, STEP_ICON } from "./icons.js?v=10";
+import { buildAtlas, updateAtlas, drawMerge, drawHilsa, drawHalda, drawClock, drawDecades, drawFloodYears, drawErosion, seasonOf, monthOf } from "./atlas.js?v=10";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
@@ -30,19 +31,20 @@ let reduced = mq.matches || Q.get("motion") === "reduce";
 mq.addEventListener?.("change", e => { reduced = e.matches; });
 const phone = () => innerWidth <= 820;
 
-const N = CHAPTERS.length, EXPLORE = N - 1;
+const N = CHAPTERS.filter(c => !c.section).length, EXPLORE = N - 1, ALL = CHAPTERS.length;   // the story, then the atlas sections
+const isSec = i => !!CHAPTERS[i]?.section;
 const DEFAULT_RULE = { theme: "rule", metric: "pop_le5", sevMin: 3, crop: "aman" };
 const FOV = 26, DUR_DIM = 1.4;
 const state = {
   step: 0, lastStory: 0, dimTarget: 1, dimP: 0, pick: 0, hover: 0, storm: null, rule: { ...DEFAULT_RULE },
-  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
+  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, season: "all", haz: "cyclones", fishTab: "hilsa", about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
 };
 const D = {};
-let renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
+let atlasG = null, renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
 const cur = {};                       // the values on screen, eased toward the step's targets
 
 // ---- loading, with real progress ------------------------------------------------------------------
-let loaded = 0; const TOTAL = 14;
+let loaded = 0; const TOTAL = 15;
 const tick = x => { loaded += 1; $("loadFill").style.width = Math.round(loaded / TOTAL * 100) + "%"; $("loadPct").textContent = Math.round(loaded / TOTAL * 100) + "%"; return x; };
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(tick(i)); i.onerror = () => rej(new Error("could not load " + src)); i.src = src; });
 const loadJson = src => fetch(src).then(r => r.ok ? r.json() : null).catch(() => null).then(tick);
@@ -116,16 +118,16 @@ const stepPose = i => { const v = CHAPTERS[i].view; return state.dimTarget ? fit
 // ---- boot ------------------------------------------------------------------------------------------
 async function boot() {
   state.gl = hasGL();
-  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri] = await Promise.all([
+  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri, atlas] = await Promise.all([
     loadImg("data/height.png"), loadImg("data/mask.png"), loadImg("data/cover.png"), loadImg("data/cover_rgb.png"), loadImg("data/district_id.png"),
     loadJson("data/rivers_far.geojson"), loadJson("data/storms.json"), loadJson("data/exposure.json"), loadJson("data/rivers.json"),
-    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json")
+    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json"), loadJson("data/atlas.json")
   ]);
   try { await Promise.all(['500 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '500 20px "Newsreader"'].map(f => document.fonts.load(f))); } catch (e) {}
   tick();
   const ds = distJson.districts;
   Object.assign(D, { storms: stormsJson, expo, districts: ds, byId: Object.fromEntries(ds.map(d => [d.id, d])), impact: impact || [],
-    le5Total: ds.reduce((s, d) => s + d.pop_le5, 0), agri, geo: distGeo, slug: n => n.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "") });
+    le5Total: ds.reduce((s, d) => s + d.pop_le5, 0), agri, atlas, riversJson, geo: distGeo, slug: n => n.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "") });
   D.ten = rankBy(DEFAULT_RULE).slice(0, 10);
   if (state.gl) buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }); else buildFallback();
   hydrate(); charts.init(D); cards.init(D, { clear: () => clearFocus(true), play: sid => playStorm(sid) });
@@ -177,6 +179,7 @@ function buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }) 
   const ring = new THREE.Mesh(new THREE.RingGeometry(3.0, 3.8, 48), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(sp.x, 0.6, sp.z); ring.name = "ring"; site.add(ring);
   const lab = makeLabel("Beel Bhaina: ground up 0.8–1.2 m in 4 years", { size: 20, color: "#006b4f", weight: 600 }); lab.position.set(sp.x, 15, sp.z); site.add(lab);
   scene.add(site);
+  atlasG = buildAtlas(D.atlas, D.riversJson, sampleH, 14); Object.values(atlasG).forEach(g => scene.add(g));
   applyRule();
   bindMap();
   new ResizeObserver(resize).observe(stage);
@@ -213,7 +216,7 @@ function applyRule() {
     list.slice(0, r.theme === "rule" ? 10 : 5).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
   }
   if (D.svg) paintFallback();
-  renderList(); renderLegends(); showKey(CHAPTERS[state.step]?.id); kick();
+  renderList(); renderLegends(); showKey(CHAPTERS[state.step]?.id); if (CHAPTERS[state.step]?.id === "crops" && $("secRank")) renderSecRank(); kick();
 }
 function setRule(next) { state.rule = { ...state.rule, ...next }; syncTree(); applyRule(); }
 
@@ -226,39 +229,42 @@ function valuesAt(i, t) {
 
 // ---- steps ------------------------------------------------------------------------------------------
 function goStep(i, { push = true, instant = false } = {}) {
-  i = clamp(i, 0, N - 1); const prev = state.step; state.step = i; const ch = CHAPTERS[i];
-  if (!ch.explore) state.lastStory = i;
-  if (state.storm && !ch.explore) stopStorm();
+  i = clamp(i, 0, ALL - 1); const prev = state.step; state.step = i; const ch = CHAPTERS[i];
+  if (!ch.explore && !ch.section) state.lastStory = i;
+  if (state.storm && !ch.explore && ch.id !== "cyclones") stopStorm();
   if (state.pick && !pickable()) clearFocus(false);
   if (!ch.explore) { const want = { ...DEFAULT_RULE, theme: ch.theme || "rule" };
     if (["theme", "metric", "sevMin", "crop"].some(k => state.rule[k] !== want[k])) { state.rule = want; syncTree(); applyRule(); } }
   // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
   setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
   if (ch.time && instant) cur[ch.time.key] = lerp(ch.time.from, ch.time.to, state.tl.t);
-  state.ov = {}; stepUI(i); syncLayers(); charts.play?.(ch.id);
+  state.ov = {}; stepUI(i); syncLayers(); charts.play?.(ch.id); if (ch.section) openSection(ch);
   if (state.gl) { const p = stepPose(i); if (instant) { copyPose(camT, p); copyPose(cam, p); flight = null; } else if (!state.pick) flyTo(p); }
   if (push && i !== prev) history.pushState(null, "", hashFor()); else history.replaceState(null, "", hashFor());
-  $("live").textContent = `Step ${i + 1} of ${N}: ${ch.nav}`;
+  $("live").textContent = ch.section ? ch.nav : `Step ${i + 1} of ${N}: ${ch.nav}`;
   kick();
 }
-const pickable = () => ["priority", "grow", "explore"].includes(CHAPTERS[state.step].id);
+const pickable = () => ["priority", "grow", "explore", "crops"].includes(CHAPTERS[state.step].id);
 function stepUI(i) {
-  const ch = CHAPTERS[i], ex = !!ch.explore;
+  const ch = CHAPTERS[i], ex = !!ch.explore, sec = ch.section || null;
+  document.body.classList.toggle("in-section", !!sec);
+  document.querySelectorAll(".sec").forEach(el => el.hidden = el.dataset.sec !== (sec === "hazards" ? "hazards" : sec));
+  ["modeRivers", "modeFish", "modeCrops", "modeHazards"].forEach(id => { const on = $(id).dataset.sec === ch.id || (id === "modeHazards" && sec === "hazards"); $(id).classList.toggle("on", on); $(id).setAttribute("aria-selected", on); });
   document.querySelectorAll("#steps li").forEach((li, n) => { li.classList.toggle("on", n === i); li.classList.toggle("done", n < i); li.querySelector("button").setAttribute("aria-current", n === i ? "step" : "false"); });
   document.querySelectorAll(".cap").forEach(c => c.classList.toggle("vis", c.dataset.ch === ch.id));
-  $("storyText").hidden = ex; $("explorePanel").hidden = !ex; document.body.classList.toggle("exploring", ex);
-  $("modeStory").classList.toggle("on", !ex); $("modeExplore").classList.toggle("on", ex);
-  $("modeStory").setAttribute("aria-selected", !ex); $("modeExplore").setAttribute("aria-selected", ex);
-  $("stepLabel").textContent = `Step ${i + 1} of ${N}${ex ? " · Explore" : ""}`;
+  $("storyText").hidden = ex || !!sec; $("explorePanel").hidden = !ex; document.body.classList.toggle("exploring", ex);
+  $("modeStory").classList.toggle("on", !ex && !sec); $("modeExplore").classList.toggle("on", ex);
+  $("modeStory").setAttribute("aria-selected", !ex && !sec); $("modeExplore").setAttribute("aria-selected", ex);
+  $("stepLabel").textContent = sec ? `Atlas · ${sec === "hazards" ? "Hazards · " + ch.nav : ch.nav}` : `Step ${i + 1} of ${N}${ex ? " · Explore" : ""}`;
   $("prevBtn").disabled = i === 0;
-  $("nextTxt").textContent = i === 0 ? "Start" : i === EXPLORE ? "Back to the start" : i === EXPLORE - 1 ? "Explore the 64 districts" : "Next: " + CHAPTERS[i + 1].nav;
-  $("progFill").style.width = (i / (N - 1) * 100) + "%";
+  $("nextTxt").textContent = i === 0 ? "Start" : i === EXPLORE ? "Back to the start" : i === EXPLORE - 1 ? "Explore the 64 districts" : (CHAPTERS[i + 1] ? "Next: " + CHAPTERS[i + 1].nav : "");
+  $("progFill").style.width = (Math.min(i, N - 1) / (N - 1) * 100) + "%";
   showKey(ch.id);
   if (state.gl) renderer.domElement.style.cursor = "grab";
 }
 function buildSteps() {
   const ol = $("steps");
-  CHAPTERS.forEach((ch, i) => { const li = document.createElement("li"); li.innerHTML = `<button type="button"><span class="tile">${icon(STEP_ICON[ch.id] || "question", 18)}</span><span class="t">${ch.nav}</span><span class="n">${String(i + 1).padStart(2, "0")}</span></button>`;
+  CHAPTERS.slice(0, N).forEach((ch, i) => { const li = document.createElement("li"); li.innerHTML = `<button type="button"><span class="tile">${icon(STEP_ICON[ch.id] || "question", 18)}</span><span class="t">${ch.nav}</span><span class="n">${String(i + 1).padStart(2, "0")}</span></button>`;
     li.querySelector("button").addEventListener("click", () => goStep(i)); ol.appendChild(li); });
 }
 const next = () => goStep(state.step === EXPLORE ? 0 : state.step + 1), prevStep = () => goStep(state.step - 1);
@@ -322,7 +328,7 @@ function frame(now) {
   applyOffset(camera, off); pose(camera, cam);
   const vw = view(cam); $("needle").style.transform = `rotate(${(180 - vw.az).toFixed(1)}deg)`;
   // continuous animations that need frames
-  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
+  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || v.junctions > 0.05 || v.fishrun > 0.05 || v.coastpts > 0.05 || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
   if (!(moving || live || interacting || need > 0)) { lastFrame = now; return; }
   need = Math.max(0, need - 1);
   scene.fog.near = cam.d * 1.2; scene.fog.far = cam.d * 3.2;
@@ -331,21 +337,21 @@ function frame(now) {
   for (const key of ["uSeaLevel", "uRiverGlow", "uFar", "uLowBand", "uSink", "uCoverMix", "uForest", "uWet", "uBuilt", "uLoss", "uBathy"]) U[key].value = v[key];
   U.uExag.value = v.uExag * eExag; U.uCutOn.value = 0; U.uTime.value = time;
   // the overlays were built at 14x; they follow the relief as it rises and lies down
-  const ys = Math.max(0.03, eExag * v.uExag / 14); [rivers, farRivers, districts, storms, wind.mesh, labels, site].forEach(g => g.scale.y = ys);
+  const ys = Math.max(0.03, eExag * v.uExag / 14); [rivers, farRivers, districts, storms, wind.mesh, labels, site, ...Object.values(atlasG)].forEach(g => g.scale.y = ys);
   // labels step back while the camera flies or the view changes dimension
   const lf = (1 - smoothstep(0, 0.12, P) * smoothstep(1, 0.88, P)) * (1 - 0.85 * fl);
   rivers.children.forEach(o => { if (o.material.uniforms) { o.material.uniforms.uOpacity.value = (o.name === "major" ? 0.9 : 0.45) * v.rivers; o.material.uniforms.uTime.value = time; o.material.uniforms.uFlow.value = v.flow; } else o.material.opacity = v.riverLabels * lf; });
   farRivers.children.forEach(o => { const u = o.material.uniforms; u.uOpacity.value = 0.6 * v.farRivers; u.uTime.value = time; u.uFlow.value = v.flow; });
   labels.children.forEach(s => s.material.opacity = v.labels * lf);
   districts.children.forEach(l => { const sel = l.userData.id === state.pick; l.material.color.setHex(sel ? hex(BASE.ink) : hex(BASE.outline)); l.material.opacity = sel ? 0.95 : 0.55 * v.borders; });
-  stormLayer(v, lf); prismLayer(v, P, lf);
+  stormLayer(v, lf); prismLayer(v, P, lf); updateAtlas(atlasG, v, time, lf, 1);
   site.children.forEach(o => { o.material.opacity = v.site * (o.name === "ring" ? 0.45 + 0.45 * Math.sin(time * 2.4) : o.isSprite ? lf : 1); });
   site.children[1].scale.setScalar(1 + 0.25 * Math.sin(time * 2.4));
   readouts(v);
   // labels keep one size on screen
   const sc = camera.position.distanceTo(cam.look) / 1020;
   const fit = s => { if (s.isSprite && s.userData.base) s.scale.set(s.userData.base.w * sc, s.userData.base.h * sc, 1); };
-  labels.children.forEach(fit); rivers.children.forEach(fit); ranks.children.forEach(fit); site.children.forEach(fit); storms.children.forEach(s => { if (s.userData.isStormLabel) fit(s); });
+  Object.values(atlasG).forEach(g => g.visible && g.children.forEach(fit)); labels.children.forEach(fit); rivers.children.forEach(fit); ranks.children.forEach(fit); site.children.forEach(fit); storms.children.forEach(s => { if (s.userData.isStormLabel) fit(s); });
   if (state.storm && state.tl.def) { const s = player.storm; const n = s.pts.length; player.t = player.t0 + state.tl.t * (n - 1 - player.t0); syncTimeline(); }
   player.step(); wind.step();
   renderer.render(scene, camera); state.renders += 1; status(vw);
@@ -359,7 +365,7 @@ function status(vw) {
   const h = stage.clientHeight || 700; const dist = camera.position.distanceTo(cam.look); const kmpx = 2 * dist * Math.tan(FOV / 2 * Math.PI / 180) / h;
   const nice = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]; const km = nice.filter(n => n / kmpx <= 110).pop() || 1;
   const bear = Math.round(((180 - vw.az) % 360 + 360) % 360), tilt = Math.round(vw.pitch);
-  const hint = ["Drag to move", "scroll to zoom", state.dimTarget ? "right-drag to turn and tilt" : "", pickable() ? "click a district for its details" : "", !CHAPTERS[state.step].explore ? "→ for the next step" : ""].filter(Boolean).join(" · ");
+  const hint = ["Drag to move", "scroll to zoom", state.dimTarget ? "right-drag to turn and tilt" : "", pickable() ? "click a district for its details" : "", !CHAPTERS[state.step].explore && !isSec(state.step) ? "→ for the next step" : ""].filter(Boolean).join(" · ");
   const key = km + "|" + Math.round(km / kmpx) + "|" + bear + "|" + tilt + "|" + hint + "|" + state.dimTarget;
   if (key === sbLast) return; sbLast = key;
   $("sbBar").style.width = Math.round(km / kmpx) + "px"; $("sbKm").textContent = km + " km";
@@ -376,7 +382,8 @@ function stormLayer(v, lf) {
   storms.children.forEach(o => {
     const s = o.userData; const marker = o.name.startsWith("ring-") || o.name.startsWith("lab-");
     if (playing) { o.material.opacity = s.sid === state.storm ? (o.isSprite ? lf : 0.95) : 0; return; }
-    o.material.opacity = s.season <= yr ? v.storms * (marker ? 0.9 : s.note ? 0.85 : 0.45) * (o.isSprite ? lf : 1) : 0;
+    const keep = state.season === "all" || CHAPTERS[state.step].id !== "cyclones" || seasonOf(monthOf(s)) === state.season;
+    o.material.opacity = s.season <= yr && keep ? v.storms * (marker ? 0.9 : s.note ? 0.85 : 0.45) * (o.isSprite ? lf : 1) : 0;
   });
   if (playing) { wind.mat.opacity = 0.95; return; }
   wind.mat.opacity = v.wind;
@@ -416,6 +423,11 @@ const KEYS = {
   sea: [["", "Land below the sea"], ["r:" + FLOOD.shallow + "," + FLOOD.deep, "shallow → deep"]],
   storms: [["", "Cyclone wind"], ["l:" + WIND.major, "96 kt and more"], ["l:" + WIND.hurricane, "64–95 kt"], ["l:" + WIND.gale, "34–63 kt"]],
   priority: sevKey("fewer than 3"),
+  rivers: [["", "Rivers"], ["l:" + RIVER.strong, "moving with their flow"], ["#111827", "junction"]],
+  fish: [["", "Fish"], ["l:#CC79A7", "hilsa sanctuary"], ["l:#E69F00", "Halda river"], ["#0072B2", "fishing ground"], ["#1f2937", "hilsa moving upriver"]],
+  cyclones: [["", "Peak wind on the track"], ["l:" + WIND.major, "96 kt and more"], ["l:" + WIND.hurricane, "64–95 kt"], ["l:" + WIND.gale, "34–63 kt"]],
+  floods: [["", "Record flood above danger level"], ["#08306b", "2 m and more"], ["#2171b5", "1–2 m"], ["#6baed6", "0.5–1 m"], ["#c6dbef", "under 0.5 m"]],
+  erosion: [["", "Land lost since 1973"], ["l:#a63603", "Jamuna"], ["l:#e6550d", "Padma"], ["l:#fd8d3c", "Ganges"], ["#a63603", "coast losing ground"]],
   grow: [["", "Main landscape of the district"], ...REGION_ORDER.map(k => [REGION[k], ""])],
   raise: [[ACCENT, "tidal river management site"]],
   explore: sevKey("below the rule")
@@ -424,7 +436,7 @@ function cropKey(c) { const br = cropBreaks(c); const f = v => v >= 1e6 ? f1(v /
   return [["", CROP_NAME[c] + ", tonnes (" + D.agri.crop_years[c] + ")"], ...CROP.map((col, i) => [col, i === 0 ? "under " + f(br[0]) : i === 4 ? f(br[3]) + " and more" : f(br[i - 1]) + "–" + f(br[i])]).reverse()]; }
 const landKey = () => [["", "Main landscape of the district"], ...REGION_ORDER.map(k => [REGION[k], D.agri ? D.agri.regions[k] : k])];
 function showKey(id) {
-  const r = state.rule; const k = id === "explore" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
+  const r = state.rule; const k = id === "explore" || id === "crops" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
   $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
 }
 // the same keys, drawn inside the layer tree under the active theme
@@ -493,7 +505,7 @@ function markChips() { document.querySelectorAll("#stormChips .chip, #stormList 
 function stopStorm() { state.storm = null; if (player) player.stop(); markChips(); if (CHAPTERS[state.step].time) setTimeline(CHAPTERS[state.step].time, { autoplay: false, at: 1 }); else setTimeline(null); }
 function playStorm(sid, { push = true } = {}) {
   const s = D.storms.find(x => x.sid === sid); if (!s) return;
-  if (state.step !== EXPLORE) goStep(EXPLORE, { push: false, instant: !state.ready });
+  if (state.step !== EXPLORE && CHAPTERS[state.step].id !== "cyclones") goStep(EXPLORE, { push: false, instant: !state.ready });
   if (state.pick) { state.pick = 0; if (terrain) terrain.uniforms.uPick.value = 0; }
   state.storm = sid; markChips(); cards.showStorm(s); document.body.classList.add("sheet-open");
   const name = s.note ? s.note.label : s.name;
@@ -627,7 +639,7 @@ function buildSearch() {
 
 // ---- URL: step, view, selection ------------------------------------------------------------------------
 function hashFor() {
-  const p = new URLSearchParams(); p.set("step", state.step + 1); p.set("mode", state.dimTarget ? "3d" : "2d");
+  const p = new URLSearchParams(); if (isSec(state.step)) p.set("sec", CHAPTERS[state.step].id); else p.set("step", state.step + 1); p.set("mode", state.dimTarget ? "3d" : "2d");
   if (state.pick) p.set("id", D.slug(D.byId[state.pick].name));
   if (state.storm) { const s = D.storms.find(x => x.sid === state.storm); p.set("storm", s.note ? D.slug(s.note.label) + "-" + s.season : s.sid); }
   if (state.about) p.set("page", "about");
@@ -636,6 +648,7 @@ function hashFor() {
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1)); const out = { step: 0, dim: 1, district: 0, storm: null, about: p.get("page") === "about" };
   const st = p.get("step"); if (st) { const n = parseInt(st, 10); out.step = Number.isFinite(n) ? clamp(n - 1, 0, N - 1) : Math.max(0, CHAPTERS.findIndex(c => c.id === st)); }
+  const sc = p.get("sec"); if (sc) { const k = CHAPTERS.findIndex(c => c.id === sc && c.section); if (k >= 0) out.step = k; }
   if (p.get("mode") === "2d" || !hasGL()) out.dim = 0;
   const id = p.get("id"); if (id) { const d = D.districts.find(x => D.slug(x.name) === id || String(x.id) === id); if (d) out.district = d.id; }
   const s = p.get("storm"); if (s) { const m = D.storms.find(x => x.sid === s || (x.note && D.slug(x.note.label) + "-" + x.season === s) || (x.note && D.slug(x.note.label) === s)); if (m) out.storm = m.sid; }
@@ -661,7 +674,9 @@ function toggleFs() { if (document.fullscreenElement) document.exitFullscreen?.(
 function resetNorth() { if (!state.gl) return; const p = clonePose(camT); p.az = 180; p.pitch = state.dimTarget ? 45 : p.pitch; flyTo(p, 800); }
 function bindUI() {
   $("prevBtn").addEventListener("click", prevStep); $("nextBtn").addEventListener("click", next);
-  $("modeStory").addEventListener("click", () => { if (state.step === EXPLORE) goStep(state.lastStory); });
+  $("modeStory").addEventListener("click", () => { if (state.step === EXPLORE || isSec(state.step)) goStep(state.lastStory); });
+  ["modeRivers", "modeFish", "modeCrops", "modeHazards"].forEach(id => $(id).addEventListener("click", () => { showAbout(false); goStep(CHAPTERS.findIndex(c => c.id === $(id).dataset.sec)); }));
+  bindSections();
   $("modeExplore").addEventListener("click", () => { showAbout(false); goStep(EXPLORE); });
   $("modeStory").addEventListener("click", () => showAbout(false));
   $("modeAbout").addEventListener("click", () => showAbout(true));
@@ -683,7 +698,7 @@ function bindUI() {
   // the wheel over the story panel moves between steps; over the explore list it scrolls the list
   let acc = 0, lock = 0;
   $("panel").addEventListener("wheel", e => {
-    if (phone() || state.step === EXPLORE) return;
+    if (phone() || state.step === EXPLORE || isSec(state.step)) return;
     e.preventDefault(); const now = performance.now(); if (now < lock) return;
     acc += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; if (Math.abs(acc) < 40) return;
     if (acc > 0 && state.step < EXPLORE) next(); else if (acc < 0 && state.step > 0) prevStep();
@@ -698,6 +713,7 @@ function bindUI() {
     if (!$("layersPop").hidden && e.key === "Escape") { toggleLayers(false); return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
+    if (isSec(state.step) && /Arrow|Page/.test(k)) return;
     if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown") { e.preventDefault(); if (state.step < EXPLORE) next(); }
     else if (k === "ArrowLeft" || k === "ArrowUp" || k === "PageUp") { e.preventDefault(); prevStep(); }
     else if (k === "Home") goStep(0); else if (k === "End") goStep(EXPLORE);
@@ -742,6 +758,73 @@ function buildFallback() {
 }
 function layoutFallback() { if (!D.svg) return; const w = stage.clientWidth, h = stage.clientHeight; const proj = d3.geoMercator().fitExtent([[24, 24], [w - 24 - freeTarget().r, h - 24 - freeTarget().b]], D.geo); D.paths.attr("d", d3.geoPath(proj)); }
 function paintFallback() { if (!D.paths) return; const r = state.rule; D.paths.attr("fill", f => { const d = D.byId[f.properties.id]; return d && d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }).attr("opacity", f => state.pick && state.pick !== f.properties.id ? 0.45 : 1); }
+
+// ---- the atlas sections: panels, lists that fly the map, charts that draw in ---------------------------------
+function flyToPlace(lon, lat, span = 0.6, pitch = 42) { if (!state.gl) return; const p = fitView({ box: [lon - span, lat - span * 0.8, lon + span, lat + span * 0.8], top: 20, pitch, az: 190 }, state.dimTarget ? pitch : 0, state.dimTarget ? 190 : 180); p.pitch = pitch; p.az = 190; flyTo(p); }
+const place = (o) => { cards.showPlace(o); document.body.classList.add("sheet-open"); kick(); };
+function openSection(ch) {
+  const A = D.atlas; if (!A) return;
+  if (ch.id === "rivers") drawMerge($("chMerge"), A);
+  if (ch.id === "fish") showFish(state.fishTab);
+  if (ch.id === "crops") { drawGrow2(); renderSecRank(); }
+  if (ch.section === "hazards") { state.haz = ch.id; document.querySelectorAll("#hazSeg button").forEach(b => b.classList.toggle("on", b.dataset.h === ch.id)); document.querySelectorAll(".hpane").forEach(p => p.hidden = p.dataset.h !== ch.id);
+    if (ch.id === "cyclones") { drawClock($("chClock"), D.storms.filter(s => state.season === "all" || seasonOf(monthOf(s)) === state.season), sid => playStorm(sid)); drawDecades($("chDecade"), D.storms); }
+    if (ch.id === "floods") drawFloodYears($("chFlood"), A);
+    if (ch.id === "erosion") drawErosion($("chEro"), A); }
+}
+function showFish(t) { state.fishTab = t; document.querySelectorAll("#fishSeg button").forEach(b => b.classList.toggle("on", b.dataset.f === t)); document.querySelectorAll(".fpane").forEach(p => p.hidden = p.dataset.f !== t);
+  const A = D.atlas; if (t === "hilsa") drawHilsa($("chHilsa"), A); if (t === "halda") drawHalda($("chHalda"), A); }
+function drawGrow2() { const el = $("chGrow2"); if (!el) return; const src = $("chGrow"); el.innerHTML = src ? src.innerHTML : ""; }
+function renderSecRank() {
+  const r = state.rule, list = D.list.slice(0, 10), t = v => v >= 1e6 ? f1(v / 1e6) + " M t" : d3.format(",")(Math.round(v / 1000)) + "k t";
+  const val = d => isCrop(r) ? cropOf(d, r.crop) : riceOf(d); const max = d3.max(list, val) || 1; const br = isCrop(r) ? cropBreaks(r.crop) : null;
+  $("secRankHead").textContent = isCrop(r) ? `Top districts for ${CROP_NAME[r.crop].toLowerCase()}` : "Top districts for rice (Aman, Boro, Aus)";
+  $("secRank").innerHTML = list.map((d, i) => `<li data-id="${d.id}" tabindex="0"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${t(val(d))}</span><span class="b"><i style="width:${(val(d) / max * 100).toFixed(1)}%;background:${colourOf(d, r, br)}"></i></span></li>`).join("");
+  $("secRank").querySelectorAll("li").forEach(li => li.addEventListener("click", () => selectDistrict(+li.dataset.id)));
+  const leg = $(isCrop(r) ? "lgCrop" : "lgLand"); $("lgSec").innerHTML = leg ? leg.innerHTML : "";
+}
+function bindSections() {
+  const A = D.atlas; if (!A) return; const fmt = d3.format(",");
+  // rivers: one card per junction
+  $("jList").innerHTML = A.junctions.map(j => { const g = A.gauges.find(x => x.name === j.gauge || (j.gauge && x.name.startsWith(j.gauge.split(" ")[0])));
+    return `<li><button type="button" data-id="${j.id}"><span class="pi">${icon("pin", 18)}</span><span><b>${j.name}</b><small>${j.joins.length ? j.joins.join(" + ") + " → " + j.becomes : "river mouth"}</small></span><span class="pv">${j.flows[j.becomes] ? fmt(j.flows[j.becomes]) + " m³/s" : ""}</span></button></li>`; }).join("");
+  $("jList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const j = A.junctions.find(x => x.id === b.dataset.id); const g = A.gauges.find(x => j.gauge && x.name.toLowerCase().startsWith(j.gauge.toLowerCase().split(" ")[0]));
+    flyToPlace(j.lon, j.lat, 0.45);
+    place({ eyebrow: "River junction", dot: "#111827", title: j.name, sub: j.joins.length ? `${j.joins.join(" + ")} → ${j.becomes}` : "River mouth on the Bay",
+      body: `<p>${j.note}</p>` + (Object.keys(j.flows).length ? `<div class="sub">Mean flow, m³/s</div><table>${Object.entries(j.flows).map(([k, v]) => `<tr><td>${k}</td><td>${fmt(v)}</td></tr>`).join("")}</table>` : "<p class='note'>No reach of 150 m³/s or more is mapped here; the channels are part of the smaller network.</p>")
+        + (g ? `<div class="sub">FFWC gauge: ${g.name}</div><table><tr><td>Danger level</td><td>${g.danger} m</td></tr><tr><td>Record peak</td><td>${g.record} m</td></tr><tr><td>Record above danger</td><td>+${g.over} m</td></tr></table>` : "")
+        + `<p class="src">HydroRIVERS v1.0 long-term mean discharge. Gauge: FFWC Annual Flood Report 2021, metres above PWD datum.</p>` }); }));
+  // fish
+  document.querySelectorAll("#fishSeg button").forEach(b => b.addEventListener("click", () => { showFish(b.dataset.f);
+    if (b.dataset.f === "halda") flyToPlace(91.80, 22.65, 0.35, 48); else if (b.dataset.f === "sea") flyToPlace(90.5, 21.25, 1.3, 36); else if (state.gl) flyTo(stepPose(state.step)); }));
+  const F = A.fish; const maxkm = d3.max(F.sanctuaries, s => s.km);
+  $("sList").innerHTML = F.sanctuaries.map((s, i) => `<li><button type="button" data-i="${i}"><span class="pi sw" style="background:#CC79A7"></span><span><b>${s.name}</b><small>${s.river} · ${s.districts} · closed ${s.ban}</small></span><span class="pv">${s.km} km</span></button><i class="bar" style="width:${s.km / maxkm * 100}%"></i></li>`).join("");
+  $("sList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const s = F.sanctuaries[+b.dataset.i]; const lon = d3.mean(s.path, p => p[0]), lat = d3.mean(s.path, p => p[1]);
+    flyToPlace(lon, lat, 0.4, 44); place({ eyebrow: "Hilsa sanctuary", dot: "#CC79A7", title: s.name, sub: `${s.river} · ${s.districts}`, body: `<div class="stats"><div><b>${s.km} km</b><span>of river</span></div><div><b>${s.ban}</b><span>fishing closed</span></div></div><p class="src">${F.sanct_src}. The course on the map is drawn through the named end points and is approximate.</p>` }); }));
+  $("srcHilsa").textContent = `${F.hilsa_src}. ${F.hilsa_note} Sanctuaries: ${F.sanct_src}.`;
+  $("haldaSpawn").textContent = F.halda.spawn; $("srcHalda").textContent = F.halda.src + ".";
+  $("gList").innerHTML = F.grounds.map((g, i) => `<li><button type="button" data-i="${i}"><span class="pi sw" style="background:#0072B2"></span><span><b>${g.name}</b><small>${g.box[1].toFixed(2)}–${g.box[3].toFixed(2)}° N, ${g.box[0]}–${g.box[2]}° E</small></span><span class="pv">${fmt(g.km2)} km²</span></button></li>`).join("");
+  $("gList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const g = F.grounds[+b.dataset.i]; flyToPlace((g.box[0] + g.box[2]) / 2, (g.box[1] + g.box[3]) / 2, 0.7, 36); }));
+  $("srcGround").textContent = F.grounds_src + ".";
+  // crops
+  $("secCropSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { $("secCropSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    setRule(b.dataset.t ? { theme: "landscape" } : { theme: "crop", crop: b.dataset.c }); renderSecRank(); }));
+  // hazards
+  document.querySelectorAll("#hazSeg button").forEach(b => b.addEventListener("click", () => goStep(CHAPTERS.findIndex(c => c.id === b.dataset.h))));
+  $("seasonSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.season = b.dataset.s; $("seasonSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    drawClock($("chClock"), D.storms.filter(s => state.season === "all" || seasonOf(monthOf(s)) === state.season), sid => playStorm(sid)); kick(); }));
+  const gs = A.gauges.slice().sort((a, b) => b.over - a.over).slice(0, 12); const gmax = gs[0].over;
+  $("gaugeList").innerHTML = gs.map((g, i) => `<li><button type="button" data-i="${i}"><span class="pi sw" style="background:${g.over >= 2 ? "#08306b" : g.over >= 1 ? "#2171b5" : "#6baed6"}"></span><span><b>${g.name}</b><small>${g.river} · danger ${g.danger} m · record ${g.record} m</small></span><span class="pv">+${g.over} m</span></button><i class="bar blue" style="width:${g.over / gmax * 100}%"></i></li>`).join("");
+  $("gaugeList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const g = gs[+b.dataset.i]; flyToPlace(g.lon, g.lat, 0.35, 48);
+    place({ eyebrow: `FFWC gauge · ${g.river}`, dot: "#2171b5", title: g.name, sub: `station ${g.id}`, body: `<div class="stats"><div><b>${g.danger} m</b><span>danger level</span></div><div><b>${g.record} m</b><span>record peak</span></div><div><b>+${g.over} m</b><span>record above danger</span></div></div><table><tr><td>Peak in 2021</td><td>${g.peak2021} m (${g.peak2021 >= g.danger ? "+" : ""}${f1(g.peak2021 - g.danger)} m)</td></tr></table><p class="src">${A.flood_src}. Metres above PWD datum.</p>` }); }));
+  $("srcFlood").textContent = A.flood_src + `. ${A.gauges.length} of the report's 81 gauges could be placed on the map.`;
+  const E = A.erosion; $("eroTotal").textContent = fmt(Math.round(E.total_ha / 100)) + " km²";
+  $("ero2025").innerHTML = `In 2025 alone: <b>${fmt(E.year2025.Ganges + E.year2025.Jamuna + E.year2025.Padma)} ha</b> (Ganges ${E.year2025.Ganges}, Jamuna ${E.year2025.Jamuna}, Padma ${E.year2025.Padma}). Forecast for 2026: ${E.forecast2026_ha} ha. ${E.people}`;
+  $("cList").innerHTML = E.coast.map((c, i) => `<li><button type="button" data-i="${i}"><span class="pi sw" style="background:#a63603"></span><span><b>${c.name}</b><small>${c.text}</small></span></button></li>`).join("");
+  $("cList").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const c = E.coast[+b.dataset.i]; flyToPlace(c.lon, c.lat, 0.4, 44);
+    place({ eyebrow: "Coastal erosion", dot: "#a63603", title: c.name, sub: "", body: `<p>${c.text}.</p><p class="src">${c.src}.</p>` }); }));
+  $("srcEro").textContent = E.src + "; coastal figures as cited for each place.";
+}
 
 // ---- the layers menu: per-step overrides --------------------------------------------------------------
 const ON = { rivers: 0.9, riverLabels: 0.9, labels: 0.9, borders: 0.8, storms: 0.9, uBathy: 1 };

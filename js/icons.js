@@ -32,6 +32,7 @@ const P = {
   droplet: '<path d="M12 3s6.5 7 6.5 11.5a6.5 6.5 0 0 1-13 0C5.5 10 12 3 12 3Z"/>',
   overview: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
   play: '<path d="M7 4.5v15l12-7.5z"/>',
+  fish: '<path d="M2.5 12c3-4.5 7-6 11-6 3.2 0 5.6 1.8 7 3.2v5.6c-1.4 1.4-3.8 3.2-7 3.2-4 0-8-1.5-11-6Z"/><path d="M2.5 12 1 8.5M2.5 12 1 15.5"/><circle cx="16.5" cy="11" r=".9"/>',
   map: '<path d="m3 6 6-2.5 6 2.5 6-2.5v14.5L15 20.5 9 18l-6 2.5z"/><path d="M9 3.5V18M15 6v14.5"/>'
 };
 export const icon = (name, size = 20, cls = "") => `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ""}</svg>`;
