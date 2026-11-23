@@ -3,9 +3,9 @@
 // FFWC flood gauges as columns (height = how far the record flood rose above the danger level), the land the
 // Jamuna, Padma and Ganges have eaten, and coastal erosion points. Panels: small d3 charts that draw themselves in.
 import * as THREE from "three";
-import { toScene } from "./terrain.js?v=11";
-import { makeLabel } from "./layers.js?v=11";
-import { FISH, GAUGE, ERODE, JUNCTION, SEASON, windHex, BASE, RIVER } from "./palette.js?v=11";
+import { toScene } from "./terrain.js?v=12";
+import { makeLabel } from "./layers.js?v=12";
+import { FISH, GAUGE, ERODE, JUNCTION, SEASON, windHex, BASE, RIVER } from "./palette.js?v=12";
 
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const kmh = (m, exag) => Math.max(m, 0) * 0.001 * exag;

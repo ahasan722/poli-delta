@@ -3,8 +3,8 @@
 // Rivers (channels, water, the named rivers and their flow), Land and crops (agro-ecological zones, land cover,
 // the five major crops and the district's share of each) and Cyclones (every pass within 50 km since 1960).
 // Every chart draws itself in when its tab opens.
-import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=11";
-import { icon } from "./icons.js?v=11";
+import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=12";
+import { icon } from "./icons.js?v=12";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line, soft: "#f3f4f6" };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map
@@ -71,7 +71,7 @@ function coverBar(parent, cover) {
     acc += v; });
 }
 function cropBars(parent, a) {
-  const crops = Object.keys(CROP_NAME).filter(c => !c.startsWith("fish")); const nat = D.agri.national; const share = c => (a.crops[c] || 0) / nat[c] * 100;
+  const nat = D.agri.national; const crops = Object.keys(CROP_NAME).filter(c => nat[c] != null); const share = c => (a.crops[c] || 0) / nat[c] * 100;
   const max = Math.max(4, d3.max(crops, share)); const { s, w } = svg(parent, crops.length * 44 + 4); const x = d3.scaleLinear().domain([0, max]).range([0, w - 225]);
   const lead = crops.reduce((b, c) => share(c) > share(b) ? c : b, crops[0]);
   crops.forEach((c, i) => { const y = i * 44; const rk = a.crop_rank[c];

@@ -33,6 +33,9 @@ const P = {
   overview: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
   play: '<path d="M7 4.5v15l12-7.5z"/>',
   fish: '<path d="M2.5 12c3-4.5 7-6 11-6 3.2 0 5.6 1.8 7 3.2v5.6c-1.4 1.4-3.8 3.2-7 3.2-4 0-8-1.5-11-6Z"/><path d="M2.5 12 1 8.5M2.5 12 1 15.5"/><circle cx="16.5" cy="11" r=".9"/>',
+  tree: '<path d="M12 21v-6"/><path d="M12 3c-3.5 0-6 2.6-6 5.6 0 1 .3 1.9.8 2.7A3.6 3.6 0 0 0 9 18h6a3.6 3.6 0 0 0 2.2-6.7c.5-.8.8-1.7.8-2.7C18 5.6 15.5 3 12 3Z"/>',
+  leaf: '<path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15"/><path d="M5 19c3-4 6-7 10-9"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/>',
   map: '<path d="m3 6 6-2.5 6 2.5 6-2.5v14.5L15 20.5 9 18l-6 2.5z"/><path d="M9 3.5V18M15 6v14.5"/>'
 };
 export const icon = (name, size = 20, cls = "") => `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ""}</svg>`;

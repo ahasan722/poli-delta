@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css?v=11">
+<link rel="stylesheet" href="css/poli.css?v=12">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -21,6 +21,7 @@
     <button type="button" id="modeStory" role="tab" aria-selected="true" class="on"><span data-icon="book"></span><span>Story</span></button>
     <button type="button" id="modeRivers" data-sec="rivers" data-group="rivers" role="tab" aria-selected="false"><span data-icon="river"></span><span>Rivers</span></button>
     <button type="button" id="modeWet" data-sec="haors" data-group="wetlands" role="tab" aria-selected="false"><span data-icon="droplet"></span><span>Wetlands</span></button>
+    <button type="button" id="modeSund" data-sec="sundarbans" data-group="sundarbans" role="tab" aria-selected="false"><span data-icon="tree"></span><span>Sundarbans</span></button>
     <button type="button" id="modeFish" data-sec="fish" data-group="fish" role="tab" aria-selected="false"><span data-icon="fish"></span><span>Fish</span></button>
     <button type="button" id="modeCrops" data-sec="crops" data-group="crops" role="tab" aria-selected="false"><span data-icon="wheat"></span><span>Crops</span></button>
     <button type="button" id="modeCyclones" data-sec="cyclones" data-group="cyclones" role="tab" aria-selected="false"><span data-icon="cyclone"></span><span>Cyclones</span></button>
@@ -137,6 +138,7 @@
             <button type="button" class="chip" data-c="aus">Aus rice</button>
             <button type="button" class="chip" data-c="wheat">Wheat</button>
             <button type="button" class="chip" data-c="potato">Potato</button>
+            <button type="button" class="chip" data-c="jute">Jute</button>
           </div>
           <div class="legend" id="lgCrop"></div>
         </div>
@@ -218,12 +220,40 @@
     </div>
   </div>
   <div class="sec" data-sec="crops" hidden>
-    <h2>What each landscape grows</h2>
-    <div class="chips" id="secCropSeg"><button type="button" class="chip on" data-t="landscape">Landscapes</button><button type="button" class="chip" data-c="aman">Aman rice</button><button type="button" class="chip" data-c="boro">Boro rice</button><button type="button" class="chip" data-c="aus">Aus rice</button><button type="button" class="chip" data-c="wheat">Wheat</button><button type="button" class="chip" data-c="potato">Potato</button></div>
-    <div class="legend" id="lgSec"></div>
-    <div class="tsec">Share of the land and of each crop</div><div class="fig" id="chGrow2"></div>
-    <div class="tsec" id="secRankHead">Top districts</div><ol class="rlist" id="secRank"></ol>
-    <p class="src">BARC 2018 zones in five landscapes; BBS crops (Aman 2011-12, Boro 2012-13, others 2014-15), split by each district's area in each zone.</p>
+    <div class="seg seg3" id="cropSegTop" role="tablist"><button type="button" data-k="crops" class="on"><span data-icon="wheat" data-size="16"></span>Crops</button><button type="button" data-k="seasons"><span data-icon="calendar" data-size="16"></span>Seasons</button><button type="button" data-k="tea"><span data-icon="leaf" data-size="16"></span>Tea</button></div>
+    <div class="kpane" data-k="crops">
+      <h2>What each landscape grows</h2>
+      <div class="chips" id="secCropSeg"><button type="button" class="chip on" data-t="landscape">Landscapes</button><button type="button" class="chip" data-c="aman">Aman rice</button><button type="button" class="chip" data-c="boro">Boro rice</button><button type="button" class="chip" data-c="aus">Aus rice</button><button type="button" class="chip" data-c="wheat">Wheat</button><button type="button" class="chip" data-c="potato">Potato</button><button type="button" class="chip" data-c="jute">Jute</button></div>
+      <div class="legend" id="lgSec"></div>
+      <div class="tsec">Share of the land and of each crop</div><div class="fig" id="chGrow2"></div>
+      <div class="tsec" id="secRankHead">Top districts</div><ol class="rlist" id="secRank"></ol>
+      <p class="src">BARC 2018 zones in five landscapes; BBS crops (Aman 2011-12, Boro 2012-13, others 2014-15), split by each district's area in each zone. <span id="srcJute"></span></p>
+    </div>
+    <div class="kpane" data-k="seasons" hidden>
+      <h2>What is in the ground in <b id="calMonth">January</b></h2>
+      <p>Three seasons, six main crops. Play the year, or drag across the calendar: each district rises with the tonnes of these crops growing in its fields that month, coloured by the largest.</p>
+      <div class="fig" id="chCal"></div>
+      <div class="tsec" id="calHead">In the ground now</div><ul class="calnow" id="calNow"></ul>
+      <p class="src" id="srcCal"></p>
+    </div>
+    <div class="kpane" data-k="tea" hidden>
+      <h2>169 tea gardens, most on the Sylhet hills</h2>
+      <p id="teaLede"></p>
+      <div class="tsec">Gardens by district</div><div class="fig" id="chTea"></div>
+      <div class="tsec">Tea made, million kg <small>light: whole country; dark: the northern plains</small></div><div class="fig" id="chTeaOut"></div>
+      <table class="facts" id="teaFacts"></table>
+      <p class="src" id="srcTea"></p>
+    </div>
+  </div>
+  <div class="sec" data-sec="sundarbans" hidden>
+    <h2>The Sundarbans</h2>
+    <p>The largest mangrove forest on Earth, split between Bangladesh and India. It breaks the storm surge for the south-west coast, and its rivers feed thousands of fishers.</p>
+    <table class="facts" id="sundFacts"></table>
+    <div class="tsec">Tigers counted <small>Bangladesh part</small></div><div class="fig" id="chTiger"></div>
+    <p class="small" id="tigerNote"></p>
+    <div class="tsec">Fish caught in the forest, tonnes a year</div><div class="fig" id="chSundFish"></div>
+    <div class="tsec">Cyclones that crossed it <small>click to play</small></div><ul class="plist" id="sundStorms"></ul>
+    <p class="src" id="srcSund"></p>
   </div>
   <div class="sec" data-sec="cyclones" hidden>
     <h2>Cyclone tracker</h2>
@@ -372,7 +402,7 @@
     <p>A district joins the list when a cyclone of hurricane force, 64 knots or more, has passed within 50 km of it at least three times since 1960. The districts that qualify are ranked by how many people live on land under 5 metres. That is deliberately simple. It is a screen, not a cost-benefit study, and the Explore tab is there so that anyone who weighs things differently can try their own.</p>
     <h2>Reading the map</h2>
     <p>Step through with the arrows at the foot of the story panel, or with the keyboard. The 2D and 3D buttons show the same ground flat or tilted; in 3D the districts rise as columns. Steps that change over time have a small player at the bottom of the map. Click any district for its sheet: cyclone history, rivers, farming zones and the main crops, each ranked against the other 63. The cyclone button plays any of the fourteen named storms since 1970.</p>
-    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop. Cyclones is a tracker for every storm since 1960. Floods puts the flood record and river erosion side by side. Click anything in a list and the map flies there.</p>
+    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Floods puts the flood record and river erosion side by side. Click anything in a list and the map flies there.</p>
     <h2>Where the numbers come from</h2>
     <dl class="sources">
       <dt>Ground height</dt><dd>SRTM 90 m (CGIAR-CSI). ETOPO5 for the Bay and the land beyond the border.</dd>
@@ -385,6 +415,8 @@
       <dt>Land cover</dt><dd>ESA WorldCover 2021.</dd>
       <dt>Floods</dt><dd>FFWC, Annual Flood Report 2021: danger levels and record peaks at 81 gauges, and the flooded share of the country since 1954. Gauge positions from BWDB station lists.</dd>
       <dt>River erosion</dt><dd>CEGIS erosion and accretion along the Jamuna, Padma and Ganges since 1973, with its 2025 figures and 2026 forecast; Banglapedia for the coast.</dd>
+      <dt>Jute, crop calendar, tea</dt><dd>BBS 45 Years Agriculture Statistics (jute, 2014-15, bales converted at 181.4 kg); Banglapedia (Agricultural Produce, Potato, Crop, Wheat) for the months; Bangladesh Tea Board figures as reported by The Daily Star and Prothom Alo.</dd>
+      <dt>Sundarbans</dt><dd>ESA WorldCover 2021 mangroves; Forest Department tiger survey 2024 as reported by Mongabay; DoF yearbooks for fish caught in the forest.</dd>
       <dt>Haors and beels</dt><dd>DBHWD, Classification of Wetlands of Bangladesh, Annexure 2: Haors of Bangladesh (2016), after the BHWDB Haor Master Plan (2012); Banglapedia for the beels. Wet ground: ESA WorldCover 2021. Upazilas for placing haors: geoBoundaries.</dd>
       <dt>Waterbirds</dt><dd>IUCN Bangladesh and Bangladesh Bird Club January counts, as reported; Alam et al. 2023 (Avian Conservation and Ecology); Regional Flyway Initiative priority sites (2024).</dd>
       <dt>Fish by district</dt><dd>Department of Fisheries yearbooks, harmonised by Rabbi (2026), Zenodo doi:10.5281/zenodo.23466909.</dd>
@@ -402,6 +434,6 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js?v=11"></script>
+<script type="module" src="js/main.js?v=12"></script>
 </body>
 </html>
