@@ -2,8 +2,8 @@
 // (each streak takes the rainfall of its nearest BMD station); the districts rise with the month's rainfall.
 // In the panel: the year of rain as bars with a playhead, and the wet and dry stations.
 import * as THREE from "three";
-import { toScene, GRID } from "./terrain.js?v=14";
-import { RAIN, BASE } from "./palette.js?v=14";
+import { toScene, GRID } from "./terrain.js?v=15";
+import { RAIN, BASE } from "./palette.js?v=15";
 const fmt = d3.format(",");
 const T = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1;
 export const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

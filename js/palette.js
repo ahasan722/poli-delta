@@ -63,6 +63,13 @@ export const RAIL = { line: "#374151", train: "#fbbf24" };
 // v14: rainfall, ColorBrewer Blues by month (mm)
 export const RAIN = ["#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"];
 
+// v15: people. Density BuPu, distance to care YlOrBr, burden PuRd (ColorBrewer 9-class steps 3, 5, 6, 7, 8);
+// facilities: ink dots for health complexes, Okabe-Ito blue squares for district hospitals, reddish purple rings for tertiary care
+export const POPC = ["#bfd3e6", "#8c96c6", "#8c6bb1", "#88419d", "#6e016b"];
+export const ACC = ["#fee391", "#fec44f", "#fe9929", "#cc4c02", "#8c2d04"];
+export const BURD = ["#d4b9da", "#df65b0", "#e7298a", "#ce1256", "#91003f"];
+export const CARE = { uhc: "#111827", dh: "#0072B2", ter: "#CC79A7", proj: "#88419d", wb: "#6b7280" };
+
 // one categorical accent: the place where silt was let back in (Okabe-Ito bluish green)
 export const ACCENT = "#009E73";
 // selection is drawn in ink, not a hue, so it never reads as data

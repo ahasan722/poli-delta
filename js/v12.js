@@ -2,9 +2,9 @@
 // Map: the mangrove forest as a filled shape with its outline; tea gardens as discs on each district, sized by number.
 // Panels: a year calendar of what is in the ground (with a playhead the map follows), tea output, tigers, fish caught.
 import * as THREE from "three";
-import { toScene } from "./terrain.js?v=14";
-import { makeLabel } from "./layers.js?v=14";
-import { MANGROVE, TEA, SEASONCOL, BASE } from "./palette.js?v=14";
+import { toScene } from "./terrain.js?v=15";
+import { makeLabel } from "./layers.js?v=15";
+import { MANGROVE, TEA, SEASONCOL, BASE } from "./palette.js?v=15";
 
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const T = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1;

@@ -1,23 +1,24 @@
-// main.js  --  v14: one scene, one camera, two views of it.
+// main.js  --  v15: one scene, one camera, two views of it.
 // 2D is the same scene seen straight down with the relief flattened and the columns laid flat; 3D tilts the
 // camera, raises the ground and grows the columns, in that order. A single number (dimP, 0 = 2D, 1 = 3D)
 // runs the choreography, so the switch can be reversed or interrupted half way and never snaps.
 // Navigation is a stepper (buttons, keys, the wheel over the story panel); the wheel over the map zooms it.
 // Every step and selection lives in the URL, so the Back button and shared links work.
 import * as THREE from "three";
-import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=14";
-import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=14";
-import { CHAPTERS, SITE } from "./story.js?v=14";
-import { charts } from "./charts.js?v=14";
-import { cards } from "./cards.js?v=14";
-import { WindField, StormPlayer } from "./wind.js?v=14";
-import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex, WET, BIRD, FISHR, MANGROVE, TEA, SEASONCOL, ROAD, RAIL, RAIN } from "./palette.js?v=14";
-import { buildTransport, updateTransport } from "./transport.js?v=14";
-import { buildRain, drawRainYear, drawRainYears, rainHex } from "./rain.js?v=14";
-import { buildV12, updateV12, drawCalendar, drawTea, drawTeaOut, drawTigers, drawSundFish, inField, MONTH } from "./v12.js?v=14";
-import { buildWet, updateWet, wetAt, haorR, drawHaorDistricts, drawBirds, drawFishNational, drawFishSpecies, sparkKt } from "./wet.js?v=14";
-import { icon, hydrate, STEP_ICON } from "./icons.js?v=14";
-import { buildAtlas, updateAtlas, drawMerge, drawHilsa, drawHalda, drawClock, drawDecades, drawFloodYears, drawErosion, seasonOf, monthOf } from "./atlas.js?v=14";
+import { buildTerrain, heightSampler, toScene, GRID, KM_PER_DEG_LAT, KM_PER_DEG_LON } from "./terrain.js?v=15";
+import { buildStorms, buildFarRivers, buildRivers, buildDistricts, buildPrisms, makeLabel, PLACES } from "./layers.js?v=15";
+import { CHAPTERS, SITE } from "./story.js?v=15";
+import { charts } from "./charts.js?v=15";
+import { cards } from "./cards.js?v=15";
+import { WindField, StormPlayer } from "./wind.js?v=15";
+import { BASE, SEV, sevHex, windHex, WIND, FLOOD, LOW, RIVER, ACCENT, DEPTH, CROP, CROP_NAME, REGION, REGION_ORDER, hex, WET, BIRD, FISHR, MANGROVE, TEA, SEASONCOL, ROAD, RAIL, RAIN, POPC, ACC, BURD, CARE } from "./palette.js?v=15";
+import { buildTransport, updateTransport } from "./transport.js?v=15";
+import { buildRain, drawRainYear, drawRainYears, rainHex } from "./rain.js?v=15";
+import { buildV12, updateV12, drawCalendar, drawTea, drawTeaOut, drawTigers, drawSundFish, inField, MONTH } from "./v12.js?v=15";
+import { buildWet, updateWet, wetAt, haorR, drawHaorDistricts, drawBirds, drawFishNational, drawFishSpecies, sparkKt } from "./wet.js?v=15";
+import { icon, hydrate, STEP_ICON } from "./icons.js?v=15";
+import { buildHealth, updateHealth, drawPopNat, modelTable, districtModelTable, drawCatch, popHex, accHex, burdHex, ACC_BR, M as Mfmt } from "./people.js?v=15";
+import { buildAtlas, updateAtlas, drawMerge, drawHilsa, drawHalda, drawClock, drawDecades, drawFloodYears, drawErosion, seasonOf, monthOf } from "./atlas.js?v=15";
 
 const $ = id => document.getElementById(id);
 const stage = $("stage");
@@ -41,14 +42,14 @@ const DEFAULT_RULE = { theme: "rule", metric: "pop_le5", sevMin: 3, crop: "aman"
 const FOV = 26, DUR_DIM = 1.4;
 const state = {
   step: 0, lastStory: 0, dimTarget: 1, dimP: 0, pick: 0, hover: 0, storm: null, rule: { ...DEFAULT_RULE },
-  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, season: "all", haz: "rain", trMode: "all", fishTab: "hilsa", wetTab: "haors", trk: { q: "", k: 0, sort: -1, view: "list" }, hoverStorm: null, wetHover: null, about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
+  tl: { t: 0, playing: false, speed: 1, def: null }, ov: {}, season: "all", haz: "rain", trMode: "all", fishTab: "hilsa", hk: "uhc", wetTab: "haors", trk: { q: "", k: 0, sort: -1, view: "list" }, hoverStorm: null, wetHover: null, about: false, renders: 0, frames: 0, frameTimes: [], ready: false, gl: true, sheetH: 0
 };
 const D = {};
-let atlasG = null, wetG = null, v12G = null, trG = null, rainL = null, rainCh = null, cal = null, eye = null, renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
+let healthG = null, popCh = null, atlasG = null, wetG = null, v12G = null, trG = null, rainL = null, rainCh = null, cal = null, eye = null, renderer, scene, camera, terrain, rivers, farRivers, labels, districts, prisms, ranks, storms, wind, player, site, sampleH;
 const cur = {};                       // the values on screen, eased toward the step's targets
 
 // ---- loading, with real progress ------------------------------------------------------------------
-let loaded = 0; const TOTAL = 15;
+let loaded = 0; const TOTAL = 16;
 const tick = x => { loaded += 1; $("loadFill").style.width = Math.round(loaded / TOTAL * 100) + "%"; $("loadPct").textContent = Math.round(loaded / TOTAL * 100) + "%"; return x; };
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(tick(i)); i.onerror = () => rej(new Error("could not load " + src)); i.src = src; });
 const loadJson = src => fetch(src).then(r => r.ok ? r.json() : null).catch(() => null).then(tick);
@@ -122,10 +123,10 @@ const stepPose = i => { const v = CHAPTERS[i].view; return state.dimTarget ? fit
 // ---- boot ------------------------------------------------------------------------------------------
 async function boot() {
   state.gl = hasGL();
-  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri, atlas, wet, v12, v13, transport, rain] = await Promise.all([
+  const [hImg, mImg, cImg, cRGB, dImg, far, stormsJson, expo, riversJson, distJson, distGeo, impact, agri, atlas, wet, v12, v13, transport, rain, pop] = await Promise.all([
     loadImg("data/height.png"), loadImg("data/mask.png"), loadImg("data/cover.png"), loadImg("data/cover_rgb.png"), loadImg("data/district_id.png"),
     loadJson("data/rivers_far.geojson"), loadJson("data/storms.json"), loadJson("data/exposure.json"), loadJson("data/rivers.json"),
-    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json"), loadJson("data/atlas.json"), loadJson("data/wet.json"), loadJson("data/v12.json"), loadJson("data/v13.json"), loadJson("data/transport.json"), loadJson("data/rain.json")
+    loadJson("data/districts.json"), loadJson("data/districts.geojson"), loadJson("data/cyclones_impact.json"), loadJson("data/agri.json"), loadJson("data/atlas.json"), loadJson("data/wet.json"), loadJson("data/v12.json"), loadJson("data/v13.json"), loadJson("data/transport.json"), loadJson("data/rain.json"), loadJson("data/pop.json")
   ]);
   try { await Promise.all(['500 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '500 20px "Newsreader"'].map(f => document.fonts.load(f))); } catch (e) {}
   tick();
@@ -138,7 +139,7 @@ async function boot() {
   ds.forEach(d => { const a = agri.districts[d.id]; const f = wet.fish[d.name]; if (a && f) for (const k in FK) a.crops[k] = f[FK[k]]; });
   for (const k in FK) agri.crop_years[k] = wet.fish_year;
   // v13: jute, maize, onion and garlic from the 2024 yearbook (2023-24); bagda and galda farms; ranks among the 64 for every crop
-  D.v12 = v12; D.v13 = v13; D.tr = transport; D.rain = rain;
+  D.v12 = v12; D.v13 = v13; D.tr = transport; D.rain = rain; D.pop = pop;
   for (const c of ["jute", "maize", "onion", "garlic"]) { ds.forEach(d => { const a = agri.districts[d.id]; if (a) a.crops[c] = v13.crops[c][d.name] || 0; }); agri.crop_years[c] = v13.year; agri.national[c] = v13.nat[c]; }
   ds.forEach(d => { const a = agri.districts[d.id]; if (a) { a.crops.fish_bagda = v13.shrimp.bagda[d.name] || 0; a.crops.fish_galda = v13.shrimp.galda[d.name] || 0; } }); agri.crop_years.fish_bagda = agri.crop_years.fish_galda = v13.year;
   for (const c of Object.keys(agri.national)) { const order = ds.filter(d => agri.districts[d.id]).sort((x, y) => (agri.districts[y.id].crops[c] || 0) - (agri.districts[x.id].crops[c] || 0)); order.forEach((d, i) => { const a = agri.districts[d.id]; a.crop_rank = a.crop_rank || {}; a.crop_rank[c] = i + 1; }); }
@@ -196,6 +197,7 @@ function buildScene({ hImg, mImg, cImg, cRGB, dImg, far, riversJson, distGeo }) 
   atlasG = buildAtlas(D.atlas, D.riversJson, sampleH, 14); Object.values(atlasG).forEach(g => scene.add(g));
   wetG = buildWet(D.wet); Object.values(wetG).forEach(g => scene.add(g));
   trG = buildTransport(D.tr, sampleH, 14); scene.add(trG);
+  healthG = buildHealth(D.pop, sampleH); scene.add(healthG);
   rainL = buildRain(D.rain, (lon, lat) => { const px = Math.min(D.idW - 1, Math.floor((lon - GRID.W) / (GRID.E - GRID.W) * D.idW)), py = Math.min(D.idH - 1, Math.floor((GRID.N - lat) / (GRID.N - GRID.S) * D.idH)); return D.idPix[(py * D.idW + px) * 4] > 0; }); scene.add(rainL);
   v12G = buildV12(D.v12, Object.fromEntries(D.districts.map(d => [d.name, d.centroid]))); Object.values(v12G).forEach(g => scene.add(g));
   // the eye of a storm being played: a ring as wide as its wind and a dot that follows the track
@@ -221,9 +223,20 @@ const seasonOf2 = (d, m) => fieldCrops(m).reduce((a, c) => a + cropOf(d, c.crop)
 const seasonTop = (d, m) => { let best = null, bv = 0; for (const c of fieldCrops(m)) { const v = cropOf(d, c.crop); if (v > bv) { bv = v; best = c.crop; } } return best; };
 let seasonMax = 0;
 const rainOf = (d, m) => (D.rain.districts[d.name] || [])[m] || 0;
+// v15: people. pop = the district's population in a year (census, between censuses, projected); access = distance to care; burden in 2050
+const PD = d => D.pop.districts[d.name];
+const popAt = (d, y) => PD(d).pop[clamp(Math.round(y), 1991, 2050) - 1991];
+const densAt = (d, y) => popAt(d, y) / PD(d).area;
+const accOf = (d, k) => PD(d)[k + "_km"];
+const farOf = (d, k) => PD(d)[k + "_far"];
+const burdOf = d => PD(d).burden;
+let popMax = 0;
 function rankBy(rule) {
   if (isCrop(rule)) return D.districts.slice().sort((a, b) => cropOf(b, rule.crop) - cropOf(a, rule.crop));
   if (rule.theme === "landscape") return D.districts.slice().sort((a, b) => riceOf(b) - riceOf(a));
+  if (rule.theme === "pop") return D.districts.slice().sort((a, b) => popAt(b, rule.year) - popAt(a, rule.year));
+  if (rule.theme === "access") return D.districts.slice().sort((a, b) => accOf(b, state.hk) - accOf(a, state.hk));
+  if (rule.theme === "burden") return D.districts.slice().sort((a, b) => burdOf(b) - burdOf(a));
   if (rule.theme === "rain") return D.districts.slice().sort((a, b) => rainOf(b, rule.month || 0) - rainOf(a, rule.month || 0));
   if (rule.theme === "season") return D.districts.slice().sort((a, b) => seasonOf2(b, rule.month || 0) - seasonOf2(a, rule.month || 0));
   return D.districts.filter(d => d.severe >= rule.sevMin).sort((a, b) => b[rule.metric] - a[rule.metric] || b.pop_le5 - a.pop_le5);
@@ -235,7 +248,7 @@ const rampOf = c => c && c.startsWith("fish") ? FISHR : CROP;
 const cropHex = (v, br, c) => rampOf(c)[d3.bisectRight(br, v)];
 const OUTC = new THREE.Color(BASE.out);
 const HEIGHT = { pop_le5: v => v / 1e6 * 32, pop_le2: v => v / 1e6 * 48, severe: v => v * 7 };
-function colourOf(d, r, br) { if (r.theme === "rain") return rainHex(rainOf(d, r.month || 0)); if (r.theme === "season") { const t = seasonTop(d, r.month || 0); return t ? SEASONCOL[t] : BASE.out; } return isCrop(r) ? cropHex(cropOf(d, r.crop), br, r.crop) : r.theme === "landscape" ? REGION[regionOf(d)] : d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }
+function colourOf(d, r, br) { if (r.theme === "pop") return popHex(densAt(d, r.year)); if (r.theme === "access") return accHex(accOf(d, state.hk), state.hk); if (r.theme === "burden") return burdHex(burdOf(d)); if (r.theme === "rain") return rainHex(rainOf(d, r.month || 0)); if (r.theme === "season") { const t = seasonTop(d, r.month || 0); return t ? SEASONCOL[t] : BASE.out; } return isCrop(r) ? cropHex(cropOf(d, r.crop), br, r.crop) : r.theme === "landscape" ? REGION[regionOf(d)] : d.severe >= r.sevMin ? sevHex(d.severe) : BASE.out; }
 function applyRule() {
   const r = state.rule; const list = rankBy(r); D.list = list; const order = new Map(list.map((d, i) => [d.id, i]));
   const br = isCrop(r) ? cropBreaks(r.crop) : null; const cmax = isCrop(r) ? d3.max(D.districts, d => cropOf(d, r.crop)) : d3.max(D.districts, riceOf);
@@ -243,13 +256,14 @@ function applyRule() {
     prisms.children.forEach(m => { const d = D.byId[m.userData.id]; if (!d) return; const q = r.theme !== "rule" || d.severe >= r.sevMin;
       m.userData.q = q; m.userData.rank = order.has(d.id) ? order.get(d.id) : 99;
       if (r.theme === "season" && !seasonMax) for (let k = 0; k < 12; k++) seasonMax = Math.max(seasonMax, d3.max(D.districts, x => seasonOf2(x, k)));
-      m.userData.h = Math.max(0.3, r.theme === "rain" ? rainOf(d, r.month || 0) / 960 * 50 : r.theme === "season" ? seasonOf2(d, r.month || 0) / seasonMax * 45 : isCrop(r) ? cropOf(d, r.crop) / cmax * 45 : r.theme === "landscape" ? riceOf(d) / cmax * 40 : HEIGHT[r.metric](d[r.metric]));
+      if (!popMax) popMax = d3.max(D.districts, x => popAt(x, 2050));
+      m.userData.h = Math.max(0.3, r.theme === "pop" ? popAt(d, r.year) / popMax * 55 : r.theme === "access" ? farOf(d, state.hk) / 100 * 45 : r.theme === "burden" ? burdOf(d) / 100 * 45 : r.theme === "rain" ? rainOf(d, r.month || 0) / 960 * 50 : r.theme === "season" ? seasonOf2(d, r.month || 0) / seasonMax * 45 : isCrop(r) ? cropOf(d, r.crop) / cmax * 45 : r.theme === "landscape" ? riceOf(d) / cmax * 40 : HEIGHT[r.metric](d[r.metric]));
       m.userData.col = new THREE.Color(colourOf(d, r, br)); });
     ranks.children.forEach(s => { s.material.map.dispose(); s.material.dispose(); }); ranks.clear();
     list.slice(0, r.theme === "rule" ? 10 : 5).forEach((d, i) => { const s = makeLabel(`${i + 1} ${d.name}`, { size: 18, color: BASE.ink, weight: 600 }); s.userData.d = d; s.userData.rank = i; ranks.add(s); });
   }
   if (D.svg) paintFallback();
-  renderList(); renderLegends(); showKey(CHAPTERS[state.step]?.id); if (CHAPTERS[state.step]?.id === "crops" && $("secRank")) renderSecRank(); if (CHAPTERS[state.step]?.id === "fishmap") renderFishRank(); if (CHAPTERS[state.step]?.id === "seasons") renderCalNow(); kick();
+  renderList(); renderLegends(); showKey(CHAPTERS[state.step]?.id); if (CHAPTERS[state.step]?.id === "crops" && $("secRank")) renderSecRank(); if (CHAPTERS[state.step]?.id === "fishmap") renderFishRank(); if (CHAPTERS[state.step]?.id === "seasons") renderCalNow(); if (CHAPTERS[state.step]?.section === "people") renderPeopleLists(); kick();
 }
 function setRule(next) { state.rule = { ...state.rule, ...next }; syncTree(); applyRule(); }
 
@@ -266,8 +280,8 @@ function goStep(i, { push = true, instant = false } = {}) {
   if (!ch.explore && !ch.section) state.lastStory = i;
   if (state.storm && !ch.explore && ch.id !== "cyclones" && ch.id !== "sundarbans") stopStorm();
   if (state.pick && !pickable()) clearFocus(false);
-  if (!ch.explore) { const want = { ...DEFAULT_RULE, theme: ch.theme || "rule", ...(ch.crop ? { crop: ch.crop } : {}), ...(ch.theme === "season" || ch.theme === "rain" ? { month: 0 } : {}) };
-    if (["theme", "metric", "sevMin", "crop", "month"].some(k => state.rule[k] !== want[k])) { state.rule = want; syncTree(); applyRule(); } }
+  if (!ch.explore) { const want = { ...DEFAULT_RULE, theme: ch.theme || "rule", ...(ch.crop ? { crop: ch.crop } : {}), ...(ch.theme === "season" || ch.theme === "rain" ? { month: 0 } : {}), ...(ch.theme === "pop" ? { year: 1991 } : {}) };
+    if (["theme", "metric", "sevMin", "crop", "month", "year"].some(k => state.rule[k] !== want[k])) { state.rule = want; syncTree(); applyRule(); } }
   // the step's own timeline starts from zero and plays once (in full at once when motion is reduced)
   setTimeline(ch.time || null, { autoplay: !reduced, at: reduced ? 1 : 0 });
   if (ch.time && instant) cur[ch.time.key] = lerp(ch.time.from, ch.time.to, state.tl.t);
@@ -280,7 +294,7 @@ function goStep(i, { push = true, instant = false } = {}) {
 const pickable = () => !state.about;   // v13: any district can be picked from any step or section
 function stepUI(i) {
   const ch = CHAPTERS[i], ex = !!ch.explore, sec = ch.section || null;
-  document.body.classList.toggle("in-section", !!sec);
+  document.body.classList.toggle("in-section", !!sec); document.body.dataset.sec = sec || "";
   document.querySelectorAll(".sec").forEach(el => { const show = el.dataset.sec === sec; if (show && el.hidden) { el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); } el.hidden = !show; });
   document.querySelectorAll(".tabs button[data-group]").forEach(b => { const on = b.dataset.group === sec; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
   moveTabInk();
@@ -296,7 +310,7 @@ function stepUI(i) {
   showKey(ch.id);
   if (state.gl) renderer.domElement.style.cursor = "grab";
 }
-const SECNAME = { sundarbans: "Sundarbans", rivers: "Rivers", wetlands: "Wetlands", fish: "Fish", crops: "Crops", cyclones: "Cyclone tracker", hazards: "Floods and erosion" };
+const SECNAME = { sundarbans: "Sundarbans", rivers: "Rivers", wetlands: "Wetlands", fish: "Fish", crops: "Crops", cyclones: "Cyclone tracker", hazards: "Floods and erosion", people: "People" };
 // a sliding underline under the active top tab
 function moveTabInk() { const ink = $("tabInk"); if (!ink) return; const on = document.querySelector(".tabs button.on"); if (!on || !on.offsetParent) { ink.style.opacity = 0; return; }
   ink.style.opacity = 1; ink.style.transform = `translateX(${on.offsetLeft}px)`; ink.style.width = on.offsetWidth + "px"; }
@@ -366,7 +380,7 @@ function frame(now) {
   applyOffset(camera, off); pose(camera, cam);
   const vw = view(cam); $("needle").style.transform = `rotate(${(180 - vw.az).toFixed(1)}deg)`;
   // continuous animations that need frames
-  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || v.junctions > 0.05 || v.fishrun > 0.05 || v.coastpts > 0.05 || v.birdflow > 0.05 || v.beels > 0.05 || v.birds > 0.05 || v.transport > 0.05 || v.rain > 0.05 || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
+  const live = (v.wind > 0.01) || (v.site > 0.01) || state.storm || v.junctions > 0.05 || v.fishrun > 0.05 || v.coastpts > 0.05 || v.birdflow > 0.05 || v.beels > 0.05 || v.birds > 0.05 || v.transport > 0.05 || v.rain > 0.05 || v.health > 0.05 || (v.flow > 0.5 && v.rivers > 0.3) || (v.uSeaLevel > 0.01 || v.uBathy > 0.01);
   if (!(moving || live || interacting || need > 0)) { lastFrame = now; return; }
   need = Math.max(0, need - 1);
   scene.fog.near = cam.d * 1.2; scene.fog.far = cam.d * 3.2;
@@ -375,7 +389,7 @@ function frame(now) {
   for (const key of ["uSeaLevel", "uRiverGlow", "uFar", "uLowBand", "uSink", "uCoverMix", "uForest", "uWet", "uBuilt", "uLoss", "uBathy"]) U[key].value = v[key];
   U.uExag.value = v.uExag * eExag; U.uCutOn.value = 0; U.uTime.value = time;
   // the overlays were built at 14x; they follow the relief as it rises and lies down
-  const ys = Math.max(0.03, eExag * v.uExag / 14); [rivers, farRivers, districts, storms, wind.mesh, labels, site, ...Object.values(atlasG), ...Object.values(wetG), ...Object.values(v12G), trG].forEach(g => g.scale.y = ys);
+  const ys = Math.max(0.03, eExag * v.uExag / 14); [rivers, farRivers, districts, storms, wind.mesh, labels, site, ...Object.values(atlasG), ...Object.values(wetG), ...Object.values(v12G), trG, healthG].forEach(g => g.scale.y = ys);
   // labels step back while the camera flies or the view changes dimension
   const lf = (1 - smoothstep(0, 0.12, P) * smoothstep(1, 0.88, P)) * (1 - 0.85 * fl);
   rivers.children.forEach(o => { if (o.material.uniforms) { o.material.uniforms.uOpacity.value = (o.name === "major" ? 0.9 : 0.45) * v.rivers; o.material.uniforms.uTime.value = time; o.material.uniforms.uFlow.value = v.flow; } else o.material.opacity = v.riverLabels * lf; });
@@ -383,13 +397,14 @@ function frame(now) {
   labels.children.forEach(s => s.material.opacity = v.labels * lf);
   districts.children.forEach(l => { const sel = l.userData.id === state.pick; l.material.color.setHex(sel ? hex(BASE.ink) : hex(BASE.outline)); l.material.opacity = sel ? 0.95 : 0.55 * v.borders; });
   stormLayer(v, lf); prismLayer(v, P, lf); updateAtlas(atlasG, v, time, lf, 1); updateWet(wetG, v, time, lf); updateV12(v12G, v, time, lf); eyeLayer(time);
-  rainL.visible = (v.rain || 0) > 0.01; rainL.material.uniforms.uOp.value = v.rain || 0; if (rainL.visible) rainL.userData.step(time, clamp(v.month || 0, 0, 11.999)); seasonTick(v);
+  rainL.visible = (v.rain || 0) > 0.01; rainL.material.uniforms.uOp.value = v.rain || 0; if (rainL.visible) rainL.userData.step(time, clamp(v.month || 0, 0, 11.999)); seasonTick(v); popTick(v);
   site.children.forEach(o => { o.material.opacity = v.site * (o.name === "ring" ? 0.45 + 0.45 * Math.sin(time * 2.4) : o.isSprite ? lf : 1); });
   site.children[1].scale.setScalar(1 + 0.25 * Math.sin(time * 2.4));
   readouts(v);
   // labels keep one size on screen
   const sc = camera.position.distanceTo(cam.look) / 1020;
   updateTransport(trG, v.transport || 0, lf, time, sc, CHAPTERS[state.step].id === "transport" ? state.trMode : "all");
+  updateHealth(healthG, v.health || 0, time, CHAPTERS[state.step].id === "health" ? state.hk : "all");
   const fit = s => { if (s.isSprite && s.userData.base) s.scale.set(s.userData.base.w * sc, s.userData.base.h * sc, 1); };
   Object.values(atlasG).forEach(g => g.visible && g.children.forEach(fit)); Object.values(wetG).forEach(g => g.visible && g.children.forEach(fit)); Object.values(v12G).forEach(g => g.visible && g.children.forEach(fit)); if (trG.visible) trG.children.forEach(fit); labels.children.forEach(fit); rivers.children.forEach(fit); ranks.children.forEach(fit); site.children.forEach(fit); storms.children.forEach(s => { if (s.userData.isStormLabel) fit(s); });
   if (state.storm && state.tl.def) { const s = player.storm; const n = s.pts.length; player.t = player.t0 + state.tl.t * (n - 1 - player.t0); syncTimeline(); }
@@ -486,9 +501,13 @@ const KEYS = {
 function cropKey(c) { const br = cropBreaks(c); const f = v => v >= 1e6 ? f1(v / 1e6) + " M" : v < 1000 ? d3.format(",")(Math.round(v)) : d3.format(",")(Math.round(v / 1000)) + "k";
   return [["", CROP_NAME[c] + ", tonnes (" + D.agri.crop_years[c] + ")"], ...rampOf(c).map((col, i) => [col, i === 0 ? "under " + f(br[0]) : i === 4 ? f(br[3]) + " and more" : f(br[i - 1]) + "–" + f(br[i])]).reverse()]; }
 const landKey = () => [["", "Main landscape of the district"], ...REGION_ORDER.map(k => [REGION[k], D.agri ? D.agri.regions[k] : k])];
+const KP = () => { const hk = state.hk, br = ACC_BR[hk], nm = { uhc: "a health complex or district hospital", dh: "a district hospital", ter: "a tertiary hospital" }[hk];
+  return { people: [["", "People per km², colour"], ...POPC.map((c, i) => [c, i === 0 ? "under 800" : i === 4 ? "2,500 and more" : ["800 to 1,100", "1,100 to 1,500", "1,500 to 2,500"][i - 1]]).reverse(), ["", "Height: people"]],
+    health: [["", "Average distance to " + nm], ...ACC.map((c, i) => [c, i === 0 ? "under " + br[0] + " km" : i === 4 ? br[3] + " km and more" : br[i - 1] + " to " + br[i] + " km"]).reverse(), ["", "Height: share beyond " + D.pop.access.thresholds[hk] + " km"], [CARE.uhc, "upazila health complex"], ["sq:" + CARE.dh, "district hospital"], ["o:" + CARE.ter, "tertiary hospital"]],
+    burden: [["", "Burden in 2050, of 100"], ...BURD.map((c, i) => [c, i === 0 ? "under 40" : i === 4 ? "70 and more" : ["40 to 50", "50 to 60", "60 to 70"][i - 1]]).reverse(), ["", "Height: the same score"]] }; };
 function showKey(id) {
-  const r = state.rule; const k = id === "rain" ? [["", "Rain this month, mm"], [RAIN[4], "500 and more"], [RAIN[3], "300 to 500"], [RAIN[2], "150 to 300"], [RAIN[1], "50 to 150"], [RAIN[0], "under 50"], ["l:#1e3a8a", "falling rain"]] : id === "seasons" ? [["", "Largest crop in the ground"], ...D.v12.calendar.map(c => [SEASONCOL[c.crop], c.name]), ["", "Height: tonnes in the ground"]] : id === "explore" || id === "crops" || id === "fishmap" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
-  $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : c.startsWith("o:") ? `<div><i class="o" style="border-color:${c.slice(2)}"></i>${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
+  const r = state.rule; const k = id === "people" || id === "health" || id === "burden" ? KP()[id] : id === "rain" ? [["", "Rain this month, mm"], [RAIN[4], "500 and more"], [RAIN[3], "300 to 500"], [RAIN[2], "150 to 300"], [RAIN[1], "50 to 150"], [RAIN[0], "under 50"], ["l:#1e3a8a", "falling rain"]] : id === "seasons" ? [["", "Largest crop in the ground"], ...D.v12.calendar.map(c => [SEASONCOL[c.crop], c.name]), ["", "Height: tonnes in the ground"]] : id === "explore" || id === "crops" || id === "fishmap" ? (isCrop(r) ? cropKey(r.crop) : r.theme === "landscape" ? landKey() : KEYS.explore) : id === "grow" ? landKey() : (KEYS[id] || []);
+  $("key").innerHTML = k.map(([c, t]) => !c ? `<div class="kt">${t}</div>` : c.startsWith("r:") ? `<div>${ramp(...c.slice(2).split(","))}${t}</div>` : c.startsWith("o:") ? `<div><i class="o" style="border-color:${c.slice(2)}"></i>${t}</div>` : c.startsWith("sq:") ? `<div><i class="sq" style="background:${c.slice(3)}"></i>${t}</div>` : `<div><i class="${c.startsWith("l:") ? "l" : ""}" style="background:${c.replace("l:", "")}"></i>${t}</div>`).join("");
 }
 // the same keys, drawn inside the layer tree under the active theme
 function renderLegends() {
@@ -678,6 +697,15 @@ function showTip(id) {
   if (state.rule.theme === "landscape") { const sh = A(d.id) ? A(d.id).regions : {};
     tip.innerHTML = `<div class="t"><i style="background:${REGION[regionOf(d)]}"></i>${d.name}</div>` + Object.entries(sh).slice(0, 3).map(([k, v]) => `<div class="row">${D.agri.regions[k]} <b>${Math.round(v * 100)}%</b></div>`).join("") + `<div class="row">rice grown <b>${d3.format(",")(Math.round(riceOf(d) / 1000))}k t</b></div><div class="hintline">Click for details</div>`;
     tip.classList.add("on"); placeTip(...tipXY); return; }
+  if (state.rule.theme === "pop") { const y = state.rule.year, p = PD(d);
+    tip.innerHTML = `<div class="t"><i style="background:${popHex(densAt(d, y))}"></i>${d.name}</div><div class="row">${y}${y > 2025 ? ", projected" : ""} <b>${Mfmt(popAt(d, y))}</b></div><div class="row">people per km² <b>${fmt(Math.round(densAt(d, y)))}</b></div><div class="row">2022 to 2050 <b>${p.growth >= 0 ? "+" : ""}${Math.round(p.growth * 100)}%</b></div><div class="hintline">Click for details</div>`;
+    tip.classList.add("on"); placeTip(...tipXY); return; }
+  if (state.rule.theme === "access") { const p = PD(d), k = state.hk;
+    tip.innerHTML = `<div class="t"><i style="background:${accHex(accOf(d, k), k)}"></i>${d.name}</div><div class="row">first-level care <b>${f1(p.uhc_km)} km</b></div><div class="row">district hospital <b>${f1(p.dh_km)} km</b></div><div class="row">tertiary hospital <b>${f1(p.ter_km)} km</b></div><div class="row" style="color:#6b7280">average for its people, straight line</div><div class="hintline">Click for details</div>`;
+    tip.classList.add("on"); placeTip(...tipXY); return; }
+  if (state.rule.theme === "burden") { const p = PD(d);
+    tip.innerHTML = `<div class="t"><i style="background:${burdHex(p.burden)}"></i>${d.name}</div><div class="row">burden in 2050 <b>${Math.round(p.burden)} · ${p.burden_rank} of 64</b></div><div class="row">people 2050 <b>${Mfmt(popAt(d, 2050))}</b></div><div class="row">per health complex <b>${Mfmt(p.per_uhc50)}</b></div><div class="row">rice per person <b>${p.rice_kg50} kg</b></div><div class="hintline">Click for details</div>`;
+    tip.classList.add("on"); placeTip(...tipXY); return; }
   if (state.rule.theme === "rain") { const m = state.rule.month || 0; const v = rainOf(d, m), yr = d3.sum(D.rain.districts[d.name] || []);
     tip.innerHTML = `<div class="t"><i style="background:${rainHex(v)}"></i>${d.name}</div><div class="row">${MONTH[m]} <b>${fmt(v)} mm</b></div><div class="row">a year <b>${fmt(yr)} mm</b></div><div class="row" style="color:#6b7280">estimated from the nearest stations</div><div class="hintline">Click for details</div>`;
     tip.classList.add("on"); placeTip(...tipXY); return; }
@@ -865,6 +893,10 @@ function openSection(ch) {
     if (ch.id === "haors") drawHaorDistricts($("chHaorD"), D.wet);
     if (ch.id === "birds") drawBirds($("chBirds"), D.wet, s => { flyToPlace(s.lon, s.lat, 0.35, 44); placeBird(s); }); }
   if (ch.id === "cyclones") showTrk(state.trk.view);
+  if (ch.section === "people") { document.querySelectorAll("#popSeg button").forEach(b => b.classList.toggle("on", b.dataset.p === ch.id)); document.querySelectorAll(".ppane").forEach(p => p.hidden = p.dataset.p !== ch.id);
+    if (ch.id === "people") { popCh = drawPopNat($("chPopNat"), D.pop, y => { state.tl.t = (y - 1991) / 59; state.tl.playing = false; syncTimeline(); kick(); }); popText(1991); }
+    if (ch.id === "health") { showHk(state.hk); drawCatch($("chCatch"), D.pop, c => { const t = D.pop.access.ter.find(x => x[3] === c.name || (c.district === "Dhaka" && x[2] === "Dhaka")); if (t) flyToPlace(t[0], t[1], 0.5, 42); }); }
+    renderPeopleLists(); }
   if (ch.section === "hazards") { state.haz = ch.id; document.querySelectorAll("#hazSeg button").forEach(b => b.classList.toggle("on", b.dataset.h === ch.id)); document.querySelectorAll(".hpane").forEach(p => p.hidden = p.dataset.h !== ch.id);
     if (ch.id === "floods") drawFloodYears($("chFlood"), A);
     if (ch.id === "rain") { rainCh = drawRainYear($("chRainYear"), D.rain, m => { state.tl.t = m / 11.999; state.tl.playing = false; syncTimeline(); kick(); }); rainCh.move(0); rainText(0); drawRainYears($("chRainYears"), D.rain); }
@@ -923,6 +955,41 @@ function seasonTick(v) {
   const id = CHAPTERS[state.step].id; if (!((id === "seasons" && state.rule.theme === "season") || (id === "rain" && state.rule.theme === "rain"))) return;
   const mv = clamp(v.month || 0, 0, 11.999); (id === "rain" ? rainCh : cal)?.move(mv);
   const m = Math.floor(mv); if (state.rule.month !== m) { state.rule.month = m; applyRule(); if (id === "rain") rainText(m); }
+}
+// ---- people ------------------------------------------------------------------------------------------------
+function popTick(v) {
+  if (CHAPTERS[state.step].id !== "people" || state.rule.theme !== "pop") return;
+  const y = clamp(Math.round(v.popyear || 2022), 1991, 2050); popCh?.move(v.popyear || 2022);
+  if (state.rule.year !== y) { state.rule.year = y; applyRule(); popText(y); }
+}
+function popText(y) {
+  const P = D.pop.national; const n = popCh ? popCh.at(y) : 0; const cen = P.census.find(c => c[0] === y);
+  $("popYear").textContent = y; $("popN").textContent = f1(n / 1e6) + " million";
+  $("popWhat").textContent = y > 2025 ? "projected by this model" : cen ? `World Bank estimate; the census counted ${f1(cen[1] / 1e6)} M` : "World Bank estimate";
+  const tot = d3.sum(D.districts, d => popAt(d, y)); const top = D.list.slice(0, 3).map(d => d.name).join(", ");
+  $("popTop").textContent = `Most people: ${top}. The 64 districts add up to ${f1(tot / 1e6)} M.`;
+}
+function showHk(k) { state.hk = k; document.querySelectorAll("#hkSeg button").forEach(b => b.classList.toggle("on", b.dataset.k === k));
+  const A = D.pop.access.national, th = D.pop.access.thresholds; const far = { uhc: A.uhc_far, dh: A.dh_far, ter: A.ter_far }[k], km = { uhc: A.uhc_km, dh: A.dh_km, ter: A.ter_km }[k];
+  const nm = { uhc: "an upazila health complex or district hospital", dh: "a district hospital", ter: "a tertiary hospital" }[k];
+  $("hkFar").textContent = Math.round(far) + "%"; $("hkTxt").textContent = `of people live more than ${th[k]} km from ${nm}, in a straight line. On average the nearest is ${f1(km)} km away.`;
+  if (state.rule.theme === "access") applyRule(); kick(); }
+function renderPeopleLists() {
+  const id = CHAPTERS[state.step].id; const P = D.pop; const li = (d, v, w, col) => `<li data-id="${d.id}" tabindex="0"><span class="r"></span><span class="nm">${d.name}</span><span class="v">${v}</span><span class="b"><i style="width:${(w * 100).toFixed(1)}%;background:${col}"></i></span></li>`;
+  const bind = el => el.querySelectorAll("li[data-id]").forEach(x => x.addEventListener("click", () => selectDistrict(+x.dataset.id)));
+  if (id === "people") { const g = D.districts.slice().sort((a, b) => PD(b).growth - PD(a).growth); const mx = PD(g[0]).growth;
+    $("popGrow").innerHTML = g.slice(0, 8).map(d => li(d, "+" + Math.round(PD(d).growth * 100) + "%", PD(d).growth / mx, CARE.proj)).join("");
+    $("popSlow").innerHTML = g.slice(-6).reverse().map(d => li(d, (PD(d).growth >= 0 ? "+" : "") + Math.round(PD(d).growth * 100) + "%", Math.max(0.02, PD(d).growth / mx), "#bfd3e6")).join("");
+    bind($("popGrow")); bind($("popSlow")); }
+  if (id === "health") { const k = state.hk; const l = D.list.slice(0, 10); const mx = accOf(l[0], k);
+    $("hkHead").textContent = "Farthest from " + { uhc: "first-level care", dh: "a district hospital", ter: "tertiary care" }[k] + ", average km";
+    $("hkList").innerHTML = l.map(d => li(d, f1(accOf(d, k)) + " km", accOf(d, k) / mx, accHex(accOf(d, k), k))).join(""); bind($("hkList")); }
+  if (id === "burden") { const l = D.list.slice(0, 12);
+    const parts = [["b_growth", "growth to 2050"], ["b_per_uhc", "people per health complex"], ["b_dh", "distance to district hospital"], ["b_ter", "distance to tertiary care"], ["b_food", "rice per person"]];
+    $("burdList").innerHTML = l.map((d, i) => { const p = PD(d); return `<li data-id="${d.id}" tabindex="0"><span class="r">${i + 1}</span><span class="nm">${d.name}</span><span class="v">${Math.round(p.burden)}</span><span class="parts">${parts.map(([k, t]) => `<i title="${t}: ${p[k]} of 100" style="width:${p[k] / 5}%;background:${burdHex(p[k])}"></i>`).join("")}</span></li>`; }).join("");
+    bind($("burdList"));
+    const food = D.districts.slice().sort((a, b) => PD(a).rice_kg50 - PD(b).rice_kg50).slice(0, 8); const fm = d3.max(food, d => PD(d).rice_kg22);
+    $("foodList").innerHTML = food.map(d => `<li data-id="${d.id}" tabindex="0"><span class="r"></span><span class="nm">${d.name}</span><span class="v">${PD(d).rice_kg22} → ${PD(d).rice_kg50} kg</span><span class="b"><i style="width:${PD(d).rice_kg50 / fm * 100}%;background:${BURD[3]}"></i></span></li>`).join(""); bind($("foodList")); }
 }
 function renderCalNow() {
   const m = state.rule.month || 0; $("calMonth").textContent = MONTH[m]; $("calHead").textContent = `In the ground in ${MONTH[m]}`;
@@ -1052,6 +1119,15 @@ function bindSections() {
     setRule(b.dataset.t ? { theme: "landscape" } : { theme: "crop", crop: b.dataset.c }); renderSecRank(); }));
   // hazards
   document.querySelectorAll("#hazSeg button").forEach(b => b.addEventListener("click", () => goStep(CHAPTERS.findIndex(c => c.id === b.dataset.h))));
+  // people
+  document.querySelectorAll("#popSeg button").forEach(b => b.addEventListener("click", () => goStep(CHAPTERS.findIndex(c => c.id === b.dataset.p))));
+  document.querySelectorAll("#hkSeg button").forEach(b => b.addEventListener("click", () => showHk(b.dataset.k)));
+  { const P = D.pop, A = P.access, N = P.national; const p22 = N.wdi[N.years.indexOf(2022)];
+    $("popModels").innerHTML = modelTable(P); $("popDModels").innerHTML = districtModelTable(P); $("popDNote").textContent += ` the one used follows the share's recent trend, with the trend halving every ${P.half_life.chosen} years (the half-life that scored best).`;
+    $("hkN").innerHTML = `<div><b>${A.uhc_n}</b><span>upazila health complexes (${A.uhc_osm} placed from OpenStreetMap, the rest at the upazila's centre)</span></div><div><b>${A.dh_n}</b><span>district hospitals, one per district town</span></div><div><b>${A.ter.length}</b><span>tertiary: medical college hospitals and national institutes</span></div>`;
+    $("ccTxt").innerHTML = `<b>${fmt(A.cc_total)}</b> community clinics (${A.cc_date}): one for every <b>${fmt(Math.round(p22 / A.cc_total / 100) * 100)}</b> people in 2022, and <b>${fmt(Math.round(N.proj[N.proj.length - 1][1] / A.cc_total / 100) * 100)}</b> in 2050 if none are added. The plan was one per ${fmt(A.cc_norm)}. OpenStreetMap shows too few of them to map, so they count here only as a national total.`;
+    $("srcPop").textContent = `${P.src.wdi} ${P.src.census}`; $("srcHealth").textContent = `${P.src.osm} ${P.src.gpw} ${P.src.cc}`;
+    $("srcBurden").textContent = "Rice: BBS district production (Aman 2011-12, Boro 2012-13, Aus 2014-15), held at that harvest. Population: this projection. Facilities and distances: as on the Health care tab."; }
   $("seasonSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.season = b.dataset.s; $("seasonSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); showTrk(state.trk.view); }));
   const gs = A.gauges.slice().sort((a, b) => b.over - a.over).slice(0, 12); const gmax = gs[0].over;
   $("gaugeList").innerHTML = gs.map((g, i) => `<li><button type="button" data-i="${i}"><span class="pi sw" style="background:${g.over >= 2 ? "#08306b" : g.over >= 1 ? "#2171b5" : "#6baed6"}"></span><span><b>${g.name}</b><small>${g.river} · danger ${g.danger} m · record ${g.record} m</small></span><span class="pv">+${g.over} m</span></button><i class="bar blue" style="width:${g.over / gmax * 100}%"></i></li>`).join("");

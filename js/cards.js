@@ -3,8 +3,9 @@
 // Rivers (channels, water, the named rivers and their flow), Land and crops (agro-ecological zones, land cover,
 // the five major crops and the district's share of each) and Cyclones (every pass within 50 km since 1960).
 // Every chart draws itself in when its tab opens.
-import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=14";
-import { icon } from "./icons.js?v=14";
+import { BASE, windHex, sevHex, WIND, CROP, CROP_NAME, RIVER, REGION } from "./palette.js?v=15";
+import { icon } from "./icons.js?v=15";
+import { drawDistrictPop, M } from "./people.js?v=15";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const C = { ink: BASE.ink, dim: BASE.dim, faint: BASE.faint, line: BASE.line, soft: "#f3f4f6" };
 // land cover in the sheet: muted ESA WorldCover hues, a categorical chart separate from the map
@@ -114,14 +115,14 @@ function windChart(parent, storm) {
 function head(eyebrow, dot, title, sub) {
   return `<div class="fhead"><div><div class="eyebrow"><i style="background:${dot}"></i>${eyebrow}</div><h3>${title}<small>${sub}</small></h3></div><button class="back" type="button" aria-label="Close" title="Close  [Esc]">${icon("close", 20)}</button></div>`;
 }
-function bindTabs(draw) {
+function bindTabs(draw, first) {
   const tabs = [...el.querySelectorAll(".ftabs button")]; const done = new Set();
   const open = id => { tabs.forEach(b => { const on = b.dataset.p === id; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
-    el.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.dataset.p === id));
+    el.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.dataset.p === id)); const ob = tabs.find(b => b.dataset.p === id); if (ob) ob.parentElement.scrollLeft = Math.max(0, ob.offsetLeft - 24);
     if (!done.has(id)) { done.add(id); draw[id]?.(); } };
   tabs.forEach(b => b.addEventListener("click", () => open(b.dataset.p)));
   el.style.setProperty("--fh", el.querySelector(".fhead").offsetHeight + "px");
-  open(tabs[0].dataset.p);
+  open(first && tabs.some(b => b.dataset.p === first) ? first : tabs[0].dataset.p);
 }
 
 export const cards = {
@@ -140,9 +141,10 @@ export const cards = {
     const hurr = d.storms.hits.filter(h => h[1] >= 64).sort((x, y) => y[0] - x[0]);
     const conn = D.v13 && D.v13.conn[d.name]; const fish = D.wet && D.wet.fish[d.name];
     const fishRank = fish ? 1 + Object.values(D.wet.fish).filter(f => f.total > fish.total).length : 0;
+    const pp = D.pop && D.pop.districts[d.name]; const yi = y => pp.pop[y - 1991];
     const bag = (D.v13 && D.v13.shrimp.bagda[d.name]) || 0, gal = (D.v13 && D.v13.shrimp.galda[d.name]) || 0;
     el.innerHTML = head(`District · ${d.division} division`, sevHex(d.severe), d.name, `${fmt(d.area_km2)} km² · ${f1(d.pop_census2022 / 1e6)} M people (census 2022)`) + `
-      <div class="ftabs" role="tablist">${tab("ov", "overview", "Overview")}${tab("rv", "river", "Rivers")}${tab("lc", "sprout", "Farming")}${tab("fi", "fish", "Fish")}${tab("cy", "cyclone", "Cyclones")}</div>
+      <div class="ftabs" role="tablist">${tab("ov", "overview", "Overview")}${tab("rv", "river", "Rivers")}${tab("lc", "sprout", "Farming")}${tab("fi", "fish", "Fish")}${tab("cy", "cyclone", "Cyclones")}${pp ? tab("pp", "people", "People") : ""}</div>
       <div class="fbody">
         <div class="pane" data-p="ov">
           ${verdict}
@@ -183,6 +185,25 @@ export const cards = {
           ${hurr.length ? `<div class="sub">Hurricane force</div><ul class="hits">${hurr.map(h => `<li><i style="background:${windHex(h[1])}"></i><span>${h[2] || "Unnamed"} <small>${h[0]}</small></span><b>${h[1]} kt</b>${h[3] ? `<button type="button" data-sid="${h[3]}">${icon("play", 14)}Play</button>` : ""}</li>`).join("")}</ul>` : ""}
           <p class="src">IBTrACS v04r01, positions every 6 hours, within 50 km of the district.</p>
         </div>
+        ${pp ? `<div class="pane" data-p="pp">
+          <div class="stats"><div><b>${M(yi(2022))}</b><span>people, 2022 (census, adjusted)</span></div><div><b>${M(yi(2050))}</b><span>2050, projected</span></div><div><b>${pp.growth >= 0 ? "+" : ""}${Math.round(pp.growth * 100)}%</b><span>change to 2050</span></div></div>
+          <div class="sub">People, 1991 to 2050</div><div class="fig" id="fPop"></div>
+          <div class="sub">Health care within reach</div>
+          <table>
+            <tr><td>Upazila health complexes</td><td>${pp.uhc}</td></tr>
+            <tr><td>People per complex, 2022 → 2050</td><td>${M(pp.per_uhc22)} → ${M(pp.per_uhc50)}</td></tr>
+          </table>
+          <table class="acc"><tr><th>Nearest</th><th>Average</th><th>Farther than</th></tr>
+            <tr><td>Complex or district hospital</td><td>${f1(pp.uhc_km)} km</td><td>10 km: ${Math.round(pp.uhc_far)}%</td></tr>
+            <tr><td>District hospital</td><td>${f1(pp.dh_km)} km</td><td>25 km: ${Math.round(pp.dh_far)}%</td></tr>
+            <tr><td>Tertiary hospital</td><td>${f1(pp.ter_km)} km</td><td>50 km: ${Math.round(pp.ter_far)}%</td></tr>
+          </table>
+          <div class="sub">Food</div>
+          <table><tr><td>Rice grown per person, 2022 → 2050</td><td>${pp.rice_kg22} → ${pp.rice_kg50} kg</td></tr>${pp.fish_t ? `<tr><td>Inland fish per person, 2050</td><td>${f1(pp.fish_t / yi(2050) * 1000)} kg</td></tr>` : ""}</table>
+          <div class="sub">Burden in 2050: ${Math.round(pp.burden)} of 100, ${ord(pp.burden_rank)} of 64</div>
+          <table>${[["b_growth", "Growth to 2050"], ["b_per_uhc", "People per health complex"], ["b_dh", "Distance to district hospital"], ["b_ter", "Distance to tertiary care"], ["b_food", "Little rice per person"]].map(([k, t]) => `<tr><td>${t}</td><td>${pp[k]} of 100</td></tr>`).join("")}</table>
+          <p class="src">Census 1991-2022 (BBS, adjusted), projection on the People tab. Distances are straight lines from GPW 2015 people to the nearest facility (OpenStreetMap, ODbL). Rice at the 2011-15 harvest, held constant.</p>
+        </div>` : ""}
       </div>`;
     el.querySelector(".back").addEventListener("click", () => api.clear());
     el.querySelectorAll(".hits button").forEach(b => b.addEventListener("click", () => api.play(b.dataset.sid)));
@@ -195,8 +216,9 @@ export const cards = {
         const lead = cropBars(el.querySelector("#fCrop"), a); const sh = a.crops[lead] / D.agri.national[lead] * 100;
         el.querySelector("#fLead").textContent = `${d.name}'s largest share of national output is ${CROP_NAME[lead].toLowerCase()}: ${f1(sh)}%, ${ord(a.crop_rank[lead])} of 64.`; },
       fi: () => { counters(el.querySelector('.pane[data-p="fi"]')); if (fish) fishBars(el.querySelector("#fFish"), fish); },
-      cy: () => stormStrip(el.querySelector("#fStorms"), d.storms.hits)
-    });
+      cy: () => stormStrip(el.querySelector("#fStorms"), d.storms.hits),
+      pp: () => drawDistrictPop(el.querySelector("#fPop"), D.pop, d.name)
+    }, document.body.dataset.sec === "people" ? "pp" : null);
   },
   // a place from the atlas: a junction, a sanctuary, a gauge, a stretch of coast
   showPlace(o) {

@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css?v=14">
+<link rel="stylesheet" href="css/poli.css?v=15">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -26,6 +26,7 @@
     <button type="button" id="modeCrops" data-sec="crops" data-group="crops" role="tab" aria-selected="false"><span data-icon="wheat"></span><span>Crops</span></button>
     <button type="button" id="modeCyclones" data-sec="cyclones" data-group="cyclones" role="tab" aria-selected="false"><span data-icon="cyclone"></span><span>Cyclones</span></button>
     <button type="button" id="modeHazards" data-sec="rain" data-group="hazards" role="tab" aria-selected="false"><span data-icon="droplet"></span><span>Rain &amp; floods</span></button>
+    <button type="button" id="modePeople" data-sec="people" data-group="people" role="tab" aria-selected="false"><span data-icon="people"></span><span>People</span></button>
     <button type="button" id="modeExplore" role="tab" aria-selected="false"><span data-icon="compass"></span><span>Explore</span></button>
     <button type="button" id="modeAbout" role="tab" aria-selected="false"><span data-icon="info"></span><span>About</span></button>
   </nav>
@@ -321,6 +322,40 @@
       <p class="src" id="srcEro"></p>
     </div>
   </div>
+  <div class="sec" data-sec="people" hidden>
+    <div class="seg seg3" id="popSeg" role="tablist"><button type="button" data-p="people" class="on"><span data-icon="people" data-size="16"></span>Population</button><button type="button" data-p="health"><span data-icon="pin" data-size="16"></span>Health care</button><button type="button" data-p="burden"><span data-icon="columns" data-size="16"></span>Burden</button></div>
+    <div class="ppane" data-p="people">
+      <div class="bignum"><span id="popYear">2022</span><b id="popN">169.4 million</b><small id="popWhat">World Bank estimate</small></div>
+      <p>Bangladesh had 70 million people at independence. Press play: the columns are the 64 districts, counted at four censuses from 1991 and projected to 2050. Click the chart to jump to a year.</p>
+      <div class="fig" id="chPopNat"></div>
+      <p class="note" id="popTop"></p>
+      <div class="tsec">Growing fastest, 2022 to 2050 <small>click a district</small></div><ol class="rlist" id="popGrow"></ol>
+      <div class="tsec">Growing slowest</div><ol class="rlist" id="popSlow"></ol>
+      <div class="tsec">How the projection was made</div>
+      <p class="note">Six models were fitted to the World Bank series twice: up to 2010 and scored on 2011 to 2025, then up to 1995 and scored on 1996 to 2025. Two are curves (logistic, Gompertz), one bends the growth rate, and three learn the growth rate from data: boosted trees (last year's growth and fertility), ridge regression (fertility now and 25 years earlier, when today's parents were born) and a Gaussian process. Any model that missed by 10% or more was dropped; the rest were refitted to 2025 and averaged, weighted by their scores. The band runs from the lowest to the highest of them. Fertility after 2024 is assumed to glide from 2.1 to 1.9 children per woman by 2050.</p>
+      <div class="fig" id="popModels"></div>
+      <p class="note" id="popDNote">Each district keeps a share of the national total, so the 64 always add up to the country. Five district models were fitted to the 1991, 2001 and 2011 censuses and scored on the 2022 census:</p>
+      <div class="fig" id="popDModels"></div>
+      <p class="src" id="srcPop"></p>
+    </div>
+    <div class="ppane" data-p="health" hidden>
+      <div class="seg seg3" id="hkSeg"><button type="button" data-k="uhc" class="on">First-level</button><button type="button" data-k="dh">District hospital</button><button type="button" data-k="ter">Tertiary</button></div>
+      <div class="bignum"><b id="hkFar">15%</b><small id="hkTxt"></small></div>
+      <div class="stats3" id="hkN"></div>
+      <p class="note" id="ccTxt"></p>
+      <div class="tsec" id="hkHead">Farthest districts</div><ol class="rlist" id="hkList"></ol>
+      <div class="tsec">People each tertiary hospital is nearest to <small>2022 and 2050; click to fly there</small></div><div class="fig" id="chCatch"></div>
+      <p class="note">Distances are straight lines from each square kilometre of people to the nearest facility, so roads and rivers make real trips longer. People per square kilometre come from GPW 2015, rescaled to each district's 2022 census count.</p>
+      <p class="src" id="srcHealth"></p>
+    </div>
+    <div class="ppane" data-p="burden" hidden>
+      <h2>Where 2050 will press hardest</h2>
+      <p>Five measures, each turned into a rank from 0 to 100 among the 64 districts and averaged with equal weight: growth to 2050, people per health complex in 2050, distance to a district hospital, distance to tertiary care, and rice grown per person in 2050. A high score means a district is near the top on several of them. It is a way to compare districts, not a measure of need.</p>
+      <div class="tsec">The twelve highest <small>bars: the five parts</small></div><ol class="rlist blist" id="burdList"></ol>
+      <div class="tsec">Least rice per person <small>kg a year, 2022 → 2050, at the same harvest</small></div><ol class="rlist" id="foodList"></ol>
+      <p class="src" id="srcBurden"></p>
+    </div>
+  </div>
 
   <nav class="pnav" aria-label="Step navigation">
     <button type="button" class="btn" id="prevBtn" aria-label="Previous step"><span data-icon="chevL"></span></button>
@@ -431,7 +466,7 @@
     <p>A district joins the list when a cyclone of hurricane force, 64 knots or more, has passed within 50 km of it at least three times since 1960. The districts that qualify are ranked by how many people live on land under 5 metres. That is deliberately simple. It is a screen, not a cost-benefit study, and the Explore tab is there so that anyone who weighs things differently can try their own.</p>
     <h2>Reading the map</h2>
     <p>Step through with the arrows at the foot of the story panel, or with the keyboard. The 2D and 3D buttons show the same ground flat or tilted; in 3D the districts rise as columns. Steps that change over time have a small player at the bottom of the map. Click any district for its sheet: cyclone history, rivers, farming zones and the main crops, each ranked against the other 63. The cyclone button plays any of the fourteen named storms since 1970.</p>
-    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings, and the highways, railways and bridges that cross them. Click any district on any map for its sheet, or a cyclone track to play it. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Rain and floods plays the year of rain month by month, then the flood record and river erosion. Click anything in a list and the map flies there.</p>
+    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings, and the highways, railways and bridges that cross them. Click any district on any map for its sheet, or a cyclone track to play it. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Rain and floods plays the year of rain month by month, then the flood record and river erosion. People plays the population of the 64 districts from the 1991 census to a projection for 2050, maps how far people live from health care, and scores where 2050 will press hardest. Click anything in a list and the map flies there.</p>
     <h2>Where the numbers come from</h2>
     <dl class="sources">
       <dt>Ground height</dt><dd>SRTM 90 m (CGIAR-CSI). ETOPO5 for the Bay and the land beyond the border.</dd>
@@ -445,6 +480,8 @@
       <dt>Floods</dt><dd>FFWC, Annual Flood Report 2021: danger levels and record peaks at 81 gauges, and the flooded share of the country since 1954. Gauge positions from BWDB station lists.</dd>
       <dt>River erosion</dt><dd>CEGIS erosion and accretion along the Jamuna, Padma and Ganges since 1973, with its 2025 figures and 2026 forecast; Banglapedia for the coast.</dd>
       <dt>Rain</dt><dd>Bangladesh Meteorological Department monthly rainfall at 32 stations, 1948-2013 (as re-hosted by Gauhar et al. 2021), monthly means 1981-2010; district values estimated from the nearest stations. Yearly series also from the BMD 24-station panel, 1982-2022.</dd>
+      <dt>Population</dt><dd>World Bank, World Development Indicators, population 1960-2025, and its projection to 2050; BBS censuses 1974-2022, district counts 1991-2022 adjusted for under-enumeration (BBS, via citypopulation.de). The projection to 2050 is this site's own: six models scored on how well they predicted 2011-2025 and 1996-2025, averaged by score. GPW v4 2015 (CIESIN) for where people live within each district.</dd>
+      <dt>Health care</dt><dd>OpenStreetMap contributors (ODbL), health facilities export by the Humanitarian OpenStreetMap Team on HDX, November 2026: upazila health complexes by name, placed at the upazila's centre where none is mapped. District hospitals at each district town; tertiary care is the government medical college hospitals and national institutes. Community clinics: 14,467 (The Financial Express, 20 August 2025). Distances are straight lines.</dd>
       <dt>Maize, onion, garlic, jute; bagda and galda</dt><dd>BBS, Yearbook of Agricultural Statistics 2024: district production 2023-24, and Table 9.4.46, shrimp and prawn farms by district.</dd>
       <dt>Roads, railways, bridges</dt><dd>OpenStreetMap contributors (ODbL): national highways, railway lines, and bridge lengths measured from the mapped lines.</dd>
       <dt>Jute, crop calendar, tea</dt><dd>BBS 45 Years Agriculture Statistics (jute, 2014-15, bales converted at 181.4 kg); Banglapedia (Agricultural Produce, Potato, Crop, Wheat) for the months; Bangladesh Tea Board figures as reported by The Daily Star and Prothom Alo.</dd>
@@ -466,6 +503,6 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js?v=14"></script>
+<script type="module" src="js/main.js?v=15"></script>
 </body>
 </html>
