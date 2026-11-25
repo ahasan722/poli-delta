@@ -178,6 +178,13 @@ pc = dens * cell
 G = json.loads((ROOT / "data/districts.geojson").read_text())
 idg = features.rasterize([(f["geometry"], f["properties"]["id"]) for f in G["features"]], out_shape=(h, w), transform=tfm, fill=0, dtype="int32")
 id2i = {d["id"]: i for i, d in enumerate(dist)}
+# GPW spreads each census unit evenly, so it puts people in the Sundarbans and on the rivers. Move them onto land people
+# can live on: weight each cell by its share of ESA WorldCover 2021 that is not water (80), wetland (90) or mangrove (95).
+from rasterio.warp import reproject, Resampling
+wc = rasterio.open(RAW / "landcover_esa_worldcover2021_bgd/worldcover2021_bgd_270m_mode.tif"); wa = wc.read(1)
+hab = np.zeros((h, w), dtype="float32")
+reproject(np.isin(wa, [10, 20, 30, 40, 50, 60]).astype("float32"), hab, src_transform=wc.transform, src_crs=wc.crs, dst_transform=tfm, dst_crs=src.crs, resampling=Resampling.average)
+pc = pc * np.where(hab >= 0.15, hab, 0)
 cellpop = np.zeros_like(pc)
 for d in dist:
     m = idg == d["id"]; s = pc[m].sum()
