@@ -3,9 +3,9 @@
 // beels as rings; waterbird sites as discs sized by the latest count, with birds streaming in down the two flyways.
 // Panels: small d3 charts that draw themselves in.
 import * as THREE from "three";
-import { toScene } from "./terrain.js?v=15";
-import { makeLabel } from "./layers.js?v=15";
-import { WET, BIRD, FISHR, BASE } from "./palette.js?v=15";
+import { toScene } from "./terrain.js?v=16";
+import { makeLabel } from "./layers.js?v=16";
+import { WET, BIRD, FISHR, BASE } from "./palette.js?v=16";
 
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const T = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1;

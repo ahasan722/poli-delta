@@ -77,3 +77,10 @@ export const SELECT = BASE.ink;
 
 export const hex = s => parseInt(s.slice(1), 16);
 export const rgb01 = s => { const n = hex(s); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+
+// v16: rivers by the system they reach the sea through (Okabe-Ito blue, vermillion and bluish green; Paul Tol purple),
+// the countries a river crosses (Bangladesh in its flag's green, the others in warm tones that step away from it),
+// and the city corporations (Okabe-Ito orange with a dark edge, to stand off the grey relief)
+export const RSYS = { Brahmaputra: "#0072B2", Ganges: "#D55E00", Meghna: "#AA4499", coast: "#009E73" };
+export const NATION = { Bangladesh: "#006a4e", India: "#f4a259", China: "#bc4b51", Bhutan: "#e9c46a", Nepal: "#8d99ae", Myanmar: "#8d99ae" };
+export const CITYC = { fill: "#E69F00", edge: "#8a4b00", text: "#3b2300" };

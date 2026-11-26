@@ -624,3 +624,26 @@ body.in-section .key{display:flex}
 .ftabs{overflow-x:auto;scrollbar-width:none}.ftabs::-webkit-scrollbar{display:none}.ftabs button{flex:none}
 #focus table.acc th{text-align:left;font-weight:500;color:var(--dim);font-size:11.5px;padding:4px 6px 4px 0;border-bottom:1px solid var(--line)}
 #focus table.acc td{white-space:nowrap}#focus table.acc td:first-child{white-space:normal}
+
+/* v16: source to sea, city corporations, and charts that draw themselves in */
+.chips .chip i.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+.legend.nat{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 6px;font-size:12.5px;color:var(--text)}
+.legend.nat span{display:inline-flex;align-items:center;gap:6px}
+.legend.nat i{width:14px;height:10px;border-radius:2px}
+.rcard{border-left:3px solid var(--c,#111827);padding:2px 0 2px 12px;margin:12px 0 4px;animation:rise .35s ease both}
+.rcard .rc-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rcard .rc-h b{font-family:var(--serif,"Newsreader",serif);font-size:22px;font-weight:500;color:var(--ink)}
+.rcard .rc-h span{font-size:13px;color:var(--dim)}
+.rcard p{margin:4px 0 8px;font-size:14px}
+.rcard .stats3 b{font-size:17px}
+.csegs{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--text)}
+.cseg{display:inline-flex;align-items:center;gap:5px}.cseg i{width:10px;height:10px;border-radius:2px}.cseg b{font-family:var(--mono);font-weight:500}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes wipe{from{clip-path:inset(-10% 100% -10% -10%)}to{clip-path:inset(-10% -10% -10% -10%)}}
+@media (prefers-reduced-motion:no-preference){
+  .sec .fig>svg,#focus .fig>svg,#storyText .fig>svg{animation:wipe .9s cubic-bezier(.3,.7,.2,1) backwards}
+  #chSource>svg,#chCities>svg,#chPopNat>svg,#chCal>svg,#chRainYear>svg{animation:none}
+}
+.citybars{display:block;max-width:330px;margin:6px 0 4px}
+@media (prefers-reduced-motion:no-preference){.citybars .cb{transform-box:fill-box;transform-origin:50% 100%;animation:growY .6s cubic-bezier(.3,.7,.2,1) both}}
+@keyframes growY{from{transform:scaleY(0)}to{transform:none}}

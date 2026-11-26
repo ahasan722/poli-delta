@@ -132,3 +132,9 @@ Annotated list of the 25 most useful documents found (Oct 2026). Grade: A = peer
 - Grall et al. 2018 and Krien et al. 2019 on HAL (Anubis bot block).
 - Syvitski et al. 2009 Nature Geoscience (WHOI mirror robots-blocked).
 - PSMSL station trend pages not fetched directly; Bangladesh gauge trends come from a CUJBS paper with typographic errors and no stated periods (weak).
+
+## v16: source to sea, city corporations
+
+- Rivers traced source to sea: HydroRIVERS v1.0, Asia (Lehner & Grill 2013), https://www.hydrosheds.org/products/hydrorivers . Method in `pipeline/make_source.py`. Lengths are along the traced path; flows are the dataset's modelled long-term means (1971 to 2000). Share of water from beyond the border: mean flow of the reaches that cross into Bangladesh from India or Myanmar (last crossing on each path) over the mean flow at the mouths.
+- Countries along each river: Natural Earth 1:50m admin 0, with Bangladesh taken from the district map.
+- City corporations, 1991 to 2022, within 2022 limits: BBS censuses as tabulated by citypopulation.de, one page per corporation (for example https://www.citypopulation.de/en/bangladesh/admin/dhaka/2625__dhaka_north ). Counts as enumerated. The 2022 figures agree with the BBS urban totals quoted elsewhere (Dhaka North 5,990,723 + Dhaka South 4,305,063 = 10,295,786).

@@ -5,9 +5,9 @@
 //   railways: the classic map railway, a dark band with white dashes inside, and trains (light blocks) running along it;
 //   bridges: a thick ink span with a slow glow.
 import * as THREE from "three";
-import { toScene } from "./terrain.js?v=15";
-import { makeLabel } from "./layers.js?v=15";
-import { ROAD, RAIL, BASE } from "./palette.js?v=15";
+import { toScene } from "./terrain.js?v=16";
+import { makeLabel } from "./layers.js?v=16";
+import { ROAD, RAIL, BASE } from "./palette.js?v=16";
 
 const kmh = (m, exag) => Math.max(m, 0) * 0.001 * exag;
 const VS = `

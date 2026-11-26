@@ -1,10 +1,10 @@
-// people.js  --  v15: population 1971-2050, health care within reach, and where 2050 presses hardest.
+// people.js  --  v15, v16 (fill under the district line): population 1971-2050, health care within reach, and where 2050 presses hardest.
 // The map side: health facilities as points that keep their size on screen (complexes, district hospitals, tertiary
 // hospitals with a slow pulse). The panel side: the national line with its projection band, the model scores,
 // the catchments of the tertiary hospitals, and the burden list.
 import * as THREE from "three";
-import { toScene } from "./terrain.js?v=15";
-import { BASE, CARE, POPC, ACC, BURD } from "./palette.js?v=15";
+import { toScene } from "./terrain.js?v=16";
+import { BASE, CARE, POPC, ACC, BURD } from "./palette.js?v=16";
 const fmt = d3.format(","), f1 = d3.format(".1f");
 const T = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1;
 export const M = v => v >= 1e6 ? f1(v / 1e6) + " M" : fmt(Math.round(v / 1000)) + "k";
@@ -107,6 +107,8 @@ export function drawDistrictPop(el, P, name) {
   [1991, 2022, 2050].forEach(v => s.append("text").attr("x", x(v)).attr("y", h - 6).attr("text-anchor", "middle").attr("font-size", 11.5).attr("font-family", "IBM Plex Mono").attr("fill", BASE.dim).text(v));
   const pts = ys.map((yy, i) => [yy, D.pop[i]]);
   const ln = (a, c) => { const p = s.append("path").attr("d", d3.line().x(d => x(d[0])).y(d => y(d[1]))(a)).attr("fill", "none").attr("stroke", c).attr("stroke-width", 2.2); if (T()) { const L = p.node().getTotalLength(); p.attr("stroke-dasharray", `${L} ${L}`).attr("stroke-dashoffset", L).transition().duration(900).attr("stroke-dashoffset", 0); } };
+  const fill = (a, c, o) => { const f = s.append("path").attr("d", d3.area().x(d => x(d[0])).y0(y(0)).y1(d => y(d[1]))(a)).attr("fill", c).attr("opacity", 0); f.transition().delay(500 * T()).duration(600 * T()).attr("opacity", o); };
+  fill(pts.filter(p => p[0] <= 2022), BASE.ink, 0.07); fill(pts.filter(p => p[0] >= 2022), CARE.proj, 0.16);
   ln(pts.filter(p => p[0] <= 2022), BASE.ink); ln(pts.filter(p => p[0] >= 2022), CARE.proj);
   [1991, 2001, 2011, 2022].forEach((yy, i) => s.append("circle").attr("cx", x(yy)).attr("cy", y(D.census[i])).attr("r", 3.4).attr("fill", "#fff").attr("stroke", BASE.ink).attr("stroke-width", 1.6).append("title").text(`Census ${yy}: ${fmt(D.census[i])} (adjusted)`));
 }

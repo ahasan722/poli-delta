@@ -9,7 +9,7 @@
 <meta property="og:description" content="Ten districts carry 45% of the people living under 5 metres, all on the cyclone coast.">
 <meta property="og:image" content="notes/cover.jpg">
 <meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="css/poli.css?v=15">
+<link rel="stylesheet" href="css/poli.css?v=16">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
@@ -19,7 +19,7 @@
   <a class="brand" href="#" id="brand" aria-label="Poli, back to the first step"><span class="mark" aria-hidden="true">পলি</span><span class="title">Poli<small>Where should Bangladesh defend first?</small></span></a>
   <nav class="tabs" role="tablist" aria-label="Sections"><i class="ink" id="tabInk" aria-hidden="true"></i>
     <button type="button" id="modeStory" role="tab" aria-selected="true" class="on"><span data-icon="book"></span><span>Story</span></button>
-    <button type="button" id="modeRivers" data-sec="rivers" data-group="rivers" role="tab" aria-selected="false"><span data-icon="river"></span><span>Rivers</span></button>
+    <button type="button" id="modeRivers" data-sec="source" data-group="rivers" role="tab" aria-selected="false"><span data-icon="river"></span><span>Rivers</span></button>
     <button type="button" id="modeWet" data-sec="haors" data-group="wetlands" role="tab" aria-selected="false"><span data-icon="droplet"></span><span>Wetlands</span></button>
     <button type="button" id="modeSund" data-sec="sundarbans" data-group="sundarbans" role="tab" aria-selected="false"><span data-icon="tree"></span><span>Sundarbans</span></button>
     <button type="button" id="modeFish" data-sec="fish" data-group="fish" role="tab" aria-selected="false"><span data-icon="fish"></span><span>Fish</span></button>
@@ -166,8 +166,19 @@
 
   <!-- the atlas sections ======================================================================= -->
   <div class="sec" data-sec="rivers" hidden>
-    <div class="seg seg2" id="rivSeg" role="tablist"><button type="button" data-r="rivers" class="on"><span data-icon="river" data-size="16"></span>Rivers</button><button type="button" data-r="transport"><span data-icon="road" data-size="16"></span>Roads, rail, bridges</button></div>
-    <div class="rpane" data-r="rivers">
+    <div class="seg seg3" id="rivSeg" role="tablist"><button type="button" data-r="source" class="on"><span data-icon="river" data-size="16"></span>Source to sea</button><button type="button" data-r="rivers"><span data-icon="pin" data-size="16"></span>Junctions</button><button type="button" data-r="transport"><span data-icon="road" data-size="16"></span>Roads, rail</button></div>
+    <div class="rpane" data-r="source">
+      <h2><b id="srcN">22</b> rivers, from source to sea</h2>
+      <p id="srcLede"></p>
+      <div class="chips" id="srcGrp"></div>
+      <div id="srcCard" aria-live="polite"></div>
+      <div class="tsec">Length by country, source to sea <small>click a river to follow it</small></div>
+      <div class="legend nat" id="lgNation"></div>
+      <div class="fig" id="chSource"></div>
+      <p class="note">Lengths follow the traced path, so rivers that join share their lower course. The source is the farthest point upstream in the river network, not always the one named in atlases. Rivers that leave a bigger river, such as the Gorai or the Old Brahmaputra, are not traced: the network follows one channel downstream.</p>
+      <p class="src" id="srcSource"></p>
+    </div>
+    <div class="rpane" data-r="rivers" hidden>
       <h2>Where the big rivers meet</h2>
       <p>Three rivers carry almost all of the delta's water. They meet twice before the sea.</p>
       <div class="fig" id="chMerge"></div>
@@ -323,7 +334,7 @@
     </div>
   </div>
   <div class="sec" data-sec="people" hidden>
-    <div class="seg seg3" id="popSeg" role="tablist"><button type="button" data-p="people" class="on"><span data-icon="people" data-size="16"></span>Population</button><button type="button" data-p="health"><span data-icon="pin" data-size="16"></span>Health care</button><button type="button" data-p="burden"><span data-icon="columns" data-size="16"></span>Burden</button></div>
+    <div class="seg seg4" id="popSeg" role="tablist"><button type="button" data-p="people" class="on"><span data-icon="people" data-size="16"></span>Population</button><button type="button" data-p="cities"><span data-icon="compass" data-size="16"></span>Cities</button><button type="button" data-p="health"><span data-icon="pin" data-size="16"></span>Health care</button><button type="button" data-p="burden"><span data-icon="columns" data-size="16"></span>Burden</button></div>
     <div class="ppane" data-p="people">
       <div class="bignum"><span id="popYear">2022</span><b id="popN">169.4 million</b><small id="popWhat">World Bank estimate</small></div>
       <p>Bangladesh had 70 million people at independence. Press play: the columns are the 64 districts, counted at four censuses from 1991 and projected to 2050. Click the chart to jump to a year.</p>
@@ -347,6 +358,15 @@
       <div class="tsec">People each tertiary hospital is nearest to <small>2022 and 2050; click to fly there</small></div><div class="fig" id="chCatch"></div>
       <p class="note">Distances are straight lines from each square kilometre of people to the nearest facility, so roads and rivers make real trips longer. People per square kilometre come from GPW 2015, rescaled to each district's 2022 census count.</p>
       <p class="src" id="srcHealth"></p>
+    </div>
+    <div class="ppane" data-p="cities" hidden>
+      <div class="bignum"><span id="cityYear">2022</span><b id="cityN">21.1 million</b><small id="cityWhat"></small></div>
+      <p>Twelve cities are run by a city corporation. Press play: each disc and bar grows through the four censuses since 1991. The dark ring and the dark tick are where each city stood in 1991.</p>
+      <div class="tsec">People in each city corporation <small>click to fly there</small></div>
+      <div class="fig" id="chCities"></div>
+      <div id="cityCard" aria-live="polite"></div>
+      <p class="note">Every year is counted inside the city's 2022 limits, so growth is not a change of boundary. Between censuses the bars move in a straight line. Several became city corporations later than 1991; hover a row for the year.</p>
+      <p class="src" id="srcCities"></p>
     </div>
     <div class="ppane" data-p="burden" hidden>
       <h2>Where 2050 will press hardest</h2>
@@ -466,11 +486,12 @@
     <p>A district joins the list when a cyclone of hurricane force, 64 knots or more, has passed within 50 km of it at least three times since 1960. The districts that qualify are ranked by how many people live on land under 5 metres. That is deliberately simple. It is a screen, not a cost-benefit study, and the Explore tab is there so that anyone who weighs things differently can try their own.</p>
     <h2>Reading the map</h2>
     <p>Step through with the arrows at the foot of the story panel, or with the keyboard. The 2D and 3D buttons show the same ground flat or tilted; in 3D the districts rise as columns. Steps that change over time have a small player at the bottom of the map. Click any district for its sheet: cyclone history, rivers, farming zones and the main crops, each ranked against the other 63. The cyclone button plays any of the fourteen named storms since 1970.</p>
-    <p>The tabs beside Story are an atlas. Rivers shows where the big rivers meet and how much each brings, and the highways, railways and bridges that cross them. Click any district on any map for its sheet, or a cyclone track to play it. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Rain and floods plays the year of rain month by month, then the flood record and river erosion. People plays the population of the 64 districts from the 1991 census to a projection for 2050, maps how far people live from health care, and scores where 2050 will press hardest. Click anything in a list and the map flies there.</p>
+    <p>The tabs beside Story are an atlas. Rivers follows the main rivers from their sources to the sea, shows where the big ones meet and how much each brings, and the highways, railways and bridges that cross them. Click any district on any map for its sheet, or a cyclone track to play it. Wetlands maps all 373 haors, the big beels and the winter waterbirds. Sundarbans shows the mangrove forest, its tigers, its fish and the cyclones that crossed it. Fish follows the hilsa, the Halda and the grounds in the Bay, and colours the districts by fish farmed, fish caught and shrimp. Crops colours the districts by landscape or by crop (jute too), plays the farming year month by month, and maps the tea gardens. Cyclones is a tracker for every storm since 1960. Rain and floods plays the year of rain month by month, then the flood record and river erosion. People plays the population of the 64 districts from the 1991 census to a projection for 2050, maps how far people live from health care, and scores where 2050 will press hardest. Click anything in a list and the map flies there.</p>
     <h2>Where the numbers come from</h2>
     <dl class="sources">
       <dt>Ground height</dt><dd>SRTM 90 m (CGIAR-CSI). ETOPO5 for the Bay and the land beyond the border.</dd>
-      <dt>Rivers</dt><dd>HydroRIVERS v1.0, with long-term mean discharge; WDBII outside Bangladesh.</dd>
+      <dt>Rivers</dt><dd>HydroRIVERS v1.0, with long-term mean discharge; WDBII outside Bangladesh. Source to sea: each river traced through HydroRIVERS from the farthest point upstream; countries from Natural Earth.</dd>
+      <dt>City corporations</dt><dd>BBS censuses 1991 to 2022, each city within its 2022 limits, as tabulated by citypopulation.de; counts as enumerated.</dd>
       <dt>People</dt><dd>GPW v4, 2015. Districts and census counts: BBS, Population and Housing Census 2022.</dd>
       <dt>Cyclones</dt><dd>IBTrACS v04r01 (NOAA). Deaths and damage: EM-DAT (CRED, UCLouvain).</dd>
       <dt>Farming zones</dt><dd>BARC, Fertilizer Recommendation Guide 2018: the 30 agro-ecological zones and their main districts.</dd>
@@ -503,6 +524,6 @@
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script src="lib/d3.min.js"></script>
-<script type="module" src="js/main.js?v=15"></script>
+<script type="module" src="js/main.js?v=16"></script>
 </body>
 </html>
